@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Time Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card register-card">
+            <div class="auth-header">
+                <h1>Create Account</h1>
+                <p>Choose your account type</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="account-type-selector">
+                <button type="button" class="type-btn active" data-type="individual">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>
+                    </svg>
+                    Individual
+                </button>
+                <button type="button" class="type-btn" data-type="company">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="7" width="20" height="14" rx="2"/>
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                    </svg>
+                    Company
+                </button>
+            </div>
+
+            <form method="POST" action="{{ url_for('register') }}" class="auth-form" enctype="multipart/form-data" id="registerForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="user_type" id="user_type" value="individual">
+                
+                <div class="form-group">
+                    <label for="email">Email Address *</label>
+                    <input type="email" id="email" name="email" required autocomplete="email">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password *</label>
+                    <input type="password" id="password" name="password" required minlength="6" autocomplete="new-password">
+                    <small>Minimum 6 characters</small>
+                </div>
+
+                <!-- Individual Fields -->
+                <div id="individualFields" class="type-fields">
+                    <div class="form-group">
+                        <label for="full_name">Full Name *</label>
+                        <input type="text" id="full_name" name="full_name" autocomplete="name">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone_ind">Phone</label>
+                        <input type="tel" id="phone_ind" name="phone" autocomplete="tel">
+                    </div>
+                </div>
+
+                <!-- Company Fields -->
+                <div id="companyFields" class="type-fields" style="display: none;">
+                    <div class="form-group">
+                        <label for="company_name">Company Name *</label>
+                        <input type="text" id="company_name" name="company_name" autocomplete="organization">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="contact_person">Contact Person</label>
+                        <input type="text" id="contact_person" name="contact_person" autocomplete="name">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone_comp">Phone</label>
+                        <input type="tel" id="phone_comp" name="phone" autocomplete="tel">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="address">Address</label>
+                        <textarea id="address" name="address" rows="3" autocomplete="street-address"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="logo">Company Logo</label>
+                        <div class="file-upload-wrapper">
+                            <input type="file" id="logo" name="logo" accept="image/*">
+                            <div class="file-upload-info">
+                                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                                    <path d="M21 15l-5-5L5 21"/>
+                                </svg>
+                                <span id="logoFileName">Choose a file or drag it here</span>
+                            </div>
+                        </div>
+                        <small>PNG, JPG or GIF (max 2MB)</small>
+                        <div id="logoPreview" class="logo-preview" style="display: none;">
+                            <img id="logoPreviewImg" src="" alt="Logo Preview">
+                            <button type="button" class="remove-logo" id="removeLogo">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary">Create Account</button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const typeButtons = document.querySelectorAll('.type-btn');
+        const userTypeInput = document.getElementById('user_type');
+        const individualFields = document.getElementById('individualFields');
+        const companyFields = document.getElementById('companyFields');
+        const logoInput = document.getElementById('logo');
+        const logoFileName = document.getElementById('logoFileName');
+        const logoPreview = document.getElementById('logoPreview');
+        const logoPreviewImg = document.getElementById('logoPreviewImg');
+        const removeLogo = document.getElementById('removeLogo');
+
+        // Account type switching
+        typeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                typeButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                const type = btn.dataset.type;
+                userTypeInput.value = type;
+
+                if (type === 'individual') {
+                    individualFields.style.display = 'block';
+                    companyFields.style.display = 'none';
+                    document.getElementById('full_name').required = true;
+                    document.getElementById('company_name').required = false;
+                } else {
+                    individualFields.style.display = 'none';
+                    companyFields.style.display = 'block';
+                    document.getElementById('full_name').required = false;
+                    document.getElementById('company_name').required = true;
+                }
+            });
+        });
+
+        // Logo file handling
+        if (logoInput) {
+            logoInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    // Validate size
+                    if (file.size > 2 * 1024 * 1024) {
+                        alert('File size must be less than 2MB');
+                        this.value = '';
+                        logoFileName.textContent = 'Choose a file or drag it here';
+                        logoPreview.style.display = 'none';
+                        return;
+                    }
+                    
+                    // Validate type
+                    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
+                    if (!allowedTypes.includes(file.type)) {
+                        alert('Only PNG, JPG, and GIF files are allowed');
+                        this.value = '';
+                        logoFileName.textContent = 'Choose a file or drag it here';
+                        logoPreview.style.display = 'none';
+                        return;
+                    }
+                    
+                    // Update file name
+                    logoFileName.textContent = file.name;
+                    
+                    // Show preview
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        logoPreviewImg.src = e.target.result;
+                        logoPreview.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    logoFileName.textContent = 'Choose a file or drag it here';
+                    logoPreview.style.display = 'none';
+                }
+            });
+
+            // Remove logo
+            removeLogo.addEventListener('click', function() {
+                logoInput.value = '';
+                logoFileName.textContent = 'Choose a file or drag it here';
+                logoPreview.style.display = 'none';
+            });
+
+            // Drag and drop
+            const fileUploadWrapper = document.querySelector('.file-upload-wrapper');
+            
+            fileUploadWrapper.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                fileUploadWrapper.classList.add('dragover');
+            });
+
+            fileUploadWrapper.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                fileUploadWrapper.classList.remove('dragover');
+            });
+
+            fileUploadWrapper.addEventListener('drop', (e) => {
+                e.preventDefault();
+                fileUploadWrapper.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    logoInput.files = files;
+                    logoInput.dispatchEvent(new Event('change'));
+                }
+            });
+        }
+    </script>
+</body>
+</html>
