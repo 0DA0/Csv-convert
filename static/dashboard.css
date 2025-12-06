@@ -1,0 +1,301 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Genel Sayfa Stilleri */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f4f6f8;
+  margin: 0;
+  padding: 0;
+  color: #333;
+  margin-top: 65px; /* Header yÃ¼ksekliÄŸi */
+}
+
+/* Ana Ä°Ã§erik */
+main {
+  width: 85vw;
+  min-width: 0;
+  margin: 3rem auto;
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* BaÅŸlÄ±k */
+h1 {
+  text-align: center;
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Form */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.input-group {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem; /* Daha sÄ±kÄ± hizalama iÃ§in gap */
+  align-items: center; /* Dikey hizalamayÄ± gÃ¼Ã§lendir */
+  width: 100%;
+}
+
+/* Etiketler */
+label {
+  font-weight: bold;
+  flex: 0 1 auto;
+}
+
+/* Dosya YÃ¼kleme */
+input[type="file"] {
+  padding: 0.5rem;
+  background-color: #f1f1f1;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  flex: 1 1 auto; /* Esnek, boÅŸluÄŸu doldurur */
+  width: 100%;
+}
+
+/* Butonlar */
+button,
+#openModalBtn,
+form button[type="submit"] {
+  padding: 0.75rem;
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  flex: 0 0 auto; /* Buton boyutunu sabitle */
+  white-space: nowrap;
+  margin-top: 0 !important; /* Inline margin-top'Ä± geÃ§ersiz kÄ±l */
+  line-height: 1.5; /* Dikey hizalamayÄ± iyileÅŸtir */
+}
+
+button:hover,
+#openModalBtn:hover,
+form button[type="submit"]:hover {
+  background-color: #1d4ed8;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 65px; /* Header yÃ¼ksekliÄŸi kadar ofset */
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  transition: all 0.3s ease-in-out;
+  min-height: calc(100vh - 65px); /* Header yÃ¼ksekliÄŸini Ã§Ä±kar */
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  width: 90%;
+  max-width: 320px; /* Modal boyutu */
+  padding: 1rem; /* Padding */
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem; /* Ä°Ã§ boÅŸluklarÄ± sÄ±kÄ±laÅŸtÄ±r */
+  min-height: calc(100vh - 65px); /* Header yÃ¼ksekliÄŸini Ã§Ä±kar */
+}
+
+/* Modal BaÅŸlÄ±k */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Modal BaÅŸlÄ±k YazÄ±sÄ± */
+.modal-header h2 {
+  font-size: 1rem; /* BaÅŸlÄ±k boyutu */
+  font-weight: 600;
+  color: #333;
+}
+
+/* Modal Kapatma Butonu */
+.modal-header button {
+  background: none;
+  border: none;
+  font-size: 1rem; /* Kapatma butonu */
+  color: #888;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.modal-header button:hover {
+  color: #444;
+}
+
+/* Modal Form */
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem; /* Daha sÄ±kÄ± boÅŸluk */
+}
+
+/* Modal Grup */
+.modal-group {
+  flex: 0 1 auto;
+}
+
+.modal-group label {
+  font-size: 0.75rem; /* Etiket boyutu */
+  color: #666;
+  margin-bottom: 0.25rem;
+}
+
+/* Modal Select */
+.modal-group select {
+  width: 100%;
+  padding: 0.4rem; /* Padding */
+  font-size: 0.75rem; /* YazÄ± tipi */
+  border: 1px solid #ccc;
+  border-radius: 0.5rem;
+  background: #fff;
+  flex: 0 1 auto;
+}
+
+/* Modal Aksiyonlar */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Modal Aksiyon Butonu */
+.modal-actions button {
+  padding: 0.4rem 0.8rem; /* Buton boyutu */
+  font-size: 0.75rem; /* YazÄ± tipi */
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  background-color: #3b82f6;
+  color: #fff;
+  transition: background-color 0.2s;
+}
+
+.modal-actions button:hover {
+  background-color: #2563eb;
+}
+
+/* Gizli SÄ±nÄ±f */
+.hidden {
+  display: none;
+}
+
+/* Flash MesajlarÄ± */
+.flashes {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 1rem;
+  width: 100%;
+}
+
+/* Flash Mesaj Ã–ÄŸeleri */
+.flashes li {
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+
+/* BaÅŸarÄ± MesajÄ± */
+.success {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+/* Hata MesajÄ± */
+.error {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+/* Responsive TasarÄ±m - KÃ¼Ã§Ã¼k Ekranlar iÃ§in Ã–lÃ§eklendirme */
+@media (max-width: 600px) {
+  body {
+    padding-left: 5vw; /* timer.css ile hizalÄ± */
+  }
+
+  main {
+    width: 90vw;
+    padding: 1.5rem;
+    padding-left: 5vw;
+  }
+  
+  .input-group {
+    flex-wrap: wrap;
+    gap: 0.5rem; /* KÃ¼Ã§Ã¼k ekranlarda daha sÄ±kÄ± */
+    align-items: center;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  form {
+    gap: 0.75rem;
+  }
+
+  input[type="file"] {
+    padding: 0.4rem;
+    font-size: 0.875rem;
+  }
+
+  button,
+  #openModalBtn,
+  form button[type="submit"] {
+    padding: 0.6rem;
+    font-size: 0.875rem;
+    margin-top: 0 !important; /* Inline margin-top'Ä± geÃ§ersiz kÄ±l */
+  }
+
+  .modal-content {
+    padding: 0.75rem; /* Daha kÃ¼Ã§Ã¼k padding */
+    width: 95%;
+    max-width: 280px; /* KÃ¼Ã§Ã¼k ekranlar iÃ§in modal boyutu */
+  }
+
+  .modal-header h2 {
+    font-size: 0.875rem;
+  }
+
+  .modal-header button {
+    font-size: 0.875rem;
+  }
+
+  .modal-group label {
+    font-size: 0.675rem;
+  }
+
+  .modal-group select {
+    padding: 0.3rem;
+    font-size: 0.675rem;
+  }
+
+  .modal-actions button {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.675rem;
+  }
+
+  .flashes li {
+    padding: 0.6rem;
+    font-size: 0.875rem;
+  }
+}

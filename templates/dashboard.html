@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CSV to Excel Converter</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='convert.css') }}">
+  <!-- PapaParse kÃ¼tÃ¼phanesini ekliyoruz -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+</head>
+<body>
+  {% include 'theme/header.html' %}
+
+  <!-- Ana Form: Dosya yÃ¼kleme ve filtre seÃ§imi -->
+  <form id="uploadForm" action="{{ url_for('convert') }}" method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <main>
+      <h1>Convert CSV File to Custom Excel Report</h1>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <ul class="flashes">
+            {% for category, message in messages %}
+              <li class="{{ category }}">{{ message }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+
+      <!-- Dosya YÃ¼kleme -->
+      <label for="csv_file">Choose CSV File:</label>
+      <div class="input-group">
+        <input type="file" name="csv_file" id="csv_file" accept=".csv" required>
+        <button type="button" id="openModalBtn" style="margin-top: 15px;">Select Filters</button>
+        <button type="submit" style="margin-top: 15px;">Convert</button>
+      </div>
+    </main>
+
+    <!-- Modal: Filtre SeÃ§im AlanÄ± -->
+    <div id="filterModal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Filters</h2>
+          <button type="button" onclick="closeFilterModal()">âœ•</button>
+        </div>
+        <div class="modal-form">
+          <div class="modal-group">
+            <label for="userSelect">User</label>
+            <select name="userSelect[]" id="userSelect" multiple size="5">
+              <!-- SeÃ§enekler JavaScript tarafÄ±ndan oluÅŸturulacaktÄ±r -->
+            </select>
+          </div>
+          <div class="modal-group">
+            <label for="projectSelect">Project</label>
+            <select name="projectSelect[]" id="projectSelect" multiple size="5">
+              <!-- SeÃ§enekler JavaScript tarafÄ±ndan oluÅŸturulacaktÄ±r -->
+            </select>
+          </div>
+          <div class="modal-group">
+            <label for="clientSelect">Customer</label>
+            <select name="clientSelect[]" id="clientSelect" multiple size="5">
+              <!-- SeÃ§enekler JavaScript tarafÄ±ndan oluÅŸturulacaktÄ±r -->
+            </select>
+          </div>
+          <div class="modal-group">
+            <label for="formatSelect">Format</label>
+            <select name="formatSelect" id="formatSelect">
+              <option value="decimal">Decimal</option>
+              <option value="hours">Hours</option>
+            </select>
+          </div>
+          <div class="modal-actions">
+            <button type="button" onclick="applyFilters()">Apply Filters</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  {% include 'theme/footer.html' %}
+
+  <script>
+    function openFilterModal() {
+      document.getElementById('filterModal').classList.remove('hidden');
+    }
+
+    function closeFilterModal() {
+      document.getElementById('filterModal').classList.add('hidden');
+    }
+
+    function applyFilters() {
+      console.log("Applying filters...");
+      const formatSelect = document.getElementById('formatSelect');
+      console.log("Selected format:", formatSelect.value);
+      closeFilterModal(); // Sadece modalÄ± kapat
+    }
+
+    const csvFileInput = document.getElementById('csv_file');
+    const openModalBtn = document.getElementById('openModalBtn');
+    const filterModal = document.getElementById('filterModal');
+
+    openModalBtn.addEventListener('click', function(){
+      if(csvFileInput.files.length === 0) {
+        alert("Please choose a CSV file first.");
+        return;
+      }
+      Papa.parse(csvFileInput.files[0], {
+        header: true,
+        complete: function(results) {
+          console.log("CSV parsed successfully");
+          const data = results.data;
+          const projects = new Set();
+          const clients = new Set();
+          const users = new Set();
+
+          data.forEach(function(row) {
+            if(row["Project"]) projects.add(row["Project"].trim());
+            if(row["Client"]) clients.add(row["Client"].trim());
+            if(row["User"]) users.add(row["User"].trim());
+          });
+
+          // SeÃ§im elemanlarÄ±nÄ± tanÄ±mla
+          const projectSelect = document.getElementById('projectSelect');
+          const clientSelect = document.getElementById('clientSelect');
+          const userSelect = document.getElementById('userSelect');
+          const formatSelect = document.getElementById('formatSelect');
+
+          // Zaten seÃ§ili filtreler varsa, deÄŸerlerini alalÄ±m
+          const selectedProjects = Array.from(projectSelect.selectedOptions).map(opt => opt.value);
+          const selectedClients = Array.from(clientSelect.selectedOptions).map(opt => opt.value);
+          const selectedUsers = Array.from(userSelect.selectedOptions).map(opt => opt.value);
+          const selectedFormat = formatSelect.value;
+
+          // Eski seÃ§enekleri temizle
+          projectSelect.innerHTML = "";
+          clientSelect.innerHTML = "";
+          userSelect.innerHTML = "";
+
+          // "All" seÃ§eneklerini ekle
+          const allOptionProject = document.createElement('option');
+          allOptionProject.value = "";
+          allOptionProject.text = "All";
+          projectSelect.appendChild(allOptionProject);
+
+          const allOptionClient = document.createElement('option');
+          allOptionClient.value = "";
+          allOptionClient.text = "All";
+          clientSelect.appendChild(allOptionClient);
+
+          const allOptionUser = document.createElement('option');
+          allOptionUser.value = "";
+          allOptionUser.text = "All";
+          userSelect.appendChild(allOptionUser);
+
+          // Yeni seÃ§enekleri eklerken, Ã¶nceden seÃ§ili olanlarÄ± koru
+          projects.forEach(function(proj) {
+            const option = document.createElement('option');
+            option.value = proj;
+            option.text = proj;
+            if(selectedProjects.includes(proj)) {
+              option.selected = true;
+            }
+            projectSelect.appendChild(option);
+          });
+          clients.forEach(function(cli) {
+            const option = document.createElement('option');
+            option.value = cli;
+            option.text = cli;
+            if(selectedClients.includes(cli)) {
+              option.selected = true;
+            }
+            clientSelect.appendChild(option);
+          });
+          users.forEach(function(u) {
+            const option = document.createElement('option');
+            option.value = u;
+            option.text = u;
+            if(selectedUsers.includes(u)) {
+              option.selected = true;
+            }
+            userSelect.appendChild(option);
+          });
+
+          // Format seÃ§imini koru
+          formatSelect.value = selectedFormat || "decimal";
+          console.log("Format set to:", formatSelect.value);
+
+          openFilterModal();
+        },
+        error: function(err) {
+          console.error("CSV Parse Error:", err);
+          alert("Error parsing CSV file. Please ensure it is valid.");
+        }
+      });
+    });
+
+    window.onclick = function(event) {
+      if(event.target == filterModal) {
+        closeFilterModal();
+      }
+    };
+  </script>
+</body>
+</html>
