@@ -9,13 +9,13 @@ Profesyonel zaman takibi raporları oluşturun. Clockify CSV dosyalarınızı ö
 - **Canlı Önizleme**: Raporu oluşturmadan önce görün
 - **Gelişmiş Filtreleme**: Proje, müşteri, kullanıcı bazlı filtreleme
 - **Dinamik Kolon Seçimi**: İstediğiniz kolonları seçin
-- **Şirket Logosu**: Veritabanında güvenli logo saklama
-- **PostgreSQL Veritabanı**: Güvenli veri saklama
+- **Şirket Logosu**: MongoDB'de güvenli logo saklama
+- **MongoDB Atlas**: Bulut tabanlı NoSQL veritabanı
 
 ## 📋 Gereksinimler
 
 - Python 3.11+
-- PostgreSQL 12+
+- MongoDB Atlas hesabı (ücretsiz)
 - pip (Python paket yöneticisi)
 
 ## 🚀 Kurulum
@@ -42,27 +42,32 @@ venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 ```
 
-### 4. Çevre Değişkenlerini Ayarlayın
+### 4. MongoDB Atlas Kurulumu
+
+1. [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) hesabı oluşturun (ücretsiz)
+2. Cluster oluşturun
+3. Database oluşturun: `Csv`
+4. Collection oluşturun: `users` (otomatik oluşur)
+5. Connection string'i kopyalayın
+
+### 5. Çevre Değişkenlerini Ayarlayın
 
 `.env` dosyasını düzenleyin:
 
 ```env
 SECRET_KEY=your-very-secret-key-here
-DATABASE_URL=postgresql://username:password@localhost:5432/timetracker
+MONGO_URI=mongodb+srv://Admin:O3oTRp9cyo63ZHy3@cluster0.duwvajs.mongodb.net/Csv?retryWrites=true&w=majority
 ```
 
-### 5. Veritabanını Oluşturun
+**MONGO_URI Açıklaması:**
+```
+mongodb+srv://[USERNAME]:[PASSWORD]@[CLUSTER]/[DATABASE]?retryWrites=true&w=majority
 
-```bash
-# PostgreSQL'e bağlanın
-psql -U postgres
-
-# Veritabanını oluşturun
-CREATE DATABASE timetracker;
-\q
-
-# Tabloları oluşturun
-flask init-db
+Username: Admin
+Password: O3oTRp9cyo63ZHy3
+Cluster: cluster0.duwvajs.mongodb.net
+Database: Csv
+Collection: users (otomatik oluşur)
 ```
 
 ### 6. Uygulamayı Çalıştırın
@@ -72,6 +77,22 @@ python app.py
 ```
 
 Tarayıcınızda `http://localhost:5000` adresini açın.
+
+### 7. Veritabanı Test
+
+```bash
+# Tarayıcıda test endpoint'i ziyaret edin
+http://localhost:5000/test-db
+
+# Başarılı yanıt:
+{
+  "status": "success",
+  "message": "MongoDB connected successfully!",
+  "database": "Csv",
+  "collection": "users",
+  "user_count": 0
+}
+```
 
 ## 📦 Render'a Deploy
 
@@ -95,23 +116,56 @@ git push -u origin main
    - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `gunicorn app:app`
 
-### 3. PostgreSQL Veritabanı Ekleyin
-
-1. "New +" → "PostgreSQL" seçin
-2. Database adı: `timetracker-db`
-3. Oluşturulduktan sonra **Internal Database URL**'yi kopyalayın
-
-### 4. Environment Variables Ekleyin
+### 3. Environment Variables Ekleyin
 
 Web Service ayarlarından:
 
-- `DATABASE_URL`: Internal Database URL'nizi yapıştırın
-- `SECRET_KEY`: Güçlü bir random key girin (örn: `python -c "import secrets; print(secrets.token_hex(32))"`)
-- `FLASK_ENV`: `production`
+```
+SECRET_KEY = [güçlü random key]
+MONGO_URI = mongodb+srv://Admin:O3oTRp9cyo63ZHy3@cluster0.duwvajs.mongodb.net/Csv?retryWrites=true&w=majority
+FLASK_ENV = production
+```
 
-### 5. Deploy Edin
+### 4. Deploy Edin
 
 "Manual Deploy" → "Deploy latest commit"
+
+## 🗄️ MongoDB Yapısı
+
+### Database: Csv
+### Collection: users
+
+**User Document Schema:**
+```json
+{
+  "_id": ObjectId("..."),
+  "email": "user@example.com",
+  "password_hash": "hashed_password",
+  "user_type": "individual" | "company",
+  "created_at": ISODate("..."),
+  
+  // Individual Profile
+  "individual_profile": {
+    "full_name": "John Doe",
+    "phone": "+90 555 123 4567"
+  },
+  
+  // Company Profile
+  "company_profile": {
+    "company_name": "Tech Corp",
+    "contact_person": "Jane Doe",
+    "phone": "+90 555 123 4567",
+    "address": "Istanbul, Turkey",
+    "logo_data": Binary("..."),  // Logo binary data
+    "logo_mimetype": "image/png" // MIME type
+  }
+}
+```
+
+### Indexes (Otomatik oluşur)
+```javascript
+db.users.createIndex({ "email": 1 }, { unique: true })
+```
 
 ## 🎨 Rapor Şemaları
 
@@ -131,7 +185,7 @@ Tüm bilgileri içeren kapsamlı rapor.
 
 ```
 timetracker/
-├── app.py                 # Ana uygulama
+├── app.py                 # Ana uygulama (MongoDB entegrasyonlu)
 ├── requirements.txt       # Python bağımlılıkları
 ├── .env                   # Çevre değişkenleri
 ├── render.yaml           # Render yapılandırması
@@ -164,107 +218,149 @@ timetracker/
 
 ## 🖼️ Logo Sistemi
 
-### Veritabanında Logo Saklama
-Logolar artık dosya sistemi yerine PostgreSQL veritabanında binary (LargeBinary) olarak saklanır:
+### MongoDB'de Logo Saklama
+Logolar MongoDB'de binary (Binary) olarak saklanır:
 
 **Avantajlar:**
-- ✅ Deployment sorunları yok (Render ephemeral filesystem)
-- ✅ Yedekleme ve migration kolay
-- ✅ Güvenli ve merkezi saklama
-- ✅ Otomatik encoding/decoding
+- ✅ MongoDB Atlas bulut depolaması
+- ✅ Deployment sorunları yok
+- ✅ Otomatik yedekleme
+- ✅ Güvenli ve ölçeklenebilir
+- ✅ Base64 encoding ile kolay gösterim
 
 **Logo Formatları:**
 - PNG, JPG, JPEG, GIF
 - Maksimum boyut: 2MB
-- Base64 encoding ile HTML'de görüntüleme
-- Excel'de binary olarak ekleme
+- Binary olarak MongoDB'de saklanır
+- Base64 ile HTML'de gösterilir
 
-### Teknik Detaylar
+### MongoDB Document Örneği
 
-```python
-# Logo kaydetme
-profile.set_logo(file)  # Otomatik binary'ye çevirir
-
-# Logo gösterme (HTML)
-profile.get_logo_base64()  # data:image/png;base64,... döner
-
-# Logo kontrolü
-profile.has_logo()  # True/False
+```javascript
+{
+  "company_profile": {
+    "company_name": "Tech Corp",
+    "logo_data": BinData(0, "iVBORw0KGgoAAAANS..."), // Binary data
+    "logo_mimetype": "image/png"
+  }
+}
 ```
 
 ## 🔒 Güvenlik
 
 - CSRF koruması aktif
 - Şifreler hash'lenerek saklanır (werkzeug)
-- SQL injection koruması (SQLAlchemy ORM)
+- MongoDB injection koruması (PyMongo)
 - Dosya yükleme güvenliği (tip ve boyut kontrolü)
 - Session yönetimi (Flask-Login)
-- Logo verileri encrypted storage
+- MongoDB Atlas'ta encrypted storage
 
-## 🛠️ Geliştirme
+## 🛠️ MongoDB İşlemleri
 
-### Yeni Şema Eklemek
-
-`app.py` dosyasındaki `REPORT_SCHEMAS` dict'ine yeni şema ekleyin:
-
+### Kullanıcı Ekleme
 ```python
-REPORT_SCHEMAS['my_schema'] = {
-    'name': 'My Custom Schema',
-    'description': 'Description here',
-    'columns': ['Column1', 'Column2'],
-    'show_details': True
-}
+mongo.db.users.insert_one({
+    'email': 'user@example.com',
+    'password_hash': generate_password_hash('password'),
+    'user_type': 'company',
+    'company_profile': {
+        'company_name': 'Tech Corp',
+        'logo_data': binary_data,
+        'logo_mimetype': 'image/png'
+    }
+})
 ```
 
-### Veritabanı Schema Değişikliği
-
-```bash
-# Değişiklik yaptıktan sonra
-flask init-db  # Sadece ilk kurulumda
-
-# Veya PostgreSQL'de manuel
-psql -U postgres timetracker
-DROP TABLE IF EXISTS company_profiles CASCADE;
-DROP TABLE IF EXISTS individual_profiles CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
-\q
-flask init-db
+### Kullanıcı Bulma
+```python
+user = mongo.db.users.find_one({'email': 'user@example.com'})
 ```
 
-### Logo Test Etme
-
+### Profil Güncelleme
 ```python
-# Python shell'de test
-from app import app, db
-from app import CompanyProfile
+mongo.db.users.update_one(
+    {'_id': ObjectId(user_id)},
+    {'$set': {
+        'company_profile.company_name': 'New Name',
+        'company_profile.logo_data': new_logo_data
+    }}
+)
+```
 
-with app.app_context():
-    profile = CompanyProfile.query.first()
-    if profile and profile.has_logo():
-        print(f"Logo MIME type: {profile.logo_mimetype}")
-        print(f"Logo size: {len(profile.logo_data)} bytes")
-        print(f"Base64 preview: {profile.get_logo_base64()[:100]}...")
+### Logo Silme
+```python
+mongo.db.users.update_one(
+    {'_id': ObjectId(user_id)},
+    {'$unset': {
+        'company_profile.logo_data': '',
+        'company_profile.logo_mimetype': ''
+    }}
+)
 ```
 
 ## 🐛 Sorun Giderme
 
+### MongoDB Bağlantı Hatası
+```bash
+# MONGO_URI formatını kontrol et
+mongodb+srv://USERNAME:PASSWORD@CLUSTER/DATABASE?retryWrites=true&w=majority
+
+# IP whitelist kontrolü (MongoDB Atlas)
+# 0.0.0.0/0 (tüm IP'ler) veya Render IP'si ekle
+```
+
 ### Logo Görünmüyor
 - Dosya boyutu 2MB'dan küçük mü?
 - Dosya formatı PNG/JPG/GIF mi?
-- Veritabanında `logo_data` ve `logo_mimetype` dolu mu?
+- MongoDB'de `logo_data` ve `logo_mimetype` var mı?
 
-### PostgreSQL Bağlantı Hatası
+### Test Endpoint
 ```bash
-# DATABASE_URL formatını kontrol et
-postgresql://username:password@host:port/database
+# MongoDB bağlantısını test et
+curl http://localhost:5000/test-db
 
-# Render'da otomatik sağlanır, sadece kopyala-yapıştır
+# Veya tarayıcıda:
+http://localhost:5000/test-db
 ```
 
-### Excel'de Logo Görünmüyor
-- Logo boyutu çok büyük olabilir
-- `xlsxwriter` versiyonu güncel mi?
-- Log'larda hata var mı kontrol et
+## 📊 MongoDB Atlas Ayarları
+
+### Network Access
+```
+IP Whitelist: 0.0.0.0/0 (tüm IP'ler)
+# veya
+Render IP adresleri ekle
+```
+
+### Database User
+```
+Username: Admin
+Password: O3oTRp9cyo63ZHy3
+Role: readWrite (Csv database)
+```
+
+### Connection String
+```
+mongodb+srv://Admin:O3oTRp9cyo63ZHy3@cluster0.duwvajs.mongodb.net/Csv?retryWrites=true&w=majority
+```
+
+## 🎯 PostgreSQL vs MongoDB
+
+| Özellik | PostgreSQL | MongoDB |
+|---------|------------|---------|
+| Tip | İlişkisel (SQL) | Doküman (NoSQL) |
+| Şema | Sabit | Esnek |
+| Logo Saklama | LargeBinary | Binary |
+| Bulut | Render PostgreSQL | MongoDB Atlas |
+| Ölçeklenebilirlik | İyi | Mükemmel |
+| Kurulum | Kompleks | Basit |
+
+**MongoDB Avantajları:**
+- ✅ Kolay kurulum (Atlas ücretsiz)
+- ✅ Esnek şema (kolay değişiklik)
+- ✅ Bulut desteği mükemmel
+- ✅ JSON benzeri dokümanlar
+- ✅ Horizontal scaling
 
 ## 📞 Destek
 
@@ -278,4 +374,4 @@ MIT License
 
 Made with ❤️ for better time tracking
 
-**Önemli Not:** Logolar artık dosya sisteminde değil, veritabanında saklanır. `static/logos/` klasörüne gerek yok!
+**Önemli Not:** Artık MongoDB kullanıyoruz! PostgreSQL gereksinimleri kaldırıldı.

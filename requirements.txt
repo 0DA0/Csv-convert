@@ -1,8 +1,8 @@
 Flask
-Flask-SQLAlchemy
 Flask-Login
 Flask-WTF
-psycopg2-binary
+Flask-PyMongo
+pymongo
 pandas
 openpyxl
 xlsxwriter
@@ -10,3 +10,4 @@ Werkzeug
 python-dotenv
 gunicorn
 Pillow
+dnspython

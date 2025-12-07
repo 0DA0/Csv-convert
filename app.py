@@ -1,9 +1,10 @@
 from flask import Flask, render_template, request, flash, redirect, url_for, send_file, abort, session, jsonify, Response
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_wtf import CSRFProtect
+from flask_pymongo import PyMongo
+from bson.objectid import ObjectId
 import pandas as pd
 from io import BytesIO
 import os
@@ -18,15 +19,12 @@ import base64
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://localhost/timetracker')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# PostgreSQL URL düzeltmesi (Render için)
-if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
-    app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgres://', 'postgresql://', 1)
+# MongoDB Configuration
+app.config['MONGO_URI'] = os.environ.get('MONGO_URI', 'mongodb+srv://Admin:O3oTRp9cyo63ZHy3@cluster0.duwvajs.mongodb.net/Csv?retryWrites=true&w=majority')
 
 # ============== Eklentiler ==============
-db = SQLAlchemy(app)
+mongo = PyMongo(app)
 csrf = CSRFProtect(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -37,69 +35,62 @@ ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# ============== Veritabanı Modelleri ==============
+# ============== User Class for Flask-Login ==============
 
-class User(UserMixin, db.Model):
-    __tablename__ = 'users'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(255), nullable=False)
-    user_type = db.Column(db.String(20), nullable=False)  # 'individual' or 'company'
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    # İlişkiler
-    individual_profile = db.relationship('IndividualProfile', backref='user', uselist=False, cascade='all, delete-orphan')
-    company_profile = db.relationship('CompanyProfile', backref='user', uselist=False, cascade='all, delete-orphan')
-    
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+class User(UserMixin):
+    def __init__(self, user_data):
+        self.id = str(user_data['_id'])
+        self.email = user_data['email']
+        self.password_hash = user_data['password_hash']
+        self.user_type = user_data['user_type']
+        self.created_at = user_data.get('created_at', datetime.utcnow())
+        
+        # Profile data
+        if self.user_type == 'individual':
+            self.individual_profile = user_data.get('individual_profile', {})
+        else:
+            self.company_profile = user_data.get('company_profile', {})
     
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
-
-class IndividualProfile(db.Model):
-    __tablename__ = 'individual_profiles'
     
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    full_name = db.Column(db.String(100), nullable=False)
-    phone = db.Column(db.String(20))
-
-class CompanyProfile(db.Model):
-    __tablename__ = 'company_profiles'
+    @staticmethod
+    def get_by_id(user_id):
+        try:
+            user_data = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+            if user_data:
+                return User(user_data)
+        except:
+            pass
+        return None
     
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    company_name = db.Column(db.String(200), nullable=False)
-    contact_person = db.Column(db.String(100))
-    phone = db.Column(db.String(20))
-    address = db.Column(db.Text)
-    logo_data = db.Column(db.LargeBinary)  # Logo verisini binary olarak sakla
-    logo_mimetype = db.Column(db.String(50))  # MIME type (image/png, image/jpeg, vb.)
-    
-    def set_logo(self, file):
-        """Logo dosyasını veritabanına kaydet"""
-        if file and file.filename:
-            self.logo_data = file.read()
-            self.logo_mimetype = file.content_type
-    
-    def get_logo_base64(self):
-        """Logo'yu base64 string olarak döndür (HTML img src için)"""
-        if self.logo_data:
-            encoded = base64.b64encode(self.logo_data).decode('utf-8')
-            return f"data:{self.logo_mimetype};base64,{encoded}"
+    @staticmethod
+    def get_by_email(email):
+        user_data = mongo.db.users.find_one({'email': email})
+        if user_data:
+            return User(user_data)
         return None
     
     def has_logo(self):
-        """Logo var mı kontrol et"""
-        return self.logo_data is not None
+        """Check if company has logo"""
+        if self.user_type == 'company':
+            return self.company_profile.get('logo_data') is not None
+        return False
+    
+    def get_logo_base64(self):
+        """Get logo as base64 string for HTML display"""
+        if self.user_type == 'company' and self.has_logo():
+            logo_data = self.company_profile.get('logo_data')
+            logo_mimetype = self.company_profile.get('logo_mimetype', 'image/png')
+            encoded = base64.b64encode(logo_data).decode('utf-8')
+            return f"data:{logo_mimetype};base64,{encoded}"
+        return None
 
 # ============== Login Manager ==============
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return User.get_by_id(user_id)
 
 # ============== Yardımcı Fonksiyonlar ==============
 
@@ -178,22 +169,6 @@ def index():
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
 
-# ============== Logo Servis Route ==============
-
-@app.route('/logo/<int:user_id>')
-@login_required
-def serve_logo(user_id):
-    """Veritabanından logo'yu servis et"""
-    if current_user.id != user_id:
-        abort(403)
-    
-    if current_user.user_type == 'company' and current_user.company_profile:
-        profile = current_user.company_profile
-        if profile.logo_data:
-            return Response(profile.logo_data, mimetype=profile.logo_mimetype)
-    
-    abort(404)
-
 # ============== Kimlik Doğrulama Routes ==============
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -206,30 +181,31 @@ def register():
         password = request.form.get('password')
         user_type = request.form.get('user_type')
         
-        if User.query.filter_by(email=email).first():
+        # Check if user exists
+        if mongo.db.users.find_one({'email': email}):
             flash('Email already registered.', 'error')
             return redirect(url_for('register'))
         
-        user = User(email=email, user_type=user_type)
-        user.set_password(password)
-        db.session.add(user)
-        db.session.flush()
+        # Create user document
+        user_doc = {
+            'email': email,
+            'password_hash': generate_password_hash(password),
+            'user_type': user_type,
+            'created_at': datetime.utcnow()
+        }
         
         if user_type == 'individual':
-            profile = IndividualProfile(
-                user_id=user.id,
-                full_name=request.form.get('full_name'),
-                phone=request.form.get('phone')
-            )
-            db.session.add(profile)
+            user_doc['individual_profile'] = {
+                'full_name': request.form.get('full_name'),
+                'phone': request.form.get('phone', '')
+            }
         else:
-            profile = CompanyProfile(
-                user_id=user.id,
-                company_name=request.form.get('company_name'),
-                contact_person=request.form.get('contact_person'),
-                phone=request.form.get('phone'),
-                address=request.form.get('address')
-            )
+            company_profile = {
+                'company_name': request.form.get('company_name'),
+                'contact_person': request.form.get('contact_person', ''),
+                'phone': request.form.get('phone', ''),
+                'address': request.form.get('address', '')
+            }
             
             # Logo yükleme
             logo_file = request.files.get('logo')
@@ -240,13 +216,16 @@ def register():
                 logo_file.seek(0)
                 
                 if file_size <= 2 * 1024 * 1024:  # 2MB
-                    profile.set_logo(logo_file)
+                    company_profile['logo_data'] = logo_file.read()
+                    company_profile['logo_mimetype'] = logo_file.content_type
                 else:
                     flash('Logo file size must be less than 2MB.', 'error')
             
-            db.session.add(profile)
+            user_doc['company_profile'] = company_profile
         
-        db.session.commit()
+        # Insert user
+        mongo.db.users.insert_one(user_doc)
+        
         flash('Registration successful! Please log in.', 'success')
         return redirect(url_for('login'))
     
@@ -260,7 +239,7 @@ def login():
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
-        user = User.query.filter_by(email=email).first()
+        user = User.get_by_email(email)
         
         if user and user.check_password(password):
             login_user(user)
@@ -291,16 +270,20 @@ def dashboard():
 @login_required
 def profile():
     if request.method == 'POST':
+        user_id = ObjectId(current_user.id)
+        
         if current_user.user_type == 'individual':
-            profile = current_user.individual_profile
-            profile.full_name = request.form.get('full_name')
-            profile.phone = request.form.get('phone')
+            update_data = {
+                'individual_profile.full_name': request.form.get('full_name'),
+                'individual_profile.phone': request.form.get('phone', '')
+            }
         else:
-            profile = current_user.company_profile
-            profile.company_name = request.form.get('company_name')
-            profile.contact_person = request.form.get('contact_person')
-            profile.phone = request.form.get('phone')
-            profile.address = request.form.get('address')
+            update_data = {
+                'company_profile.company_name': request.form.get('company_name'),
+                'company_profile.contact_person': request.form.get('contact_person', ''),
+                'company_profile.phone': request.form.get('phone', ''),
+                'company_profile.address': request.form.get('address', '')
+            }
             
             # Logo güncelleme
             logo_file = request.files.get('logo')
@@ -311,12 +294,18 @@ def profile():
                 logo_file.seek(0)
                 
                 if file_size <= 2 * 1024 * 1024:  # 2MB
-                    profile.set_logo(logo_file)
+                    update_data['company_profile.logo_data'] = logo_file.read()
+                    update_data['company_profile.logo_mimetype'] = logo_file.content_type
                 else:
                     flash('Logo file size must be less than 2MB.', 'error')
                     return redirect(url_for('profile'))
         
-        db.session.commit()
+        # Update user
+        mongo.db.users.update_one(
+            {'_id': user_id},
+            {'$set': update_data}
+        )
+        
         flash('Profile updated successfully!', 'success')
         return redirect(url_for('profile'))
     
@@ -472,14 +461,14 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         # Kullanıcı/Şirket bilgisi
         row = 0
         if current_user.user_type == 'company':
-            profile = current_user.company_profile
-            report_sheet.write(row, 0, sanitize_excel_cell(f"Company: {profile.company_name}"), header_format)
+            company_name = current_user.company_profile.get('company_name', 'N/A')
+            report_sheet.write(row, 0, sanitize_excel_cell(f"Company: {company_name}"), header_format)
             
             # Logo ekleme - veritabanından
-            if profile.has_logo():
+            if current_user.has_logo():
                 try:
-                    # Logo verisini geçici dosyaya yaz
-                    temp_logo = BytesIO(profile.logo_data)
+                    logo_data = current_user.company_profile.get('logo_data')
+                    temp_logo = BytesIO(logo_data)
                     report_sheet.insert_image(row, 7, "logo", {
                         'image_data': temp_logo,
                         'x_scale': 0.5,
@@ -488,8 +477,8 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
                 except Exception as e:
                     app.logger.error(f"Error inserting logo: {str(e)}")
         else:
-            profile = current_user.individual_profile
-            report_sheet.write(row, 0, sanitize_excel_cell(f"Name: {profile.full_name}"), header_format)
+            full_name = current_user.individual_profile.get('full_name', 'N/A')
+            report_sheet.write(row, 0, sanitize_excel_cell(f"Name: {full_name}"), header_format)
         
         row += 1
         report_sheet.write(row, 0, sanitize_excel_cell(f"Projects: {projects}"), cell_format)
@@ -543,15 +532,27 @@ def not_found(e):
 def server_error(e):
     return render_template('500.html'), 500
 
-# ============== Veritabanı Oluşturma ==============
+# ============== Test Route ==============
 
-@app.cli.command()
-def init_db():
-    """Veritabanını oluşturur"""
-    db.create_all()
-    print("Database initialized!")
+@app.route('/test-db')
+def test_db():
+    """Test MongoDB connection"""
+    try:
+        # Test connection
+        mongo.db.command('ping')
+        user_count = mongo.db.users.count_documents({})
+        return jsonify({
+            'status': 'success',
+            'message': 'MongoDB connected successfully!',
+            'database': 'Csv',
+            'collection': 'users',
+            'user_count': user_count
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run(debug=True, host='0.0.0.0', port=5000)
