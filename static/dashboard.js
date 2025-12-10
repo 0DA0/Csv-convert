@@ -31,6 +31,26 @@ const clientSelect = document.getElementById('clientSelect');
 const userSelect = document.getElementById('userSelect');
 const dataPreview = document.getElementById('dataPreview');
 
+// Tab elementleri
+const filterTabs = document.querySelectorAll('.filter-tab');
+const filterContents = document.querySelectorAll('.filter-content');
+
+// ============== Tab Sistemi ==============
+
+filterTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+        const targetTab = tab.dataset.tab;
+        
+        // Tüm tabları pasif yap
+        filterTabs.forEach(t => t.classList.remove('active'));
+        filterContents.forEach(c => c.classList.remove('active'));
+        
+        // Seçili tabı aktif yap
+        tab.classList.add('active');
+        document.getElementById(`tab-${targetTab}`).classList.add('active');
+    });
+});
+
 // ============== Dosya Yükleme ==============
 
 csvFileInput.addEventListener('change', function(e) {
@@ -64,19 +84,19 @@ csvFileInput.addEventListener('change', function(e) {
 fileLabel.addEventListener('dragover', (e) => {
     e.preventDefault();
     fileLabel.style.borderColor = '#667eea';
-    fileLabel.style.background = '#eef2ff';
+    fileLabel.style.transform = 'scale(1.02)';
 });
 
 fileLabel.addEventListener('dragleave', (e) => {
     e.preventDefault();
     fileLabel.style.borderColor = '#cbd5e0';
-    fileLabel.style.background = '#f7fafc';
+    fileLabel.style.transform = 'scale(1)';
 });
 
 fileLabel.addEventListener('drop', (e) => {
     e.preventDefault();
     fileLabel.style.borderColor = '#cbd5e0';
-    fileLabel.style.background = '#f7fafc';
+    fileLabel.style.transform = 'scale(1)';
     
     const files = e.dataTransfer.files;
     if (files.length > 0) {
@@ -231,30 +251,7 @@ function createPreview() {
         return;
     }
 
-    // İlk 10 satırı göster
-    const previewData = csvData.slice(0, 10);
-    const columns = Object.keys(previewData[0]);
-
-    let html = '<table class="preview-table-full"><thead><tr>';
-    
-    columns.forEach(col => {
-        html += `<th>${escapeHtml(col)}</th>`;
-    });
-    
-    html += '</tr></thead><tbody>';
-
-    previewData.forEach(row => {
-        html += '<tr>';
-        columns.forEach(col => {
-            html += `<td>${escapeHtml(row[col] || '')}</td>`;
-        });
-        html += '</tr>';
-    });
-
-    html += '</tbody></table>';
-    html += `<p style="margin-top: 16px; font-size: 13px; color: #718096;">Showing ${previewData.length} of ${csvData.length} rows</p>`;
-    
-    dataPreview.innerHTML = html;
+    updatePreview();
 }
 
 // ============== Gerçek Zamanlı Filtreleme ==============
@@ -316,7 +313,7 @@ function updatePreview() {
         return;
     }
 
-    const previewData = filteredData.slice(0, 10);
+    const previewData = filteredData.slice(0, 20); // İlk 20 satır
 
     let html = '<table class="preview-table-full"><thead><tr>';
     
@@ -329,13 +326,16 @@ function updatePreview() {
     previewData.forEach(row => {
         html += '<tr>';
         selectedColumns.forEach(col => {
-            html += `<td>${escapeHtml(row[col] || '')}</td>`;
+            const value = row[col] || '';
+            html += `<td title="${escapeHtml(value)}">${escapeHtml(value)}</td>`;
         });
         html += '</tr>';
     });
 
     html += `</tbody></table>`;
-    html += `<p style="margin-top: 16px; font-size: 13px; color: #718096;">Showing ${previewData.length} of ${filteredData.length} rows (filtered from ${csvData.length} total)</p>`;
+    html += `<p style="margin-top: 20px; font-size: 14px; color: #718096; text-align: center;">
+        Showing ${previewData.length} of ${filteredData.length} filtered rows (${csvData.length} total)
+    </p>`;
     
     dataPreview.innerHTML = html;
 }
@@ -361,7 +361,20 @@ if (uploadForm) {
         const submitBtn = this.querySelector('button[type="submit"]');
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" class="spinning"><circle cx="10" cy="10" r="8"></circle><path d="M20 10a10 10 0 0 1-10 10"></path></svg> Generating...';
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = `
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" class="spinning">
+                    <circle cx="10" cy="10" r="8"></circle>
+                    <path d="M20 10a10 10 0 0 1-10 10"></path>
+                </svg>
+                Generating Report...
+            `;
+            
+            // Timeout ile reset (hata durumunda)
+            setTimeout(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }, 30000);
         }
     });
 }
@@ -375,6 +388,7 @@ style.textContent = `
     }
     .spinning {
         animation: spin 1s linear infinite;
+        display: inline-block;
     }
 `;
 document.head.appendChild(style);

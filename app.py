@@ -518,6 +518,24 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             else:
                 report_sheet.write_number(row, 1, total, yellow_format)
             row += 2
+        
+        # Kolon genişliklerini otomatik ayarla
+        report_sheet.set_column(0, 0, 30)  # Day kolonu
+        report_sheet.set_column(1, 1, 15)  # Duration kolonu
+        
+        # Tüm içeriği kontrol et ve en uzun değere göre genişlet
+        max_width_col_a = 30
+        for i in range(row):
+            try:
+                cell_value = report_sheet.table.get(i, {}).get(0, '')
+                if cell_value:
+                    cell_len = len(str(cell_value))
+                    if cell_len > max_width_col_a:
+                        max_width_col_a = min(cell_len + 2, 50)  # Max 50
+            except:
+                pass
+        
+        report_sheet.set_column(0, 0, max_width_col_a)
     
     output.seek(0)
     return output
