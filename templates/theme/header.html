@@ -1,11 +1,232 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-    <h1>Baslik</h1>
-</body>
-</html>
+<header class="site-header">
+    <div class="header-content">
+        <div class="logo">
+            <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <path d="M9 3v18M3 9h18M3 15h18"/>
+            </svg>
+            <span>TimeTracker</span>
+        </div>
+        
+        {% if current_user.is_authenticated %}
+        <nav class="nav-menu">
+            <a href="{{ url_for('dashboard') }}" class="nav-link">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                </svg>
+                Dashboard
+            </a>
+            <a href="{{ url_for('profile') }}" class="nav-link">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                </svg>
+                Profile
+            </a>
+            <div class="user-info">
+                <div class="user-avatar">
+                    {% if current_user.user_type == 'company' %}
+                        {{ current_user.company_profile.get('company_name', 'U')[0].upper() }}
+                    {% else %}
+                        {{ current_user.individual_profile.get('full_name', 'User')[0].upper() }}
+                    {% endif %}
+                </div>
+                <div class="user-dropdown">
+                    <span class="user-name">
+                        {% if current_user.user_type == 'company' %}
+                            {{ current_user.company_profile.get('company_name', 'User') }}
+                        {% else %}
+                            {{ current_user.individual_profile.get('full_name', 'User') }}
+                        {% endif %}
+                    </span>
+                    <a href="{{ url_for('logout') }}" class="logout-link">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+                        </svg>
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </nav>
+        {% endif %}
+    </div>
+</header>
+
+<style>
+.site-header {
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+.header-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 16px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #667eea;
+    font-size: 24px;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.logo svg {
+    width: 32px;
+    height: 32px;
+}
+
+.nav-menu {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    color: #4a5568;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.nav-link:hover {
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    color: #667eea;
+    transform: translateY(-2px);
+}
+
+.nav-link svg {
+    width: 20px;
+    height: 20px;
+}
+
+.user-info {
+    position: relative;
+    margin-left: 16px;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.user-avatar:hover {
+    transform: scale(1.1);
+}
+
+.user-avatar:hover + .user-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.user-dropdown {
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    padding: 16px;
+    min-width: 200px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+    z-index: 100;
+}
+
+.user-dropdown:hover {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.user-name {
+    display: block;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 14px;
+}
+
+.logout-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    color: #e53e3e;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.logout-link:hover {
+    background: #fee2e2;
+}
+
+.logout-link svg {
+    width: 16px;
+    height: 16px;
+}
+
+@media (max-width: 768px) {
+    .header-content {
+        padding: 12px 20px;
+    }
+
+    .logo {
+        font-size: 18px;
+    }
+
+    .logo svg {
+        width: 24px;
+        height: 24px;
+    }
+
+    .nav-link {
+        padding: 8px 12px;
+        font-size: 13px;
+    }
+
+    .nav-link span {
+        display: none;
+    }
+
+    .user-avatar {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+    }
+}
+</style>

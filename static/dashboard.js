@@ -4,24 +4,21 @@ let currentStep = 1;
 
 // DOM elementleri
 const csvFileInput = document.getElementById('csv_file');
-const fileLabel = document.querySelector('.file-label');
+const fileLabel = document.querySelector('.compact-file-label');
 const fileInfo = document.getElementById('fileInfo');
 const fileName = document.getElementById('fileName');
 const rowCount = document.getElementById('rowCount');
 
 // Adım butonları
 const nextToSchema = document.getElementById('nextToSchema');
-const nextToFilters = document.getElementById('nextToFilters');
-const backToFile = document.getElementById('backToFile');
-const backToSchema = document.getElementById('backToSchema');
+const backToFilters = document.getElementById('backToFilters');
 
 // Adım bölümleri
 const step1 = document.getElementById('step1');
 const step2 = document.getElementById('step2');
-const step3 = document.getElementById('step3');
 
 // Schema kartları
-const schemaCards = document.querySelectorAll('.schema-card');
+const schemaCards = document.querySelectorAll('.schema-card-compact');
 const schemaRadios = document.querySelectorAll('input[name="schema_choice"]');
 
 // Filtre elementleri
@@ -30,26 +27,6 @@ const projectSelect = document.getElementById('projectSelect');
 const clientSelect = document.getElementById('clientSelect');
 const userSelect = document.getElementById('userSelect');
 const dataPreview = document.getElementById('dataPreview');
-
-// Tab elementleri
-const filterTabs = document.querySelectorAll('.filter-tab');
-const filterContents = document.querySelectorAll('.filter-content');
-
-// ============== Tab Sistemi ==============
-
-filterTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-        const targetTab = tab.dataset.tab;
-        
-        // Tüm tabları pasif yap
-        filterTabs.forEach(t => t.classList.remove('active'));
-        filterContents.forEach(c => c.classList.remove('active'));
-        
-        // Seçili tabı aktif yap
-        tab.classList.add('active');
-        document.getElementById(`tab-${targetTab}`).classList.add('active');
-    });
-});
 
 // ============== Dosya Yükleme ==============
 
@@ -66,7 +43,7 @@ csvFileInput.addEventListener('change', function(e) {
         complete: function(results) {
             csvData = results.data;
             rowCount.textContent = csvData.length;
-            fileInfo.style.display = 'block';
+            fileInfo.style.display = 'flex';
             
             // Filtreleri doldur
             populateFilters();
@@ -84,19 +61,19 @@ csvFileInput.addEventListener('change', function(e) {
 fileLabel.addEventListener('dragover', (e) => {
     e.preventDefault();
     fileLabel.style.borderColor = '#667eea';
-    fileLabel.style.transform = 'scale(1.02)';
+    fileLabel.style.background = '#eef2ff';
 });
 
 fileLabel.addEventListener('dragleave', (e) => {
     e.preventDefault();
     fileLabel.style.borderColor = '#cbd5e0';
-    fileLabel.style.transform = 'scale(1)';
+    fileLabel.style.background = '#f7fafc';
 });
 
 fileLabel.addEventListener('drop', (e) => {
     e.preventDefault();
     fileLabel.style.borderColor = '#cbd5e0';
-    fileLabel.style.transform = 'scale(1)';
+    fileLabel.style.background = '#f7fafc';
     
     const files = e.dataTransfer.files;
     if (files.length > 0) {
@@ -117,19 +94,15 @@ nextToSchema.addEventListener('click', () => {
         alert('Please upload a CSV file first.');
         return;
     }
+    if (!csvData || csvData.length === 0) {
+        alert('Please wait for the file to be processed.');
+        return;
+    }
     navigateToStep(2);
 });
 
-nextToFilters.addEventListener('click', () => {
-    navigateToStep(3);
-});
-
-backToFile.addEventListener('click', () => {
+backToFilters.addEventListener('click', () => {
     navigateToStep(1);
-});
-
-backToSchema.addEventListener('click', () => {
-    navigateToStep(2);
 });
 
 function navigateToStep(step) {
@@ -137,11 +110,9 @@ function navigateToStep(step) {
     
     step1.classList.remove('active');
     step2.classList.remove('active');
-    step3.classList.remove('active');
     
     if (step === 1) step1.classList.add('active');
     else if (step === 2) step2.classList.add('active');
-    else if (step === 3) step3.classList.add('active');
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -177,7 +148,7 @@ schemaRadios.forEach(radio => {
 });
 
 // İlk schema'yı seç
-const classicCard = document.querySelector('.schema-card[data-schema="classic"]');
+const classicCard = document.querySelector('.schema-card-compact[data-schema="classic"]');
 if (classicCard) {
     classicCard.classList.add('selected');
 }
@@ -247,7 +218,14 @@ function populateSelect(selectElement, values) {
 
 function createPreview() {
     if (!csvData || csvData.length === 0) {
-        dataPreview.innerHTML = '<p class="preview-placeholder">No data to preview</p>';
+        dataPreview.innerHTML = `
+            <div class="preview-placeholder">
+                <svg width="64" height="64" fill="none" stroke="currentColor" stroke-width="1">
+                    <path d="M9 12h6m-6 4h6m-6 4h6m9-10h6m-6 4h6m-6 4h6M9 5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2V7a2 2 0 00-2-2H9z"/>
+                </svg>
+                <p>No data to preview</p>
+            </div>
+        `;
         return;
     }
 
@@ -282,7 +260,7 @@ function updatePreview() {
         .map(cb => cb.value);
 
     if (selectedColumns.length === 0) {
-        dataPreview.innerHTML = '<p class="preview-placeholder">Please select at least one column</p>';
+        dataPreview.innerHTML = '<div class="preview-placeholder"><p>Please select at least one column</p></div>';
         return;
     }
 
@@ -309,11 +287,11 @@ function updatePreview() {
 
     // Önizlemeyi güncelle
     if (filteredData.length === 0) {
-        dataPreview.innerHTML = '<p class="preview-placeholder">No data matches the selected filters</p>';
+        dataPreview.innerHTML = '<div class="preview-placeholder"><p>No data matches the selected filters</p></div>';
         return;
     }
 
-    const previewData = filteredData.slice(0, 20); // İlk 20 satır
+    const previewData = filteredData.slice(0, 15); // İlk 15 satır
 
     let html = '<table class="preview-table-full"><thead><tr>';
     
@@ -333,7 +311,7 @@ function updatePreview() {
     });
 
     html += `</tbody></table>`;
-    html += `<p style="margin-top: 20px; font-size: 14px; color: #718096; text-align: center;">
+    html += `<p style="margin-top: 16px; font-size: 13px; color: #718096; text-align: center;">
         Showing ${previewData.length} of ${filteredData.length} filtered rows (${csvData.length} total)
     </p>`;
     
