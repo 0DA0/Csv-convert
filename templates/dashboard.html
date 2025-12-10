@@ -36,13 +36,13 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="schema" id="selectedSchema" value="classic">
             
-            <!-- Step 1: File Upload + Filters -->
+            <!-- Single Step: File Upload + Filters + Preview -->
             <div class="step-section active" id="step1">
                 <div class="step-header">
                     <div class="step-number">1</div>
                     <div class="step-info">
-                        <h2>Upload & Filter Data</h2>
-                        <p>Upload your CSV file and apply filters</p>
+                        <h2>Upload & Configure Report</h2>
+                        <p>Upload your CSV file, apply filters, and generate your report</p>
                     </div>
                 </div>
 
@@ -158,94 +158,6 @@
                 </div>
 
                 <div class="step-actions">
-                    <button type="button" class="btn-primary" id="nextToSchema">
-                        Next: Choose Schema
-                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M5 12h14M12 5l7 7-7 7"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Step 2: Schema Selection -->
-            <div class="step-section" id="step2">
-                <div class="step-header">
-                    <div class="step-number">2</div>
-                    <div class="step-info">
-                        <h2>Choose Report Schema</h2>
-                        <p>Select the report format that best fits your needs</p>
-                    </div>
-                </div>
-
-                <div class="schema-grid-compact">
-                    <div class="schema-card-compact" data-schema="classic">
-                        <div class="schema-icon">
-                            <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                            </svg>
-                        </div>
-                        <div class="schema-content">
-                            <h3>Classic</h3>
-                            <p>Traditional timesheet with daily breakdown and totals</p>
-                            <div class="schema-features">
-                                <span>✓ Daily view</span>
-                                <span>✓ Project totals</span>
-                                <span>✓ User summary</span>
-                            </div>
-                        </div>
-                        <div class="schema-radio">
-                            <input type="radio" name="schema_choice" value="classic" id="schema_classic" checked>
-                        </div>
-                    </div>
-
-                    <div class="schema-card-compact" data-schema="minimalist">
-                        <div class="schema-icon">
-                            <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M4 6h16M4 12h16M4 18h16"/>
-                            </svg>
-                        </div>
-                        <div class="schema-content">
-                            <h3>Minimalist</h3>
-                            <p>Clean and simple format focusing on essential totals</p>
-                            <div class="schema-features">
-                                <span>✓ Simple layout</span>
-                                <span>✓ Total hours</span>
-                                <span>✓ Clean design</span>
-                            </div>
-                        </div>
-                        <div class="schema-radio">
-                            <input type="radio" name="schema_choice" value="minimalist" id="schema_minimalist">
-                        </div>
-                    </div>
-
-                    <div class="schema-card-compact" data-schema="detailed">
-                        <div class="schema-icon">
-                            <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
-                            </svg>
-                        </div>
-                        <div class="schema-content">
-                            <h3>Detailed</h3>
-                            <p>Comprehensive report with all information and descriptions</p>
-                            <div class="schema-features">
-                                <span>✓ Full details</span>
-                                <span>✓ Descriptions</span>
-                                <span>✓ Billable status</span>
-                            </div>
-                        </div>
-                        <div class="schema-radio">
-                            <input type="radio" name="schema_choice" value="detailed" id="schema_detailed">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="step-actions">
-                    <button type="button" class="btn-secondary" id="backToFilters">
-                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M19 12H5M12 19l-7-7 7-7"/>
-                        </svg>
-                        Back
-                    </button>
                     <button type="submit" class="btn-success">
                         <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>

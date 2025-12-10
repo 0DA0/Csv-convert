@@ -439,6 +439,8 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
     else:
         df["formatted_duration"] = df["rounded_seconds"] / 86400
     
+    # Tarihleri parse et - Önce string'e çevir
+    df['Start Date'] = df['Start Date'].astype(str)
     df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
     df["Day"] = df["ParsedDate"].apply(lambda d: d.strftime("%d (%A)") if pd.notnull(d) else "Unknown")
     

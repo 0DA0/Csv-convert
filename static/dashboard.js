@@ -1,6 +1,5 @@
 // Global değişkenler
 let csvData = null;
-let currentStep = 1;
 
 // DOM elementleri
 const csvFileInput = document.getElementById('csv_file');
@@ -8,18 +7,6 @@ const fileLabel = document.querySelector('.compact-file-label');
 const fileInfo = document.getElementById('fileInfo');
 const fileName = document.getElementById('fileName');
 const rowCount = document.getElementById('rowCount');
-
-// Adım butonları
-const nextToSchema = document.getElementById('nextToSchema');
-const backToFilters = document.getElementById('backToFilters');
-
-// Adım bölümleri
-const step1 = document.getElementById('step1');
-const step2 = document.getElementById('step2');
-
-// Schema kartları
-const schemaCards = document.querySelectorAll('.schema-card-compact');
-const schemaRadios = document.querySelectorAll('input[name="schema_choice"]');
 
 // Filtre elementleri
 const columnSelector = document.getElementById('columnSelector');
@@ -86,72 +73,6 @@ fileLabel.addEventListener('drop', (e) => {
         }
     }
 });
-
-// ============== Adım Navigasyonu ==============
-
-nextToSchema.addEventListener('click', () => {
-    if (!csvFileInput.files.length) {
-        alert('Please upload a CSV file first.');
-        return;
-    }
-    if (!csvData || csvData.length === 0) {
-        alert('Please wait for the file to be processed.');
-        return;
-    }
-    navigateToStep(2);
-});
-
-backToFilters.addEventListener('click', () => {
-    navigateToStep(1);
-});
-
-function navigateToStep(step) {
-    currentStep = step;
-    
-    step1.classList.remove('active');
-    step2.classList.remove('active');
-    
-    if (step === 1) step1.classList.add('active');
-    else if (step === 2) step2.classList.add('active');
-    
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-// ============== Schema Seçimi ==============
-
-schemaCards.forEach(card => {
-    card.addEventListener('click', () => {
-        const schema = card.dataset.schema;
-        const radio = card.querySelector('input[type="radio"]');
-        
-        schemaCards.forEach(c => c.classList.remove('selected'));
-        card.classList.add('selected');
-        
-        radio.checked = true;
-        document.getElementById('selectedSchema').value = schema;
-    });
-});
-
-schemaRadios.forEach(radio => {
-    radio.addEventListener('change', () => {
-        const schema = radio.value;
-        document.getElementById('selectedSchema').value = schema;
-        
-        schemaCards.forEach(card => {
-            if (card.dataset.schema === schema) {
-                card.classList.add('selected');
-            } else {
-                card.classList.remove('selected');
-            }
-        });
-    });
-});
-
-// İlk schema'yı seç
-const classicCard = document.querySelector('.schema-card-compact[data-schema="classic"]');
-if (classicCard) {
-    classicCard.classList.add('selected');
-}
 
 // ============== Filtreleri Doldur ==============
 
@@ -311,7 +232,7 @@ function updatePreview() {
     });
 
     html += `</tbody></table>`;
-    html += `<p style="margin-top: 16px; font-size: 13px; color: #718096; text-align: center;">
+    html += `<p style="margin-top: 16px; font-size: 13px; color: #718096; text-align: center; padding: 0 8px;">
         Showing ${previewData.length} of ${filteredData.length} filtered rows (${csvData.length} total)
     </p>`;
     

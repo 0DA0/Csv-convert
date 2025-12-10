@@ -321,6 +321,7 @@ body {
     padding: 16px;
     max-height: 500px;
     overflow: auto;
+    width: 100%;
 }
 
 .preview-placeholder {
@@ -346,6 +347,7 @@ body {
     border-collapse: separate;
     border-spacing: 0;
     font-size: 12px;
+    table-layout: fixed;
 }
 
 .preview-table-full th,
@@ -353,6 +355,8 @@ body {
     padding: 12px;
     text-align: left;
     border-bottom: 1px solid #e2e8f0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .preview-table-full th {
@@ -377,10 +381,9 @@ body {
 
 .preview-table-full td {
     color: #4a5568;
-    max-width: 200px;
+    max-width: 150px;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 /* Schema Cards - Compact */
