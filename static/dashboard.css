@@ -60,6 +60,12 @@ body {
     border-left: 4px solid #ef4444;
 }
 
+.alert-warning {
+    background: rgba(255, 243, 205, 0.95);
+    color: #856404;
+    border-left: 4px solid #ffc107;
+}
+
 /* Steps */
 .step-section {
     display: none;
@@ -147,6 +153,12 @@ body {
     background: #eef2ff;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.compact-file-label.drag-over {
+    border-color: #667eea;
+    border-style: solid;
+    background: #e0e7ff;
 }
 
 .compact-file-label svg {
@@ -318,9 +330,7 @@ body {
 .data-preview {
     background: #f7fafc;
     border-radius: 12px;
-    padding: 16px;
-    max-height: 500px;
-    overflow: auto;
+    overflow: hidden;
     width: 100%;
 }
 
@@ -342,24 +352,69 @@ body {
     font-size: 14px;
 }
 
-.preview-table-full {
+/* Preview Summary */
+.preview-summary {
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* Preview Table Wrapper - Yatay Kaydırma İçin */
+.preview-table-wrapper {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 450px;
+    background: white;
+    position: relative;
+    /* Modern Scrollbar Tasarımı */
+    scrollbar-width: thin;
+    scrollbar-color: #667eea #e2e8f0;
+}
+
+.preview-table-wrapper::-webkit-scrollbar {
+    height: 10px;
+    width: 10px;
+}
+
+.preview-table-wrapper::-webkit-scrollbar-track {
+    background: #e2e8f0;
+    border-radius: 0;
+}
+
+.preview-table-wrapper::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 5px;
+}
+
+.preview-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #5568d3 0%, #6a3d92 100%);
+}
+
+.preview-table-wrapper::-webkit-scrollbar-corner {
+    background: #e2e8f0;
+}
+
+/* Preview Table */
+.preview-table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
     font-size: 12px;
-    table-layout: fixed;
+    min-width: 1000px; /* Minimum genişlik - yatay kaydırma tetikler */
 }
 
-.preview-table-full th,
-.preview-table-full td {
-    padding: 12px;
+.preview-table th,
+.preview-table td {
+    padding: 12px 16px;
     text-align: left;
-    border-bottom: 1px solid #e2e8f0;
     word-wrap: break-word;
     overflow-wrap: break-word;
+    white-space: nowrap;
 }
 
-.preview-table-full th {
+.preview-table th {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
     font-weight: 600;
@@ -369,21 +424,43 @@ body {
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.preview-table-full tr {
+.preview-table tbody tr {
     transition: background 0.2s;
+    border-bottom: 1px solid #e2e8f0;
 }
 
-.preview-table-full tbody tr:hover {
-    background: white;
+.preview-table tbody tr:hover {
+    background: #f7fafc;
 }
 
-.preview-table-full td {
+.preview-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.preview-table td {
     color: #4a5568;
-    max-width: 150px;
+    max-width: 250px;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* Specific Column Widths */
+.preview-table th:first-child,
+.preview-table td:first-child {
+    min-width: 150px;
+}
+
+.preview-table th:nth-child(2),
+.preview-table td:nth-child(2) {
+    min-width: 120px;
+}
+
+.preview-table th:nth-child(3),
+.preview-table td:nth-child(3) {
+    min-width: 200px;
 }
 
 /* Schema Cards - Compact */
@@ -563,6 +640,29 @@ body {
     transform: none;
 }
 
+/* Scrollbar Styling for Filter Panels */
+.filters-panel::-webkit-scrollbar,
+.checkbox-group::-webkit-scrollbar {
+    width: 8px;
+}
+
+.filters-panel::-webkit-scrollbar-track,
+.checkbox-group::-webkit-scrollbar-track {
+    background: #e2e8f0;
+    border-radius: 4px;
+}
+
+.filters-panel::-webkit-scrollbar-thumb,
+.checkbox-group::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px;
+}
+
+.filters-panel::-webkit-scrollbar-thumb:hover,
+.checkbox-group::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #5568d3 0%, #6a3d92 100%);
+}
+
 /* Responsive */
 @media (max-width: 1200px) {
     .filters-preview-container {
@@ -581,6 +681,10 @@ body {
 
     .preview-panel {
         order: 1;
+    }
+
+    .preview-table {
+        min-width: 800px;
     }
 }
 
@@ -627,5 +731,9 @@ body {
     .btn-success {
         width: 100%;
         justify-content: center;
+    }
+
+    .preview-table {
+        min-width: 600px;
     }
 }
