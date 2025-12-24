@@ -381,7 +381,13 @@ def convert():
         selected_users = request.form.getlist('userSelect[]')
         format_choice = request.form.get('formatSelect', 'decimal')
         
+        # "All" seçeneklerini filtrele (boş string veya "All" içeren değerler)
+        selected_projects = [p for p in selected_projects if p and 'All' not in p]
+        selected_clients = [c for c in selected_clients if c and 'All' not in c]
+        selected_users = [u for u in selected_users if u and 'All' not in u]
+        
         # Filtreleri uygula
+        original_df = df.copy()
         if selected_projects:
             df = df[df["Project"].isin(selected_projects)]
         if selected_clients:
@@ -389,9 +395,20 @@ def convert():
         if selected_users:
             df = df[df["User"].isin(selected_users)]
         
-        # Rapor bilgileri
+        # Eğer filtre sonrası veri yoksa uyarı ver
+        if df.empty:
+            flash('No data matches the selected filters.', 'warning')
+            return redirect(url_for('dashboard'))
+        
+        # Rapor bilgileri - Filtrelenmiş veriden al
         overall_projects = ", ".join(df["Project"].dropna().unique())
         overall_customers = ", ".join(df["Client"].dropna().unique())
+        
+        # Kullanıcı bilgisi
+        if current_user.user_type == 'company':
+            user_name = current_user.company_profile.get('company_name', 'N/A')
+        else:
+            user_name = current_user.individual_profile.get('full_name', 'N/A')
         
         # Tarihleri parse et
         df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
@@ -408,7 +425,8 @@ def convert():
             report_period = "All Data"
         
         # Excel oluşturma
-        output = generate_excel_report(df, selected_schema, format_choice, report_period, overall_projects, overall_customers)
+        output = generate_excel_report(df, selected_schema, format_choice, report_period, 
+                                      overall_projects, overall_customers, user_name)
         
         # Dosya adı
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -426,7 +444,7 @@ def convert():
         flash(f'An error occurred: {str(e)}', 'error')
         return redirect(url_for('dashboard'))
 
-def generate_excel_report(df, schema, format_choice, report_period, projects, customers):
+def generate_excel_report(df, schema, format_choice, report_period, projects, customers, user_name):
     """Excel raporu oluşturur"""
     output = BytesIO()
     
@@ -462,25 +480,20 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         
         # Kullanıcı/Şirket bilgisi
         row = 0
-        if current_user.user_type == 'company':
-            company_name = current_user.company_profile.get('company_name', 'N/A')
-            report_sheet.write(row, 0, sanitize_excel_cell(f"Company: {company_name}"), header_format)
-            
-            # Logo ekleme - veritabanından
-            if current_user.has_logo():
-                try:
-                    logo_data = current_user.company_profile.get('logo_data')
-                    temp_logo = BytesIO(logo_data)
-                    report_sheet.insert_image(row, 7, "logo", {
-                        'image_data': temp_logo,
-                        'x_scale': 0.5,
-                        'y_scale': 0.5
-                    })
-                except Exception as e:
-                    app.logger.error(f"Error inserting logo: {str(e)}")
-        else:
-            full_name = current_user.individual_profile.get('full_name', 'N/A')
-            report_sheet.write(row, 0, sanitize_excel_cell(f"Name: {full_name}"), header_format)
+        report_sheet.write(row, 0, sanitize_excel_cell(f"Name: {user_name}"), header_format)
+        
+        # Logo ekleme - veritabanından
+        if current_user.user_type == 'company' and current_user.has_logo():
+            try:
+                logo_data = current_user.company_profile.get('logo_data')
+                temp_logo = BytesIO(logo_data)
+                report_sheet.insert_image(row, 7, "logo", {
+                    'image_data': temp_logo,
+                    'x_scale': 0.5,
+                    'y_scale': 0.5
+                })
+            except Exception as e:
+                app.logger.error(f"Error inserting logo: {str(e)}")
         
         row += 1
         report_sheet.write(row, 0, sanitize_excel_cell(f"Projects: {projects}"), cell_format)
@@ -522,8 +535,8 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             row += 2
         
         # Kolon genişliklerini otomatik ayarla
-        report_sheet.set_column(0, 0, 30)  # Day kolonu
-        report_sheet.set_column(1, 1, 15)  # Duration kolonu
+        report_sheet.set_column(0, 0, 30)
+        report_sheet.set_column(1, 1, 15)
         
         # Tüm içeriği kontrol et ve en uzun değere göre genişlet
         max_width_col_a = 30
@@ -533,7 +546,7 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
                 if cell_value:
                     cell_len = len(str(cell_value))
                     if cell_len > max_width_col_a:
-                        max_width_col_a = min(cell_len + 2, 50)  # Max 50
+                        max_width_col_a = min(cell_len + 2, 50)
             except:
                 pass
         
