@@ -488,9 +488,24 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             'valign': 'vcenter'
         })
         
-        cell_format = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter'})
+        cell_format = workbook.add_format({
+            'border': 1, 
+            'align': 'left', 
+            'valign': 'vcenter'
+        })
         
-        cell_center_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        cell_wrap_format = workbook.add_format({
+            'border': 1, 
+            'align': 'left', 
+            'valign': 'top',
+            'text_wrap': True
+        })
+        
+        cell_center_format = workbook.add_format({
+            'border': 1, 
+            'align': 'center', 
+            'valign': 'vcenter'
+        })
         
         number_format = workbook.add_format({
             'num_format': '0.00', 
@@ -590,6 +605,23 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             'font_color': '#9C0006'
         })
         
+        info_format = workbook.add_format({
+            'border': 1,
+            'align': 'left',
+            'valign': 'vcenter',
+            'bold': False
+        })
+        
+        section_header_format = workbook.add_format({
+            'bold': True, 
+            'border': 1, 
+            'bg_color': '#667eea', 
+            'font_color': 'white', 
+            'align': 'left', 
+            'valign': 'vcenter',
+            'font_size': 11
+        })
+        
         # Detay sayfası için formatlar
         detail_header_format = workbook.add_format({
             'bold': True, 
@@ -618,6 +650,14 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             'font_size': 10
         })
         
+        detail_cell_wrap = workbook.add_format({
+            'border': 1, 
+            'align': 'left', 
+            'valign': 'top',
+            'font_size': 10,
+            'text_wrap': True
+        })
+        
         detail_cell_center = workbook.add_format({
             'border': 1, 
             'align': 'center', 
@@ -641,13 +681,6 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             'font_size': 10
         })
         
-        info_format = workbook.add_format({
-            'border': 1,
-            'align': 'left',
-            'valign': 'vcenter',
-            'bold': False
-        })
-        
         # ============== SAYFA 1: ÖZET RAPOR ==============
         summary_sheet = workbook.add_worksheet("Summary Report")
         
@@ -657,7 +690,7 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         if logo_data is not None:
             try:
                 temp_logo = BytesIO(logo_data['data'])
-                summary_sheet.insert_image(row, 8, "logo", {
+                summary_sheet.insert_image(row, 6, "logo", {
                     'image_data': temp_logo,
                     'x_scale': 0.3,
                     'y_scale': 0.3,
@@ -667,37 +700,57 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             except Exception as e:
                 app.logger.error(f"Error inserting logo: {str(e)}")
         
-        # Rapor bilgileri
+        # Genel Rapor bilgileri
         summary_sheet.write(row, 0, "Projects:", header_format)
         summary_sheet.write(row, 1, sanitize_excel_cell(projects), info_format)
-        summary_sheet.merge_range(row, 1, row, 7, sanitize_excel_cell(projects), info_format)
+        summary_sheet.merge_range(row, 1, row, 5, sanitize_excel_cell(projects), info_format)
+        summary_sheet.set_row(row, 20)
         row += 1
         
         summary_sheet.write(row, 0, "Customers:", header_format)
         summary_sheet.write(row, 1, sanitize_excel_cell(customers), info_format)
-        summary_sheet.merge_range(row, 1, row, 7, sanitize_excel_cell(customers), info_format)
+        summary_sheet.merge_range(row, 1, row, 5, sanitize_excel_cell(customers), info_format)
+        summary_sheet.set_row(row, 20)
         row += 1
         
         summary_sheet.write(row, 0, "Period:", header_format)
         summary_sheet.write(row, 1, sanitize_excel_cell(report_period), info_format)
-        summary_sheet.merge_range(row, 1, row, 7, sanitize_excel_cell(report_period), info_format)
+        summary_sheet.merge_range(row, 1, row, 5, sanitize_excel_cell(report_period), info_format)
+        summary_sheet.set_row(row, 20)
         row += 2
         
         # Kullanıcı bazında özet
         for user in sorted(df["User"].dropna().unique()):
             user_df = df[df["User"] == user].copy()
             
-            summary_sheet.write(row, 0, sanitize_excel_cell(f"User: {user}"), header_format)
-            summary_sheet.merge_range(row, 0, row, 5, sanitize_excel_cell(f"User: {user}"), header_format)
+            # Kullanıcı başlığı
+            summary_sheet.write(row, 0, sanitize_excel_cell(f"User: {user}"), section_header_format)
+            summary_sheet.merge_range(row, 0, row, 3, sanitize_excel_cell(f"User: {user}"), section_header_format)
+            summary_sheet.set_row(row, 22)
             row += 1
+            
+            # Kullanıcının projeleri
+            user_projects = ", ".join(sorted(user_df["Project"].dropna().unique()))
+            summary_sheet.write(row, 0, "Projects:", header_format)
+            summary_sheet.write(row, 1, sanitize_excel_cell(user_projects), info_format)
+            summary_sheet.merge_range(row, 1, row, 3, sanitize_excel_cell(user_projects), info_format)
+            summary_sheet.set_row(row, 20)
+            row += 1
+            
+            # Kullanıcının clientları
+            user_clients = ", ".join(sorted(user_df["Client"].dropna().unique()))
+            summary_sheet.write(row, 0, "Clients:", header_format)
+            summary_sheet.write(row, 1, sanitize_excel_cell(user_clients), info_format)
+            summary_sheet.merge_range(row, 1, row, 3, sanitize_excel_cell(user_clients), info_format)
+            summary_sheet.set_row(row, 20)
+            row += 2
             
             # Tablo başlıkları
             summary_sheet.write(row, 0, "Day", header_format)
-            summary_sheet.write(row, 1, "Project", header_format)
-            summary_sheet.write(row, 2, "Client", header_format)
-            summary_sheet.write(row, 3, "Description", header_format)
-            summary_sheet.write(row, 4, "Billable", header_format)
-            summary_sheet.write(row, 5, "Duration", header_format)
+            summary_sheet.write(row, 1, "Description", header_format)
+            summary_sheet.write(row, 2, "Billable", header_format)
+            summary_sheet.write(row, 3, "Duration", header_format)
+            summary_sheet.set_row(row, 20)
             row += 1
             
             # Günlük detaylar
@@ -707,63 +760,50 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
                 if day_df.empty:
                     continue
                 
-                # Günü ilk satıra yaz
-                first_row_of_day = row
-                rows_in_day = 0
+                # Benzersiz description'ları al (tüm gün için)
+                unique_descriptions = []
+                for desc in day_df["Description"].tolist():
+                    desc_str = str(desc).strip()
+                    if desc_str and desc_str not in unique_descriptions and desc_str != 'nan':
+                        unique_descriptions.append(desc_str)
                 
-                # Her proje için
-                for project in day_df["Project"].unique():
-                    project_df = day_df[day_df["Project"] == project]
-                    
-                    for client in project_df["Client"].unique():
-                        client_df = project_df[project_df["Client"] == client]
-                        
-                        # Benzersiz description'ları al
-                        unique_descriptions = []
-                        for desc in client_df["Description"].tolist():
-                            desc_str = str(desc).strip()
-                            if desc_str and desc_str not in unique_descriptions and desc_str != 'nan':
-                                unique_descriptions.append(desc_str)
-                        
-                        # Description'ları birleştir
-                        combined_description = " | ".join(unique_descriptions) if unique_descriptions else ""
-                        
-                        # Billable durumunu kontrol et
-                        billable_count = (client_df["Billable"] == "Yes").sum()
-                        non_billable_count = (client_df["Billable"] == "No").sum()
-                        
-                        if billable_count > 0 and non_billable_count > 0:
-                            billable_status = "Mixed"
-                        elif billable_count > 0:
-                            billable_status = "Yes"
-                        else:
-                            billable_status = "No"
-                        
-                        # Toplam süre
-                        total_duration = client_df["formatted_duration"].sum()
-                        
-                        # Satıra yaz
-                        if rows_in_day == 0:
-                            summary_sheet.write(row, 0, sanitize_excel_cell(day), cell_format)
-                        else:
-                            summary_sheet.write(row, 0, "", cell_format)
-                        
-                        summary_sheet.write(row, 1, sanitize_excel_cell(str(project)), cell_format)
-                        summary_sheet.write(row, 2, sanitize_excel_cell(str(client)), cell_format)
-                        summary_sheet.write(row, 3, sanitize_excel_cell(combined_description), cell_format)
-                        summary_sheet.write(row, 4, sanitize_excel_cell(billable_status), cell_center_format)
-                        
-                        if format_choice == "hours":
-                            summary_sheet.write_number(row, 5, total_duration, time_format)
-                        else:
-                            summary_sheet.write_number(row, 5, total_duration, number_format)
-                        
-                        row += 1
-                        rows_in_day += 1
+                # Description'ları birleştir
+                combined_description = " | ".join(unique_descriptions) if unique_descriptions else ""
                 
-                # Eğer aynı gün için birden fazla satır varsa, Day kolonunu birleştir
-                if rows_in_day > 1:
-                    summary_sheet.merge_range(first_row_of_day, 0, row - 1, 0, sanitize_excel_cell(day), cell_format)
+                # Billable durumunu kontrol et
+                billable_count = (day_df["Billable"] == "Yes").sum()
+                non_billable_count = (day_df["Billable"] == "No").sum()
+                
+                if billable_count > 0 and non_billable_count > 0:
+                    billable_status = "Mixed"
+                elif billable_count > 0:
+                    billable_status = "Yes"
+                else:
+                    billable_status = "No"
+                
+                # Toplam süre
+                total_duration = day_df["formatted_duration"].sum()
+                
+                # Satıra yaz
+                summary_sheet.write(row, 0, sanitize_excel_cell(day), cell_format)
+                summary_sheet.write(row, 1, sanitize_excel_cell(combined_description), cell_wrap_format)
+                summary_sheet.write(row, 2, sanitize_excel_cell(billable_status), cell_center_format)
+                
+                if format_choice == "hours":
+                    summary_sheet.write_number(row, 3, total_duration, time_format)
+                else:
+                    summary_sheet.write_number(row, 3, total_duration, number_format)
+                
+                # Description uzunluğuna göre satır yüksekliği ayarla
+                desc_length = len(combined_description)
+                if desc_length > 100:
+                    summary_sheet.set_row(row, 60)
+                elif desc_length > 50:
+                    summary_sheet.set_row(row, 40)
+                else:
+                    summary_sheet.set_row(row, 20)
+                
+                row += 1
             
             # Kullanıcı için toplamlar
             row += 1
@@ -778,38 +818,39 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             
             # Billable Total
             summary_sheet.write(row, 0, "BILLABLE TOTAL", green_format)
-            summary_sheet.merge_range(row, 0, row, 4, "BILLABLE TOTAL", green_format)
+            summary_sheet.merge_range(row, 0, row, 2, "BILLABLE TOTAL", green_format)
             if format_choice == "hours":
-                summary_sheet.write_number(row, 5, total_billable, green_time_format)
+                summary_sheet.write_number(row, 3, total_billable, green_time_format)
             else:
-                summary_sheet.write_number(row, 5, total_billable, green_number_format)
+                summary_sheet.write_number(row, 3, total_billable, green_number_format)
+            summary_sheet.set_row(row, 22)
             row += 1
             
             # Non-Billable Total
             summary_sheet.write(row, 0, "NON-BILLABLE TOTAL", red_format)
-            summary_sheet.merge_range(row, 0, row, 4, "NON-BILLABLE TOTAL", red_format)
+            summary_sheet.merge_range(row, 0, row, 2, "NON-BILLABLE TOTAL", red_format)
             if format_choice == "hours":
-                summary_sheet.write_number(row, 5, total_non_billable, red_time_format)
+                summary_sheet.write_number(row, 3, total_non_billable, red_time_format)
             else:
-                summary_sheet.write_number(row, 5, total_non_billable, red_number_format)
+                summary_sheet.write_number(row, 3, total_non_billable, red_number_format)
+            summary_sheet.set_row(row, 22)
             row += 1
             
             # Grand Total
             summary_sheet.write(row, 0, "GRAND TOTAL", yellow_format)
-            summary_sheet.merge_range(row, 0, row, 4, "GRAND TOTAL", yellow_format)
+            summary_sheet.merge_range(row, 0, row, 2, "GRAND TOTAL", yellow_format)
             if format_choice == "hours":
-                summary_sheet.write_number(row, 5, total_overall, yellow_time_format)
+                summary_sheet.write_number(row, 3, total_overall, yellow_time_format)
             else:
-                summary_sheet.write_number(row, 5, total_overall, yellow_number_format)
-            row += 2
+                summary_sheet.write_number(row, 3, total_overall, yellow_number_format)
+            summary_sheet.set_row(row, 22)
+            row += 3
         
         # Kolon genişlikleri
         summary_sheet.set_column(0, 0, 22)  # Day
-        summary_sheet.set_column(1, 1, 25)  # Project
-        summary_sheet.set_column(2, 2, 20)  # Client
-        summary_sheet.set_column(3, 3, 50)  # Description
-        summary_sheet.set_column(4, 4, 12)  # Billable
-        summary_sheet.set_column(5, 5, 15)  # Duration
+        summary_sheet.set_column(1, 1, 70)  # Description (çok geniş)
+        summary_sheet.set_column(2, 2, 12)  # Billable
+        summary_sheet.set_column(3, 3, 15)  # Duration
         
         # ============== SAYFA 2: DETAYLI RAPOR ==============
         detail_sheet = workbook.add_worksheet("Detailed Report")
@@ -876,10 +917,21 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
                     else:
                         detail_sheet.write_number(detail_row, 4, row_data['formatted_duration'], detail_number_format)
                     
-                    detail_sheet.write(detail_row, 5, sanitize_excel_cell(str(row_data.get('Description', ''))), detail_cell_format)
+                    # Description - text wrap ile
+                    desc_text = sanitize_excel_cell(str(row_data.get('Description', '')))
+                    detail_sheet.write(detail_row, 5, desc_text, detail_cell_wrap)
+                    
                     detail_sheet.write(detail_row, 6, sanitize_excel_cell(str(row_data.get('Billable', 'No'))), detail_cell_center)
                     
-                    detail_sheet.set_row(detail_row, 18)
+                    # Description uzunluğuna göre satır yüksekliği
+                    desc_length = len(desc_text)
+                    if desc_length > 100:
+                        detail_sheet.set_row(detail_row, 60)
+                    elif desc_length > 50:
+                        detail_sheet.set_row(detail_row, 40)
+                    else:
+                        detail_sheet.set_row(detail_row, 20)
+                    
                     detail_row += 1
                 
                 # Kullanıcı için boş satır ekle
@@ -894,7 +946,7 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         detail_sheet.set_column(2, 2, 12)  # Start Time
         detail_sheet.set_column(3, 3, 12)  # End Time
         detail_sheet.set_column(4, 4, 12)  # Duration
-        detail_sheet.set_column(5, 5, 50)  # Description
+        detail_sheet.set_column(5, 5, 60)  # Description (çok geniş + text wrap)
         detail_sheet.set_column(6, 6, 10)  # Billable
     
     output.seek(0)
