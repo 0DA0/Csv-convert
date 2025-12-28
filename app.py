@@ -381,7 +381,7 @@ def convert():
         selected_users = request.form.getlist('userSelect[]')
         format_choice = request.form.get('formatSelect', 'decimal')
         
-        # "All" seçeneklerini filtrele (boş string veya "All" içeren değerler)
+        # "All" seçeneklerini filtrele
         selected_projects = [p for p in selected_projects if p and 'All' not in p]
         selected_clients = [c for c in selected_clients if c and 'All' not in c]
         selected_users = [u for u in selected_users if u and 'All' not in u]
@@ -400,7 +400,7 @@ def convert():
             flash('No data matches the selected filters.', 'warning')
             return redirect(url_for('dashboard'))
         
-        # Rapor bilgileri - Filtrelenmiş veriden al
+        # Rapor bilgileri
         overall_projects = ", ".join(df["Project"].dropna().unique())
         overall_customers = ", ".join(df["Client"].dropna().unique())
         
@@ -409,6 +409,14 @@ def convert():
             user_name = current_user.company_profile.get('company_name', 'N/A')
         else:
             user_name = current_user.individual_profile.get('full_name', 'N/A')
+        
+        # Logo bilgisini hazırla
+        logo_data = None
+        if current_user.user_type == 'company' and current_user.has_logo():
+            logo_data = {
+                'data': current_user.company_profile.get('logo_data'),
+                'mimetype': current_user.company_profile.get('logo_mimetype', 'image/png')
+            }
         
         # Tarihleri parse et
         df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
@@ -424,9 +432,9 @@ def convert():
         else:
             report_period = "All Data"
         
-        # Excel oluşturma
+        # Excel oluşturma - logo_data'yı da geç
         output = generate_excel_report(df, selected_schema, format_choice, report_period, 
-                                      overall_projects, overall_customers, user_name)
+                                      overall_projects, overall_customers, user_name, logo_data)
         
         # Dosya adı
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -443,8 +451,8 @@ def convert():
         app.logger.error(f"Error in convert: {str(e)}\n{traceback.format_exc()}")
         flash(f'An error occurred: {str(e)}', 'error')
         return redirect(url_for('dashboard'))
-
-def generate_excel_report(df, schema, format_choice, report_period, projects, customers, user_name):
+    
+def generate_excel_report(df, schema, format_choice, report_period, projects, customers, user_name, logo_data=None):
     """Excel raporu oluşturur - Hem özet hem detaylı sayfa ile"""
     output = BytesIO()
     
@@ -491,11 +499,10 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         row = 0
         summary_sheet.write(row, 0, sanitize_excel_cell(f"Name: {user_name}"), header_format)
         
-        # Logo ekleme
-        if current_user.user_type == 'company' and current_user.has_logo():
+        # Logo ekleme - logo_data parametresini kullan
+        if logo_data is not None:
             try:
-                logo_data = current_user.company_profile.get('logo_data')
-                temp_logo = BytesIO(logo_data)
+                temp_logo = BytesIO(logo_data['data'])
                 summary_sheet.insert_image(row, 7, "logo", {
                     'image_data': temp_logo,
                     'x_scale': 0.5,
@@ -612,17 +619,17 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             detail_row += 1
         
         # Detay sayfası kolon genişlikleri
-        detail_sheet.set_column(0, 0, 25)  # Date
-        detail_sheet.set_column(1, 1, 20)  # User
-        detail_sheet.set_column(2, 2, 20)  # Project
-        detail_sheet.set_column(3, 3, 20)  # Client
-        detail_sheet.set_column(4, 4, 12)  # Start Time
-        detail_sheet.set_column(5, 5, 12)  # End Time
-        detail_sheet.set_column(6, 6, 12)  # Duration
-        detail_sheet.set_column(7, 7, 40)  # Description
-        detail_sheet.set_column(8, 8, 10)  # Billable
+        detail_sheet.set_column(0, 0, 25)
+        detail_sheet.set_column(1, 1, 20)
+        detail_sheet.set_column(2, 2, 20)
+        detail_sheet.set_column(3, 3, 20)
+        detail_sheet.set_column(4, 4, 12)
+        detail_sheet.set_column(5, 5, 12)
+        detail_sheet.set_column(6, 6, 12)
+        detail_sheet.set_column(7, 7, 40)
+        detail_sheet.set_column(8, 8, 10)
         
-        # Satır yüksekliklerini ayarla (Description için)
+        # Satır yüksekliklerini ayarla
         for i in range(detail_row):
             detail_sheet.set_row(i, 20)
     
