@@ -488,25 +488,30 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             'valign': 'vcenter'
         })
         
-        cell_format = workbook.add_format({'border': 1, 'align': 'left'})
+        cell_format = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter'})
+        
+        cell_center_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
         
         number_format = workbook.add_format({
             'num_format': '0.00', 
             'border': 1, 
-            'align': 'right'
+            'align': 'right',
+            'valign': 'vcenter'
         })
         
         time_format = workbook.add_format({
             'num_format': '[h]:mm', 
             'border': 1, 
-            'align': 'right'
+            'align': 'right',
+            'valign': 'vcenter'
         })
         
         yellow_format = workbook.add_format({
             'bg_color': '#FFEB9C', 
             'border': 1, 
             'bold': True,
-            'align': 'center'
+            'align': 'center',
+            'valign': 'vcenter'
         })
         
         yellow_number_format = workbook.add_format({
@@ -514,7 +519,8 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             'border': 1, 
             'bold': True,
             'num_format': '0.00',
-            'align': 'right'
+            'align': 'right',
+            'valign': 'vcenter'
         })
         
         yellow_time_format = workbook.add_format({
@@ -522,7 +528,66 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             'border': 1, 
             'bold': True,
             'num_format': '[h]:mm',
-            'align': 'right'
+            'align': 'right',
+            'valign': 'vcenter'
+        })
+        
+        green_format = workbook.add_format({
+            'bg_color': '#C6EFCE',
+            'border': 1,
+            'bold': True,
+            'align': 'center',
+            'valign': 'vcenter',
+            'font_color': '#006100'
+        })
+        
+        green_number_format = workbook.add_format({
+            'bg_color': '#C6EFCE',
+            'border': 1,
+            'bold': True,
+            'num_format': '0.00',
+            'align': 'right',
+            'valign': 'vcenter',
+            'font_color': '#006100'
+        })
+        
+        green_time_format = workbook.add_format({
+            'bg_color': '#C6EFCE',
+            'border': 1,
+            'bold': True,
+            'num_format': '[h]:mm',
+            'align': 'right',
+            'valign': 'vcenter',
+            'font_color': '#006100'
+        })
+        
+        red_format = workbook.add_format({
+            'bg_color': '#FFC7CE',
+            'border': 1,
+            'bold': True,
+            'align': 'center',
+            'valign': 'vcenter',
+            'font_color': '#9C0006'
+        })
+        
+        red_number_format = workbook.add_format({
+            'bg_color': '#FFC7CE',
+            'border': 1,
+            'bold': True,
+            'num_format': '0.00',
+            'align': 'right',
+            'valign': 'vcenter',
+            'font_color': '#9C0006'
+        })
+        
+        red_time_format = workbook.add_format({
+            'bg_color': '#FFC7CE',
+            'border': 1,
+            'bold': True,
+            'num_format': '[h]:mm',
+            'align': 'right',
+            'valign': 'vcenter',
+            'font_color': '#9C0006'
         })
         
         # Detay sayfası için formatlar
@@ -592,7 +657,7 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         if logo_data is not None:
             try:
                 temp_logo = BytesIO(logo_data['data'])
-                summary_sheet.insert_image(row, 7, "logo", {
+                summary_sheet.insert_image(row, 8, "logo", {
                     'image_data': temp_logo,
                     'x_scale': 0.3,
                     'y_scale': 0.3,
@@ -605,17 +670,17 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         # Rapor bilgileri
         summary_sheet.write(row, 0, "Projects:", header_format)
         summary_sheet.write(row, 1, sanitize_excel_cell(projects), info_format)
-        summary_sheet.merge_range(row, 1, row, 6, sanitize_excel_cell(projects), info_format)
+        summary_sheet.merge_range(row, 1, row, 7, sanitize_excel_cell(projects), info_format)
         row += 1
         
         summary_sheet.write(row, 0, "Customers:", header_format)
         summary_sheet.write(row, 1, sanitize_excel_cell(customers), info_format)
-        summary_sheet.merge_range(row, 1, row, 6, sanitize_excel_cell(customers), info_format)
+        summary_sheet.merge_range(row, 1, row, 7, sanitize_excel_cell(customers), info_format)
         row += 1
         
         summary_sheet.write(row, 0, "Period:", header_format)
         summary_sheet.write(row, 1, sanitize_excel_cell(report_period), info_format)
-        summary_sheet.merge_range(row, 1, row, 6, sanitize_excel_cell(report_period), info_format)
+        summary_sheet.merge_range(row, 1, row, 7, sanitize_excel_cell(report_period), info_format)
         row += 2
         
         # Kullanıcı bazında özet
@@ -623,38 +688,128 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             user_df = df[df["User"] == user].copy()
             
             summary_sheet.write(row, 0, sanitize_excel_cell(f"User: {user}"), header_format)
-            summary_sheet.merge_range(row, 0, row, 1, sanitize_excel_cell(f"User: {user}"), header_format)
+            summary_sheet.merge_range(row, 0, row, 5, sanitize_excel_cell(f"User: {user}"), header_format)
             row += 1
             
-            # Günlük özet
-            grouped = user_df.groupby("Day")["formatted_duration"].sum().reindex(all_days_str, fill_value=0)
-            
+            # Tablo başlıkları
             summary_sheet.write(row, 0, "Day", header_format)
-            summary_sheet.write(row, 1, "Duration", header_format)
+            summary_sheet.write(row, 1, "Project", header_format)
+            summary_sheet.write(row, 2, "Client", header_format)
+            summary_sheet.write(row, 3, "Description", header_format)
+            summary_sheet.write(row, 4, "Billable", header_format)
+            summary_sheet.write(row, 5, "Duration", header_format)
             row += 1
             
-            for day, duration in grouped.items():
-                summary_sheet.write(row, 0, sanitize_excel_cell(day), cell_format)
+            # Günlük detaylar
+            for day in all_days_str:
+                day_df = user_df[user_df["Day"] == day]
                 
-                if format_choice == "hours":
-                    summary_sheet.write_number(row, 1, duration, time_format)
-                else:
-                    summary_sheet.write_number(row, 1, duration, number_format)
-                row += 1
+                if day_df.empty:
+                    continue
+                
+                # Günü ilk satıra yaz
+                first_row_of_day = row
+                rows_in_day = 0
+                
+                # Her proje için
+                for project in day_df["Project"].unique():
+                    project_df = day_df[day_df["Project"] == project]
+                    
+                    for client in project_df["Client"].unique():
+                        client_df = project_df[project_df["Client"] == client]
+                        
+                        # Benzersiz description'ları al
+                        unique_descriptions = []
+                        for desc in client_df["Description"].tolist():
+                            desc_str = str(desc).strip()
+                            if desc_str and desc_str not in unique_descriptions and desc_str != 'nan':
+                                unique_descriptions.append(desc_str)
+                        
+                        # Description'ları birleştir
+                        combined_description = " | ".join(unique_descriptions) if unique_descriptions else ""
+                        
+                        # Billable durumunu kontrol et
+                        billable_count = (client_df["Billable"] == "Yes").sum()
+                        non_billable_count = (client_df["Billable"] == "No").sum()
+                        
+                        if billable_count > 0 and non_billable_count > 0:
+                            billable_status = "Mixed"
+                        elif billable_count > 0:
+                            billable_status = "Yes"
+                        else:
+                            billable_status = "No"
+                        
+                        # Toplam süre
+                        total_duration = client_df["formatted_duration"].sum()
+                        
+                        # Satıra yaz
+                        if rows_in_day == 0:
+                            summary_sheet.write(row, 0, sanitize_excel_cell(day), cell_format)
+                        else:
+                            summary_sheet.write(row, 0, "", cell_format)
+                        
+                        summary_sheet.write(row, 1, sanitize_excel_cell(str(project)), cell_format)
+                        summary_sheet.write(row, 2, sanitize_excel_cell(str(client)), cell_format)
+                        summary_sheet.write(row, 3, sanitize_excel_cell(combined_description), cell_format)
+                        summary_sheet.write(row, 4, sanitize_excel_cell(billable_status), cell_center_format)
+                        
+                        if format_choice == "hours":
+                            summary_sheet.write_number(row, 5, total_duration, time_format)
+                        else:
+                            summary_sheet.write_number(row, 5, total_duration, number_format)
+                        
+                        row += 1
+                        rows_in_day += 1
+                
+                # Eğer aynı gün için birden fazla satır varsa, Day kolonunu birleştir
+                if rows_in_day > 1:
+                    summary_sheet.merge_range(first_row_of_day, 0, row - 1, 0, sanitize_excel_cell(day), cell_format)
             
-            # Total
-            total = grouped.sum()
-            summary_sheet.write(row, 0, "TOTAL", yellow_format)
+            # Kullanıcı için toplamlar
+            row += 1
             
+            # Billable ve Non-Billable hesaplamaları
+            billable_df = user_df[user_df["Billable"] == "Yes"]
+            non_billable_df = user_df[user_df["Billable"] == "No"]
+            
+            total_billable = billable_df["formatted_duration"].sum()
+            total_non_billable = non_billable_df["formatted_duration"].sum()
+            total_overall = user_df["formatted_duration"].sum()
+            
+            # Billable Total
+            summary_sheet.write(row, 0, "BILLABLE TOTAL", green_format)
+            summary_sheet.merge_range(row, 0, row, 4, "BILLABLE TOTAL", green_format)
             if format_choice == "hours":
-                summary_sheet.write_number(row, 1, total, yellow_time_format)
+                summary_sheet.write_number(row, 5, total_billable, green_time_format)
             else:
-                summary_sheet.write_number(row, 1, total, yellow_number_format)
+                summary_sheet.write_number(row, 5, total_billable, green_number_format)
+            row += 1
+            
+            # Non-Billable Total
+            summary_sheet.write(row, 0, "NON-BILLABLE TOTAL", red_format)
+            summary_sheet.merge_range(row, 0, row, 4, "NON-BILLABLE TOTAL", red_format)
+            if format_choice == "hours":
+                summary_sheet.write_number(row, 5, total_non_billable, red_time_format)
+            else:
+                summary_sheet.write_number(row, 5, total_non_billable, red_number_format)
+            row += 1
+            
+            # Grand Total
+            summary_sheet.write(row, 0, "GRAND TOTAL", yellow_format)
+            summary_sheet.merge_range(row, 0, row, 4, "GRAND TOTAL", yellow_format)
+            if format_choice == "hours":
+                summary_sheet.write_number(row, 5, total_overall, yellow_time_format)
+            else:
+                summary_sheet.write_number(row, 5, total_overall, yellow_number_format)
             row += 2
         
         # Kolon genişlikleri
-        summary_sheet.set_column(0, 0, 35)
-        summary_sheet.set_column(1, 1, 15)
+        summary_sheet.set_column(0, 0, 22)  # Day
+        summary_sheet.set_column(1, 1, 25)  # Project
+        summary_sheet.set_column(2, 2, 20)  # Client
+        summary_sheet.set_column(3, 3, 50)  # Description
+        summary_sheet.set_column(4, 4, 12)  # Billable
+        summary_sheet.set_column(5, 5, 15)  # Duration
         
         # ============== SAYFA 2: DETAYLI RAPOR ==============
         detail_sheet = workbook.add_worksheet("Detailed Report")
