@@ -684,6 +684,18 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         # ============== SAYFA 1: ÖZET RAPOR ==============
         summary_sheet = workbook.add_worksheet("Summary Report")
         
+        # Yazdırma ayarları - Yatay olarak 1 sayfaya sığdır
+        summary_sheet.fit_to_pages(1, 0)  # 1 sayfa genişlik, sınırsız yükseklik
+        summary_sheet.set_landscape()  # Yatay yazdırma
+        summary_sheet.set_paper(9)  # A4 kağıt
+        summary_sheet.center_horizontally()  # Yatay merkezle
+        
+        # Yazdırma alanı kenar boşlukları
+        summary_sheet.set_margins(left=0.5, right=0.5, top=0.75, bottom=0.75)
+        
+        # Başlık satırlarını her sayfada tekrarla
+        summary_sheet.repeat_rows(0, 3)
+        
         row = 0
         
         # Logo varsa ekle
@@ -846,25 +858,40 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             summary_sheet.set_row(row, 22)
             row += 3
         
+        # Yazdırma alanını ayarla (A'dan D'ye kadar)
+        summary_sheet.print_area(0, 0, row - 1, 3)
+        
         # Kolon genişlikleri
-        summary_sheet.set_column(0, 0, 22)  # Day
-        summary_sheet.set_column(1, 1, 70)  # Description (çok geniş)
-        summary_sheet.set_column(2, 2, 12)  # Billable
-        summary_sheet.set_column(3, 3, 15)  # Duration
+        summary_sheet.set_column(0, 0, 18)  # Day
+        summary_sheet.set_column(1, 1, 55)  # Description
+        summary_sheet.set_column(2, 2, 10)  # Billable
+        summary_sheet.set_column(3, 3, 12)  # Duration
         
         # ============== SAYFA 2: DETAYLI RAPOR ==============
         detail_sheet = workbook.add_worksheet("Detailed Report")
+        
+        # Yazdırma ayarları - Yatay olarak 1 sayfaya sığdır
+        detail_sheet.fit_to_pages(1, 0)  # 1 sayfa genişlik, sınırsız yükseklik
+        detail_sheet.set_landscape()  # Yatay yazdırma
+        detail_sheet.set_paper(9)  # A4 kağıt
+        detail_sheet.center_horizontally()  # Yatay merkezle
+        
+        # Yazdırma alanı kenar boşlukları
+        detail_sheet.set_margins(left=0.5, right=0.5, top=0.75, bottom=0.75)
+        
+        # Başlık satırlarını her sayfada tekrarla
+        detail_sheet.repeat_rows(0, 2)
         
         detail_row = 0
         
         # Başlık
         detail_sheet.write(detail_row, 0, "Detailed Time Report", header_format)
-        detail_sheet.merge_range(detail_row, 0, detail_row, 7, "Detailed Time Report", header_format)
+        detail_sheet.merge_range(detail_row, 0, detail_row, 6, "Detailed Time Report", header_format)
         detail_sheet.set_row(detail_row, 25)
         detail_row += 1
         
         detail_sheet.write(detail_row, 0, sanitize_excel_cell(f"Period: {report_period}"), info_format)
-        detail_sheet.merge_range(detail_row, 0, detail_row, 7, sanitize_excel_cell(f"Period: {report_period}"), info_format)
+        detail_sheet.merge_range(detail_row, 0, detail_row, 6, sanitize_excel_cell(f"Period: {report_period}"), info_format)
         detail_sheet.set_row(detail_row, 20)
         detail_row += 2
         
@@ -880,7 +907,7 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             
             # Tarih başlığı
             detail_sheet.write(detail_row, 0, sanitize_excel_cell(f"Date: {date_value}"), detail_date_header_format)
-            detail_sheet.merge_range(detail_row, 0, detail_row, 7, sanitize_excel_cell(f"Date: {date_value}"), detail_date_header_format)
+            detail_sheet.merge_range(detail_row, 0, detail_row, 6, sanitize_excel_cell(f"Date: {date_value}"), detail_date_header_format)
             detail_sheet.set_row(detail_row, 22)
             detail_row += 1
             
@@ -893,7 +920,7 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
                 
                 # Kullanıcı başlığı
                 detail_sheet.write(detail_row, 0, sanitize_excel_cell(f"User: {user_value}"), detail_date_header_format)
-                detail_sheet.merge_range(detail_row, 0, detail_row, 7, sanitize_excel_cell(f"User: {user_value}"), detail_date_header_format)
+                detail_sheet.merge_range(detail_row, 0, detail_row, 6, sanitize_excel_cell(f"User: {user_value}"), detail_date_header_format)
                 detail_sheet.set_row(detail_row, 20)
                 detail_row += 1
                 
@@ -940,14 +967,17 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             # Tarih için boş satır ekle
             detail_row += 1
         
+        # Yazdırma alanını ayarla
+        detail_sheet.print_area(0, 0, detail_row - 1, 6)
+        
         # Detay sayfası kolon genişlikleri
-        detail_sheet.set_column(0, 0, 28)  # Project
-        detail_sheet.set_column(1, 1, 20)  # Client
-        detail_sheet.set_column(2, 2, 12)  # Start Time
-        detail_sheet.set_column(3, 3, 12)  # End Time
-        detail_sheet.set_column(4, 4, 12)  # Duration
-        detail_sheet.set_column(5, 5, 60)  # Description (çok geniş + text wrap)
-        detail_sheet.set_column(6, 6, 10)  # Billable
+        detail_sheet.set_column(0, 0, 22)  # Project
+        detail_sheet.set_column(1, 1, 15)  # Client
+        detail_sheet.set_column(2, 2, 10)  # Start Time
+        detail_sheet.set_column(3, 3, 10)  # End Time
+        detail_sheet.set_column(4, 4, 10)  # Duration
+        detail_sheet.set_column(5, 5, 45)  # Description
+        detail_sheet.set_column(6, 6, 8)   # Billable
     
     output.seek(0)
     return output
