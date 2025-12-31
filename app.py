@@ -686,7 +686,7 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         summary_sheet.set_landscape()
         summary_sheet.set_paper(9)
         summary_sheet.center_horizontally()
-        summary_sheet.set_margins(left=0.25, right=0.25, top=0.5, bottom=0.5)
+        summary_sheet.set_margins(left=0.25, right=0.25, top=0.5, bottom=0.5)  # Margins'i azaltın (daha fazla yatay alan için)
         summary_sheet.repeat_rows(0, 3)
         
         row = 0
@@ -825,25 +825,28 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             summary_sheet.set_row(row, 22)
             row += 3  # Sonraki user için boşluk
         
-        # Kolon genişlikleri (artırarak sayfayı doldurun)
-        summary_sheet.set_column(0, 0, 25)  # Day - Daha geniş
-        summary_sheet.set_column(1, 1, 100) # Description - En geniş sütun, içeriği sarmasın diye artırın
-        summary_sheet.set_column(2, 2, 15)  # Billable - Orta genişlik
-        summary_sheet.set_column(3, 3, 15)  # Duration - Orta genişlik
-        summary_sheet.set_column(4, 4, 0)   # Boşluk - Gizleyin (genişlik 0)
-
-        # Print area'yi 0-3'e indirin (Col 4 gizli olduğu için)
+        # Yazdırma alanı (A-D kolonları, Col 4 gizli)
         summary_sheet.print_area(0, 0, row - 1, 3)
+        
+        # Dinamik sütun genişlikleri (Summary Sheet)
+        # Description sütunu için maksimum uzunluğu bul
+        max_desc_length_summary = max(len(" | ".join(set(str(desc).strip() for desc in user_df["Description"] if str(desc).strip() != 'nan')) if "Description" in user_df else 0) for user in df["User"].unique() for user_df in [df[df["User"] == user]])
+        desc_width_summary = max(80, min(150, max_desc_length_summary // 2))  # Min 80, max 150 olarak sınırlı
+        
+        summary_sheet.set_column(0, 0, 25)  # Day - Sabit minimum
+        summary_sheet.set_column(1, 1, desc_width_summary)  # Description - Dinamik
+        summary_sheet.set_column(2, 2, 15)  # Billable - Sabit minimum
+        summary_sheet.set_column(3, 3, 15)  # Duration - Sabit minimum
+        summary_sheet.set_column(4, 4, 0)   # Boşluk - Gizleyin (genişlik 0)
         
         # ============== SAYFA 2: DETAYLI RAPOR ==============
         detail_sheet = workbook.add_worksheet("Detailed Report")
         
         # Yazdırma ayarları
-        detail_sheet.fit_to_pages(1, 0)
         detail_sheet.set_landscape()
         detail_sheet.set_paper(9)
         detail_sheet.center_horizontally()
-        detail_sheet.set_margins(left=0.5, right=0.5, top=0.75, bottom=0.75)
+        detail_sheet.set_margins(left=0.25, right=0.25, top=0.5, bottom=0.5)  # Margins'i azaltın
         detail_sheet.repeat_rows(0, 2)
         
         detail_row = 0
@@ -945,15 +948,19 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             # Tarih için boş satır
             detail_row += 1
         
-        # Kolon genişlikleri (artırarak sayfayı doldurun)
-        detail_sheet.set_column(0, 0, 20)  # Start Time - Daha geniş
-        detail_sheet.set_column(1, 1, 20)  # End Time - Daha geniş
-        detail_sheet.set_column(2, 2, 20)  # Duration - Daha geniş
-        detail_sheet.set_column(3, 3, 100) # Description - En geniş sütun, içeriği sarmasın diye artırın
-        detail_sheet.set_column(4, 4, 15)  # Billable - Orta genişlik
-
-        # Print area aynı kalsın (0-4)
+        # Yazdırma alanı (A-E kolonları)
         detail_sheet.print_area(0, 0, detail_row - 1, 4)
+        
+        # Dinamik sütun genişlikleri (Detailed Sheet)
+        # Description sütunu için maksimum uzunluğu bul
+        max_desc_length_detail = max(len(str(row.get('Description', ''))) for idx, row in df.iterrows()) if 'Description' in df else 50
+        desc_width_detail = max(80, min(150, max_desc_length_detail // 2))  # Min 80, max 150 olarak sınırlı
+        
+        detail_sheet.set_column(0, 0, 20)  # Start Time - Sabit minimum
+        detail_sheet.set_column(1, 1, 20)  # End Time - Sabit minimum
+        detail_sheet.set_column(2, 2, 20)  # Duration - Sabit minimum
+        detail_sheet.set_column(3, 3, desc_width_detail)  # Description - Dinamik
+        detail_sheet.set_column(4, 4, 15)  # Billable - Sabit minimum
     
     output.seek(0)
     return output
