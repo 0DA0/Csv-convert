@@ -683,11 +683,10 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         summary_sheet = workbook.add_worksheet("Summary Report")
         
         # Yazdırma ayarları
-        summary_sheet.fit_to_pages(1, 0)
         summary_sheet.set_landscape()
         summary_sheet.set_paper(9)
         summary_sheet.center_horizontally()
-        summary_sheet.set_margins(left=0.5, right=0.5, top=0.75, bottom=0.75)
+        summary_sheet.set_margins(left=0.25, right=0.25, top=0.5, bottom=0.5)
         summary_sheet.repeat_rows(0, 3)
         
         row = 0
@@ -826,15 +825,15 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             summary_sheet.set_row(row, 22)
             row += 3  # Sonraki user için boşluk
         
-        # Yazdırma alanı (A-E kolonları)
-        summary_sheet.print_area(0, 0, row - 1, 4)
-        
-        # Kolon genişlikleri
-        summary_sheet.set_column(0, 0, 18)  # Day
-        summary_sheet.set_column(1, 1, 55)  # Description
-        summary_sheet.set_column(2, 2, 10)  # Billable
-        summary_sheet.set_column(3, 3, 12)  # Duration
-        summary_sheet.set_column(4, 4, 2)   # Boşluk
+        # Kolon genişlikleri (artırarak sayfayı doldurun)
+        summary_sheet.set_column(0, 0, 25)  # Day - Daha geniş
+        summary_sheet.set_column(1, 1, 100) # Description - En geniş sütun, içeriği sarmasın diye artırın
+        summary_sheet.set_column(2, 2, 15)  # Billable - Orta genişlik
+        summary_sheet.set_column(3, 3, 15)  # Duration - Orta genişlik
+        summary_sheet.set_column(4, 4, 0)   # Boşluk - Gizleyin (genişlik 0)
+
+        # Print area'yi 0-3'e indirin (Col 4 gizli olduğu için)
+        summary_sheet.print_area(0, 0, row - 1, 3)
         
         # ============== SAYFA 2: DETAYLI RAPOR ==============
         detail_sheet = workbook.add_worksheet("Detailed Report")
@@ -946,15 +945,15 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             # Tarih için boş satır
             detail_row += 1
         
-        # Yazdırma alanı (A-E kolonları)
+        # Kolon genişlikleri (artırarak sayfayı doldurun)
+        detail_sheet.set_column(0, 0, 20)  # Start Time - Daha geniş
+        detail_sheet.set_column(1, 1, 20)  # End Time - Daha geniş
+        detail_sheet.set_column(2, 2, 20)  # Duration - Daha geniş
+        detail_sheet.set_column(3, 3, 100) # Description - En geniş sütun, içeriği sarmasın diye artırın
+        detail_sheet.set_column(4, 4, 15)  # Billable - Orta genişlik
+
+        # Print area aynı kalsın (0-4)
         detail_sheet.print_area(0, 0, detail_row - 1, 4)
-        
-        # Kolon genişlikleri
-        detail_sheet.set_column(0, 0, 12)  # Start Time
-        detail_sheet.set_column(1, 1, 12)  # End Time
-        detail_sheet.set_column(2, 2, 12)  # Duration
-        detail_sheet.set_column(3, 3, 50)  # Description
-        detail_sheet.set_column(4, 4, 10)  # Billable
     
     output.seek(0)
     return output
