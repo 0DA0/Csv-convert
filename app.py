@@ -687,7 +687,7 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         summary_sheet.set_landscape()
         summary_sheet.set_paper(9)
         summary_sheet.center_horizontally()
-        summary_sheet.set_margins(left=0.5, right=0.5, top=0.75, bottom=0.75)
+        summary_sheet.set_margins(left=0.25, right=0.25, top=0.5, bottom=0.5)
         summary_sheet.repeat_rows(0, 3)
         
         row = 0
@@ -844,7 +844,7 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         detail_sheet.set_landscape()
         detail_sheet.set_paper(9)
         detail_sheet.center_horizontally()
-        detail_sheet.set_margins(left=0.5, right=0.5, top=0.75, bottom=0.75)
+        detail_sheet.set_margins(left=0.25, right=0.25, top=0.5, bottom=0.5)
         detail_sheet.repeat_rows(0, 2)
         
         detail_row = 0
