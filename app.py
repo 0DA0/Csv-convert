@@ -681,13 +681,12 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         # ============== SAYFA 1: ÖZET RAPOR ==============
         summary_sheet = workbook.add_worksheet("Summary Report")
         
-        # Yazdırma ayarları
+        # Yazdırma ayarları - repeat_rows KALDIRILDI
         summary_sheet.fit_to_pages(1, 0)
         summary_sheet.set_landscape()
         summary_sheet.set_paper(9)
         summary_sheet.center_horizontally()
         summary_sheet.set_margins(left=0.3, right=0.3, top=0.5, bottom=0.5)
-        summary_sheet.repeat_rows(0, 2)
         
         row = 0
         
@@ -837,13 +836,12 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         # ============== SAYFA 2: DETAYLI RAPOR ==============
         detail_sheet = workbook.add_worksheet("Detailed Report")
         
-        # Yazdırma ayarları
+        # Yazdırma ayarları - repeat_rows KALDIRILDI
         detail_sheet.fit_to_pages(1, 0)
         detail_sheet.set_landscape()
         detail_sheet.set_paper(9)
         detail_sheet.center_horizontally()
         detail_sheet.set_margins(left=0.3, right=0.3, top=0.5, bottom=0.5)
-        detail_sheet.repeat_rows(0, 4)
         
         detail_row = 0
         
