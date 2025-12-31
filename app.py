@@ -408,12 +408,23 @@ def convert():
         overall_projects = ", ".join(df["Project"].dropna().unique())
         overall_customers = ", ".join(df["Client"].dropna().unique())
         
-        # Logo bilgisini hazırla
+        # Logo ve şirket bilgilerini hazırla
         logo_data = None
-        if current_user.user_type == 'company' and current_user.has_logo():
-            logo_data = {
-                'data': current_user.company_profile.get('logo_data'),
-                'mimetype': current_user.company_profile.get('logo_mimetype', 'image/png')
+        company_info = None
+        
+        if current_user.user_type == 'company':
+            # Şirket hesabı - logo ve şirket bilgileri
+            if current_user.has_logo():
+                logo_data = {
+                    'data': current_user.company_profile.get('logo_data'),
+                    'mimetype': current_user.company_profile.get('logo_mimetype', 'image/png')
+                }
+            
+            company_info = {
+                'company_name': current_user.company_profile.get('company_name', ''),
+                'contact_person': current_user.company_profile.get('contact_person', ''),
+                'phone': current_user.company_profile.get('phone', ''),
+                'address': current_user.company_profile.get('address', '')
             }
         
         # Tarihleri parse et
@@ -432,7 +443,7 @@ def convert():
         
         # Excel oluşturma
         output = generate_excel_report(df, selected_schema, format_choice, report_period, 
-                                      overall_projects, overall_customers, logo_data)
+                                      overall_projects, overall_customers, logo_data, company_info)
         
         # Dosya adı
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -450,7 +461,7 @@ def convert():
         flash(f'An error occurred: {str(e)}', 'error')
         return redirect(url_for('dashboard'))
     
-def generate_excel_report(df, schema, format_choice, report_period, projects, customers, logo_data=None):
+def generate_excel_report(df, schema, format_choice, report_period, projects, customers, logo_data=None, company_info=None):
     """Excel raporu oluşturur - Hem özet hem detaylı sayfa ile"""
     output = BytesIO()
     
@@ -681,7 +692,7 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         # ============== SAYFA 1: ÖZET RAPOR ==============
         summary_sheet = workbook.add_worksheet("Summary Report")
         
-        # Yazdırma ayarları - repeat_rows KALDIRILDI
+        # Yazdırma ayarları
         summary_sheet.fit_to_pages(1, 0)
         summary_sheet.set_landscape()
         summary_sheet.set_paper(9)
@@ -690,8 +701,52 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         
         row = 0
         
-        # Logo varsa ekle (E kolonuna)
-        if logo_data is not None:
+        # Şirket bilgileri ve logo (varsa)
+        if company_info:
+            # Logo varsa ekle (E kolonuna)
+            if logo_data is not None:
+                try:
+                    temp_logo = BytesIO(logo_data['data'])
+                    summary_sheet.insert_image(row, 4, "logo", {
+                        'image_data': temp_logo,
+                        'x_scale': 0.3,
+                        'y_scale': 0.3,
+                        'x_offset': 10,
+                        'y_offset': 5
+                    })
+                except Exception as e:
+                    pass
+            
+            # Şirket adı
+            summary_sheet.write(row, 0, "Company:", header_format)
+            summary_sheet.merge_range(row, 1, row, 3, sanitize_excel_cell(company_info.get('company_name', '')), info_format)
+            summary_sheet.set_row(row, 18)
+            row += 1
+            
+            # İletişim kişisi (varsa)
+            if company_info.get('contact_person'):
+                summary_sheet.write(row, 0, "Contact:", header_format)
+                summary_sheet.merge_range(row, 1, row, 3, sanitize_excel_cell(company_info.get('contact_person', '')), info_format)
+                summary_sheet.set_row(row, 18)
+                row += 1
+            
+            # Telefon (varsa)
+            if company_info.get('phone'):
+                summary_sheet.write(row, 0, "Phone:", header_format)
+                summary_sheet.merge_range(row, 1, row, 3, sanitize_excel_cell(company_info.get('phone', '')), info_format)
+                summary_sheet.set_row(row, 18)
+                row += 1
+            
+            # Adres (varsa)
+            if company_info.get('address'):
+                summary_sheet.write(row, 0, "Address:", header_format)
+                summary_sheet.merge_range(row, 1, row, 3, sanitize_excel_cell(company_info.get('address', '')), info_format)
+                summary_sheet.set_row(row, 18)
+                row += 1
+            
+            row += 1  # Boşluk
+        elif logo_data is not None:
+            # Bireysel kullanıcı - sadece logo
             try:
                 temp_logo = BytesIO(logo_data['data'])
                 summary_sheet.insert_image(row, 4, "logo", {
@@ -704,7 +759,7 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             except Exception as e:
                 pass
         
-        # Genel Rapor bilgileri - EN BAŞTA BİR KERE
+        # Genel Rapor bilgileri
         summary_sheet.write(row, 0, "Projects:", header_format)
         summary_sheet.merge_range(row, 1, row, 3, sanitize_excel_cell(projects), info_format)
         summary_sheet.set_row(row, 18)
@@ -828,15 +883,15 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         summary_sheet.print_area(0, 0, row - 1, 3)
         
         # Kolon genişlikleri
-        summary_sheet.set_column(0, 0, 16)  # Day
-        summary_sheet.set_column(1, 1, 50)  # Description
+        summary_sheet.set_column(0, 0, 16)  # Day / Label
+        summary_sheet.set_column(1, 1, 50)  # Description / Value
         summary_sheet.set_column(2, 2, 10)  # Billable
         summary_sheet.set_column(3, 3, 12)  # Duration
         
         # ============== SAYFA 2: DETAYLI RAPOR ==============
         detail_sheet = workbook.add_worksheet("Detailed Report")
         
-        # Yazdırma ayarları - repeat_rows KALDIRILDI
+        # Yazdırma ayarları
         detail_sheet.fit_to_pages(1, 0)
         detail_sheet.set_landscape()
         detail_sheet.set_paper(9)
@@ -845,11 +900,39 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         
         detail_row = 0
         
-        # Başlık - Period, Projects, Clients SADECE EN BAŞTA
+        # Başlık
         detail_sheet.merge_range(detail_row, 0, detail_row, 4, "Detailed Time Report", header_format)
         detail_sheet.set_row(detail_row, 22)
         detail_row += 1
         
+        # Şirket bilgileri (varsa)
+        if company_info:
+            detail_sheet.write(detail_row, 0, "Company:", header_format)
+            detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(company_info.get('company_name', '')), info_format)
+            detail_sheet.set_row(detail_row, 18)
+            detail_row += 1
+            
+            if company_info.get('contact_person'):
+                detail_sheet.write(detail_row, 0, "Contact:", header_format)
+                detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(company_info.get('contact_person', '')), info_format)
+                detail_sheet.set_row(detail_row, 18)
+                detail_row += 1
+            
+            if company_info.get('phone'):
+                detail_sheet.write(detail_row, 0, "Phone:", header_format)
+                detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(company_info.get('phone', '')), info_format)
+                detail_sheet.set_row(detail_row, 18)
+                detail_row += 1
+            
+            if company_info.get('address'):
+                detail_sheet.write(detail_row, 0, "Address:", header_format)
+                detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(company_info.get('address', '')), info_format)
+                detail_sheet.set_row(detail_row, 18)
+                detail_row += 1
+            
+            detail_row += 1  # Boşluk
+        
+        # Period, Projects, Clients
         detail_sheet.write(detail_row, 0, "Period:", header_format)
         detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(report_period), info_format)
         detail_sheet.set_row(detail_row, 18)
