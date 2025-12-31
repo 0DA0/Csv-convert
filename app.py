@@ -74,16 +74,20 @@ class User(UserMixin):
     def has_logo(self):
         """Check if company has logo"""
         if self.user_type == 'company':
-            return self.company_profile.get('logo_data') is not None
+            company_profile = self.company_profile
+            return company_profile.get('logo_data') is not None
         return False
     
     def get_logo_base64(self):
         """Get logo as base64 string for HTML display"""
         if self.user_type == 'company' and self.has_logo():
-            logo_data = self.company_profile.get('logo_data')
-            logo_mimetype = self.company_profile.get('logo_mimetype', 'image/png')
-            encoded = base64.b64encode(logo_data).decode('utf-8')
-            return f"data:{logo_mimetype};base64,{encoded}"
+            company_profile = self.company_profile
+            logo_data = company_profile.get('logo_data')
+            logo_mimetype = company_profile.get('logo_mimetype', 'image/png')
+            
+            if logo_data:
+                encoded = base64.b64encode(logo_data).decode('utf-8')
+                return f"data:{logo_mimetype};base64,{encoded}"
         return None
 
 # ============== Login Manager ==============
@@ -294,8 +298,10 @@ def profile():
                 logo_file.seek(0)
                 
                 if file_size <= 2 * 1024 * 1024:  # 2MB
-                    update_data['company_profile.logo_data'] = logo_file.read()
-                    update_data['company_profile.logo_mimetype'] = logo_file.content_type
+                    logo_data = logo_file.read()
+                    if logo_data:  # Boş değilse
+                        update_data['company_profile.logo_data'] = logo_data
+                        update_data['company_profile.logo_mimetype'] = logo_file.content_type
                 else:
                     flash('Logo file size must be less than 2MB.', 'error')
                     return redirect(url_for('profile'))
@@ -309,7 +315,19 @@ def profile():
         flash('Profile updated successfully!', 'success')
         return redirect(url_for('profile'))
     
-    return render_template('profile.html')
+    # GET request - logo bilgisini çek
+    logo_base64 = None
+    if current_user.user_type == 'company':
+        user_doc = mongo.db.users.find_one({'_id': ObjectId(current_user.id)})
+        if user_doc and 'company_profile' in user_doc:
+            company_profile = user_doc['company_profile']
+            if 'logo_data' in company_profile and company_profile['logo_data']:
+                logo_data = company_profile['logo_data']
+                logo_mimetype = company_profile.get('logo_mimetype', 'image/png')
+                encoded = base64.b64encode(logo_data).decode('utf-8')
+                logo_base64 = f"data:{logo_mimetype};base64,{encoded}"
+    
+    return render_template('profile.html', logo_base64=logo_base64)
 
 # ============== CSV Önizleme API ==============
 
@@ -408,13 +426,18 @@ def convert():
         overall_projects = ", ".join(df["Project"].dropna().unique())
         overall_customers = ", ".join(df["Client"].dropna().unique())
         
-        # Logo bilgisini hazırla
+        # Logo bilgisini hazırla - DÜZELTİLDİ
         logo_data = None
-        if current_user.user_type == 'company' and current_user.has_logo():
-            logo_data = {
-                'data': current_user.company_profile.get('logo_data'),
-                'mimetype': current_user.company_profile.get('logo_mimetype', 'image/png')
-            }
+        if current_user.user_type == 'company':
+            # MongoDB'den kullanıcı bilgisini yeniden çek (güncel logo için)
+            user_doc = mongo.db.users.find_one({'_id': ObjectId(current_user.id)})
+            if user_doc and 'company_profile' in user_doc:
+                company_profile = user_doc['company_profile']
+                if 'logo_data' in company_profile and company_profile['logo_data']:
+                    logo_data = {
+                        'data': company_profile['logo_data'],
+                        'mimetype': company_profile.get('logo_mimetype', 'image/png')
+                    }
         
         # Tarihleri parse et
         df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
