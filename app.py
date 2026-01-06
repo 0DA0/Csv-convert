@@ -1370,7 +1370,7 @@ def generate_pdf_report(df, format_choice, report_period, projects, customers, l
     # PDF'i oluştur
     doc.build(story)
     output.seek(0)
-    return output</parameter>
+    return output
 
 
 # ============== Hata Yönetimi ==============
