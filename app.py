@@ -15,6 +15,15 @@ import calendar
 from functools import wraps
 import base64
 
+# PDF imports
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image as RLImage
+from reportlab.pdfgen import canvas
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+
 # ============== Flask Yapılandırması ==============
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -132,35 +141,6 @@ def round_to_nearest_minute(seconds):
     rounded_minutes = round(minutes)
     return rounded_minutes * 60
 
-# ============== Rapor Şemaları ==============
-
-REPORT_SCHEMAS = {
-    'classic': {
-        'name': 'Classic Report',
-        'description': 'Traditional timesheet format with daily breakdown',
-        'columns': ['Day', 'Total Duration', 'Projects'],
-        'show_details': True
-    },
-    'minimalist': {
-        'name': 'Minimalist Report',
-        'description': 'Clean and simple format focusing on totals',
-        'columns': ['Day', 'Total Duration'],
-        'show_details': False
-    },
-    'detailed': {
-        'name': 'Detailed Report',
-        'description': 'Comprehensive report with all information',
-        'columns': ['Day', 'Total Duration', 'Projects', 'Descriptions', 'Billable Status'],
-        'show_details': True
-    },
-    'project_focused': {
-        'name': 'Project-Focused Report',
-        'description': 'Organized by projects first',
-        'columns': ['Project', 'Day', 'Duration', 'Description'],
-        'show_details': True
-    }
-}
-
 # ============== Routes ==============
 
 @app.route('/')
@@ -262,7 +242,7 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    return render_template('dashboard.html', schemas=REPORT_SCHEMAS)
+    return render_template('dashboard.html')
 
 # ============== Profil Yönetimi ==============
 
@@ -378,12 +358,11 @@ def convert():
         df["Billable"].fillna("No", inplace=True)
         
         # Filtreleri al
-        selected_schema = request.form.get('schema', 'classic')
-        selected_columns = request.form.getlist('selected_columns[]')
         selected_projects = request.form.getlist('projectSelect[]')
         selected_clients = request.form.getlist('clientSelect[]')
         selected_users = request.form.getlist('userSelect[]')
         format_choice = request.form.get('formatSelect', 'decimal')
+        export_format = request.form.get('exportFormat', 'excel')  # excel veya pdf
         
         # "All" seçeneklerini filtrele
         selected_projects = [p for p in selected_projects if p and 'All' not in p]
@@ -391,7 +370,6 @@ def convert():
         selected_users = [u for u in selected_users if u and 'All' not in u]
         
         # Filtreleri uygula
-        original_df = df.copy()
         if selected_projects:
             df = df[df["Project"].isin(selected_projects)]
         if selected_clients:
@@ -413,7 +391,6 @@ def convert():
         company_info = None
         
         if current_user.user_type == 'company':
-            # Şirket hesabı - logo ve şirket bilgileri
             if current_user.has_logo():
                 logo_data = {
                     'data': current_user.company_profile.get('logo_data'),
@@ -441,17 +418,25 @@ def convert():
         else:
             report_period = "All Data"
         
-        # Excel oluşturma
-        output = generate_excel_report(df, selected_schema, format_choice, report_period, 
-                                      overall_projects, overall_customers, logo_data, company_info)
-        
-        # Dosya adı
+        # Format seçimine göre rapor oluştur
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"Report_{timestamp}.xlsx"
+        
+        if export_format == 'pdf':
+            # PDF oluştur
+            output = generate_pdf_report(df, format_choice, report_period, 
+                                        overall_projects, overall_customers, logo_data, company_info)
+            filename = f"Report_{timestamp}.pdf"
+            mimetype = 'application/pdf'
+        else:
+            # Excel oluştur (default)
+            output = generate_excel_report(df, format_choice, report_period, 
+                                          overall_projects, overall_customers, logo_data, company_info)
+            filename = f"Report_{timestamp}.xlsx"
+            mimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         
         return send_file(
             output,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            mimetype=mimetype,
             as_attachment=True,
             download_name=filename
         )
@@ -460,9 +445,11 @@ def convert():
         app.logger.error(f"Error in convert: {str(e)}\n{traceback.format_exc()}")
         flash(f'An error occurred: {str(e)}', 'error')
         return redirect(url_for('dashboard'))
-    
-def generate_excel_report(df, schema, format_choice, report_period, projects, customers, logo_data=None, company_info=None):
-    """Excel raporu oluşturur - Logo ve bilgiler tablo içinde, boşluksuz"""
+
+# ============== EXCEL RAPOR OLUŞTURMA ==============
+
+def generate_excel_report(df, format_choice, report_period, projects, customers, logo_data=None, company_info=None):
+    """Excel raporu oluşturur - Hem özet hem detaylı sayfa ile"""
     output = BytesIO()
     
     # Süreleri hesapla
@@ -712,64 +699,15 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         
         # Logo ve Şirket Bilgileri Tablosu
         if company_info or logo_data:
-            # Tablo için başlangıç
             table_start_row = row
             
-            # Şirket bilgileri varsa
             if company_info:
-                # Company Name
                 summary_sheet.write(row, 0, "Company:", info_label_format)
                 summary_sheet.merge_range(row, 1, row, 2, sanitize_excel_cell(company_info.get('company_name', '')), info_value_format)
                 summary_sheet.set_row(row, 18)
                 row += 1
-                
-                # Contact Person (varsa)
-                if company_info.get('contact_person'):
-                    summary_sheet.write(row, 0, "Contact:", info_label_format)
-                    summary_sheet.merge_range(row, 1, row, 2, sanitize_excel_cell(company_info.get('contact_person', '')), info_value_format)
-                    summary_sheet.set_row(row, 18)
-                    row += 1
-                
-                # Phone (varsa)
-                if company_info.get('phone'):
-                    summary_sheet.write(row, 0, "Phone:", info_label_format)
-                    summary_sheet.merge_range(row, 1, row, 2, sanitize_excel_cell(company_info.get('phone', '')), info_value_format)
-                    summary_sheet.set_row(row, 18)
-                    row += 1
-                
-                # Address (varsa)
-                if company_info.get('address'):
-                    summary_sheet.write(row, 0, "Address:", info_label_format)
-                    summary_sheet.merge_range(row, 1, row, 2, sanitize_excel_cell(company_info.get('address', '')), info_value_format)
-                    summary_sheet.set_row(row, 18)
-                    row += 1
-            
-            # Logo varsa - Tablo içinde D kolonuna ekle
-            if logo_data is not None:
-                try:
-                    temp_logo = BytesIO(logo_data['data'])
-                    # Logo'yu tablo içinde D kolonuna ekle (kolon 3)
-                    # Tablo başından itibaren logo yüksekliğini hesapla
-                    logo_rows = row - table_start_row if row > table_start_row else 4
-                    
-                    summary_sheet.insert_image(table_start_row, 3, "logo", {
-                        'image_data': temp_logo,
-                        'x_scale': 0.25,
-                        'y_scale': 0.25,
-                        'x_offset': 10,
-                        'y_offset': 5,
-                        'positioning': 1  # Move with cells
-                    })
-                    
-                    # D kolonuna border ekle (logo için)
-                    for i in range(table_start_row, row):
-                        summary_sheet.write(i, 3, "", info_value_format)
-                except Exception as e:
-                    pass
-            
-            row += 1  # Tablo sonrası boşluk
         
-        # Rapor Bilgileri Tablosu (boşluksuz)
+        # Rapor Bilgileri Tablosu
         summary_sheet.write(row, 0, "Projects:", info_label_format)
         summary_sheet.merge_range(row, 1, row, 2, sanitize_excel_cell(projects), info_value_format)
         if logo_data:
@@ -789,18 +727,16 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         if logo_data:
             summary_sheet.write(row, 3, "", info_value_format)
         summary_sheet.set_row(row, 18)
-        row += 2  # Tablo sonrası boşluk
+        row += 2
         
         # Kullanıcı bazında özet
         for user in sorted(df["User"].dropna().unique()):
             user_df = df[df["User"] == user].copy()
             
-            # Kullanıcı başlığı (A-D kolonları arası)
             summary_sheet.merge_range(row, 0, row, 3, sanitize_excel_cell(f"User: {user}"), user_header_format)
             summary_sheet.set_row(row, 20)
             row += 1
             
-            # Tablo başlıkları
             summary_sheet.write(row, 0, "Day", header_format)
             summary_sheet.write(row, 1, "Description", header_format)
             summary_sheet.write(row, 2, "Billable", header_format)
@@ -808,14 +744,12 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             summary_sheet.set_row(row, 18)
             row += 1
             
-            # Günlük detaylar
             for day in all_days_str:
                 day_df = user_df[user_df["Day"] == day]
                 
                 if day_df.empty:
                     continue
                 
-                # Benzersiz description'ları al
                 unique_descriptions = []
                 for desc in day_df["Description"].tolist():
                     desc_str = str(desc).strip()
@@ -824,7 +758,6 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
                 
                 combined_description = " | ".join(unique_descriptions) if unique_descriptions else ""
                 
-                # Billable durumu
                 billable_count = (day_df["Billable"] == "Yes").sum()
                 non_billable_count = (day_df["Billable"] == "No").sum()
                 
@@ -837,7 +770,6 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
                 
                 total_duration = day_df["formatted_duration"].sum()
                 
-                # Satıra yaz
                 summary_sheet.write(row, 0, sanitize_excel_cell(day), cell_format)
                 summary_sheet.write(row, 1, sanitize_excel_cell(combined_description), cell_wrap_format)
                 summary_sheet.write(row, 2, sanitize_excel_cell(billable_status), cell_center_format)
@@ -847,7 +779,6 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
                 else:
                     summary_sheet.write_number(row, 3, total_duration, number_format)
                 
-                # Satır yüksekliği
                 desc_length = len(combined_description)
                 if desc_length > 100:
                     summary_sheet.set_row(row, 60)
@@ -858,7 +789,6 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
                 
                 row += 1
             
-            # Kullanıcı için toplamlar
             row += 1
             
             billable_df = user_df[user_df["Billable"] == "Yes"]
@@ -868,7 +798,6 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             total_non_billable = non_billable_df["formatted_duration"].sum()
             total_overall = user_df["formatted_duration"].sum()
             
-            # Billable Total
             summary_sheet.merge_range(row, 0, row, 2, "BILLABLE TOTAL", green_format)
             if format_choice == "hours":
                 summary_sheet.write_number(row, 3, total_billable, green_time_format)
@@ -877,7 +806,6 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             summary_sheet.set_row(row, 20)
             row += 1
             
-            # Non-Billable Total
             summary_sheet.merge_range(row, 0, row, 2, "NON-BILLABLE TOTAL", red_format)
             if format_choice == "hours":
                 summary_sheet.write_number(row, 3, total_non_billable, red_time_format)
@@ -886,28 +814,24 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             summary_sheet.set_row(row, 20)
             row += 1
             
-            # Grand Total
             summary_sheet.merge_range(row, 0, row, 2, "GRAND TOTAL", yellow_format)
             if format_choice == "hours":
                 summary_sheet.write_number(row, 3, total_overall, yellow_time_format)
             else:
                 summary_sheet.write_number(row, 3, total_overall, yellow_number_format)
             summary_sheet.set_row(row, 20)
-            row += 3  # Sonraki user için boşluk
+            row += 3
         
-        # Yazdırma alanı (A-D kolonları)
         summary_sheet.print_area(0, 0, row - 1, 3)
         
-        # Kolon genişlikleri
-        summary_sheet.set_column(0, 0, 16)  # Day / Label
-        summary_sheet.set_column(1, 1, 45)  # Description / Value
-        summary_sheet.set_column(2, 2, 10)  # Billable
-        summary_sheet.set_column(3, 3, 12)  # Duration / Logo
+        summary_sheet.set_column(0, 0, 16)
+        summary_sheet.set_column(1, 1, 45)
+        summary_sheet.set_column(2, 2, 10)
+        summary_sheet.set_column(3, 3, 12)
         
         # ============== SAYFA 2: DETAYLI RAPOR ==============
         detail_sheet = workbook.add_worksheet("Detailed Report")
         
-        # Yazdırma ayarları
         detail_sheet.fit_to_pages(1, 0)
         detail_sheet.set_landscape()
         detail_sheet.set_paper(9)
@@ -916,12 +840,10 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         
         detail_row = 0
         
-        # Başlık
         detail_sheet.merge_range(detail_row, 0, detail_row, 4, "Detailed Time Report", header_format)
         detail_sheet.set_row(detail_row, 22)
         detail_row += 1
         
-        # Şirket bilgileri tablosu (varsa)
         if company_info:
             table_start_row = detail_row
             
@@ -948,11 +870,9 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
                 detail_sheet.set_row(detail_row, 18)
                 detail_row += 1
             
-            # Logo varsa - Tablo içinde E kolonuna ekle
             if logo_data is not None:
                 try:
                     temp_logo = BytesIO(logo_data['data'])
-                    logo_rows = detail_row - table_start_row
                     
                     detail_sheet.insert_image(table_start_row, 4, "logo", {
                         'image_data': temp_logo,
@@ -963,7 +883,6 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
                         'positioning': 1
                     })
                     
-                    # E kolonuna border ekle
                     for i in range(table_start_row, detail_row):
                         detail_sheet.write(i, 4, "", info_value_format)
                 except Exception as e:
@@ -971,7 +890,6 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
             
             detail_row += 1
         
-        # Rapor bilgileri tablosu (boşluksuz)
         detail_sheet.write(detail_row, 0, "Period:", info_label_format)
         detail_sheet.merge_range(detail_row, 1, detail_row, 3, sanitize_excel_cell(report_period), info_value_format)
         if logo_data:
@@ -993,31 +911,25 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
         detail_sheet.set_row(detail_row, 18)
         detail_row += 2
         
-        # Verileri kullanıcıya ve tarihe göre sırala
         df_sorted = df.sort_values(['User', 'ParsedDate', 'Start Time'])
         
-        # Kullanıcıya göre grupla
         for user_value in sorted(df_sorted['User'].dropna().unique()):
             user_df = df_sorted[df_sorted['User'] == user_value]
             
-            # Kullanıcı başlığı
             detail_sheet.merge_range(detail_row, 0, detail_row, 4, sanitize_excel_cell(f"User: {user_value}"), user_header_format)
             detail_sheet.set_row(detail_row, 22)
             detail_row += 1
             
-            # Bu kullanıcının tarihleri
             for date_value in user_df['DayFull'].unique():
                 if pd.isna(date_value) or date_value == "Unknown":
                     continue
                     
                 date_df = user_df[user_df['DayFull'] == date_value]
                 
-                # Tarih başlığı
                 detail_sheet.merge_range(detail_row, 0, detail_row, 4, sanitize_excel_cell(f"Date: {date_value}"), detail_date_header_format)
                 detail_sheet.set_row(detail_row, 20)
                 detail_row += 1
                 
-                # Tablo başlıkları
                 headers = ["Start Time", "End Time", "Duration", "Description", "Billable"]
                 for col_idx, header in enumerate(headers):
                     detail_sheet.write(detail_row, col_idx, header, detail_header_format)
@@ -1025,24 +937,20 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
                 detail_sheet.set_row(detail_row, 18)
                 detail_row += 1
                 
-                # Bu tarihteki tüm kayıtlar
                 for idx, row_data in date_df.iterrows():
                     detail_sheet.write(detail_row, 0, sanitize_excel_cell(str(row_data.get('Start Time', ''))), detail_cell_center)
                     detail_sheet.write(detail_row, 1, sanitize_excel_cell(str(row_data.get('End Time', ''))), detail_cell_center)
                     
-                    # Duration formatı
                     if format_choice == "hours":
                         detail_sheet.write_number(detail_row, 2, row_data['formatted_duration'], detail_time_format)
                     else:
                         detail_sheet.write_number(detail_row, 2, row_data['formatted_duration'], detail_number_format)
                     
-                    # Description
                     desc_text = sanitize_excel_cell(str(row_data.get('Description', '')))
                     detail_sheet.write(detail_row, 3, desc_text, detail_cell_wrap)
                     
                     detail_sheet.write(detail_row, 4, sanitize_excel_cell(str(row_data.get('Billable', 'No'))), detail_cell_center)
                     
-                    # Satır yüksekliği
                     desc_length = len(desc_text)
                     if desc_length > 100:
                         detail_sheet.set_row(detail_row, 60)
@@ -1053,24 +961,248 @@ def generate_excel_report(df, schema, format_choice, report_period, projects, cu
                     
                     detail_row += 1
                 
-                # Tarih sonrası boşluk
                 detail_row += 1
             
-            # Kullanıcı sonrası boşluk
             detail_row += 1
         
-        # Yazdırma alanı (A-E kolonları)
         detail_sheet.print_area(0, 0, detail_row - 1, 4)
         
-        # Kolon genişlikleri
-        detail_sheet.set_column(0, 0, 12)  # Start Time
-        detail_sheet.set_column(1, 1, 12)  # End Time
-        detail_sheet.set_column(2, 2, 12)  # Duration
-        detail_sheet.set_column(3, 3, 45)  # Description
-        detail_sheet.set_column(4, 4, 10)  # Billable
+        detail_sheet.set_column(0, 0, 12)
+        detail_sheet.set_column(1, 1, 12)
+        detail_sheet.set_column(2, 2, 12)
+        detail_sheet.set_column(3, 3, 45)
+        detail_sheet.set_column(4, 4, 10)
     
     output.seek(0)
     return output
+
+
+# ============== PDF RAPOR OLUŞTURMA ==============
+
+def generate_pdf_report(df, format_choice, report_period, projects, customers, logo_data=None, company_info=None):
+    """PDF raporu oluşturur"""
+    output = BytesIO()
+    
+    # Süreleri hesapla
+    df["raw_seconds"] = df["Duration (h)"].apply(parse_duration_to_seconds)
+    df["rounded_seconds"] = df["raw_seconds"].apply(round_to_nearest_minute)
+    
+    if format_choice == "hours":
+        df["formatted_duration"] = df["rounded_seconds"] / 86400
+    else:
+        df["formatted_duration"] = (df["rounded_seconds"] / 3600).round(2)
+    
+    df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
+    df["Day"] = df["ParsedDate"].apply(lambda d: d.strftime("%d (%A)") if pd.notnull(d) else "Unknown")
+    
+    # PDF oluştur
+    doc = SimpleDocTemplate(output, pagesize=landscape(A4),
+                           topMargin=0.5*inch, bottomMargin=0.5*inch,
+                           leftMargin=0.5*inch, rightMargin=0.5*inch)
+    
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Başlık stili
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        textColor=colors.HexColor('#4472C4'),
+        spaceAfter=20,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    
+    info_style = ParagraphStyle(
+        'InfoStyle',
+        parent=styles['Normal'],
+        fontSize=10,
+        spaceAfter=6,
+        fontName='Helvetica'
+    )
+    
+    # Şirket bilgileri ve logo
+    if company_info:
+        # Logo varsa ekle
+        if logo_data:
+            try:
+                logo_img = BytesIO(logo_data['data'])
+                img = RLImage(logo_img, width=1.5*inch, height=0.75*inch)
+                story.append(img)
+                story.append(Spacer(1, 0.2*inch))
+            except:
+                pass
+        
+        # Şirket bilgileri tablosu
+        info_data = []
+        if company_info.get('company_name'):
+            info_data.append(['Company:', company_info.get('company_name', '')])
+        if company_info.get('contact_person'):
+            info_data.append(['Contact:', company_info.get('contact_person', '')])
+        if company_info.get('phone'):
+            info_data.append(['Phone:', company_info.get('phone', '')])
+        if company_info.get('address'):
+            info_data.append(['Address:', company_info.get('address', '')])
+        
+        if info_data:
+            info_table = Table(info_data, colWidths=[1.5*inch, 5*inch])
+            info_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#4472C4')),
+                ('TEXTCOLOR', (0, 0), (0, -1), colors.whitesmoke),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ]))
+            story.append(info_table)
+            story.append(Spacer(1, 0.3*inch))
+    
+    # Rapor bilgileri
+    story.append(Paragraph("Time Tracking Report", title_style))
+    
+    report_info_data = [
+        ['Period:', report_period],
+        ['Projects:', projects],
+        ['Customers:', customers]
+    ]
+    
+    report_info_table = Table(report_info_data, colWidths=[1.5*inch, 5*inch])
+    report_info_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#4472C4')),
+        ('TEXTCOLOR', (0, 0), (0, -1), colors.whitesmoke),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(report_info_table)
+    story.append(Spacer(1, 0.4*inch))
+    
+    # Kullanıcı bazında özet
+    for user in sorted(df["User"].dropna().unique()):
+        user_df = df[df["User"] == user].copy()
+        
+        # User başlığı
+        user_title = Paragraph(f"<b>User: {user}</b>", 
+                               ParagraphStyle('UserTitle', parent=styles['Heading2'],
+                                            fontSize=12, textColor=colors.HexColor('#4472C4'),
+                                            spaceAfter=10, fontName='Helvetica-Bold'))
+        story.append(user_title)
+        
+        # Günlük tablo
+        table_data = [['Day', 'Description', 'Billable', 'Duration']]
+        
+        for day in sorted(user_df["Day"].unique()):
+            day_df = user_df[user_df["Day"] == day]
+            
+            # Description'ları birleştir
+            unique_descriptions = []
+            for desc in day_df["Description"].tolist():
+                desc_str = str(desc).strip()
+                if desc_str and desc_str not in unique_descriptions and desc_str != 'nan':
+                    unique_descriptions.append(desc_str)
+            
+            combined_description = " | ".join(unique_descriptions) if unique_descriptions else ""
+            if len(combined_description) > 80:
+                combined_description = combined_description[:77] + "..."
+            
+            # Billable durumu
+            billable_count = (day_df["Billable"] == "Yes").sum()
+            non_billable_count = (day_df["Billable"] == "No").sum()
+            
+            if billable_count > 0 and non_billable_count > 0:
+                billable_status = "Mixed"
+            elif billable_count > 0:
+                billable_status = "Yes"
+            else:
+                billable_status = "No"
+            
+            total_duration = day_df["formatted_duration"].sum()
+            
+            if format_choice == "hours":
+                duration_str = f"{int(total_duration * 24)}:{int((total_duration * 24 * 60) % 60):02d}"
+            else:
+                duration_str = f"{total_duration:.2f}h"
+            
+            table_data.append([
+                day,
+                combined_description,
+                billable_status,
+                duration_str
+            ])
+        
+        # Toplamlar
+        billable_df = user_df[user_df["Billable"] == "Yes"]
+        non_billable_df = user_df[user_df["Billable"] == "No"]
+        
+        total_billable = billable_df["formatted_duration"].sum()
+        total_non_billable = non_billable_df["formatted_duration"].sum()
+        total_overall = user_df["formatted_duration"].sum()
+        
+        if format_choice == "hours":
+            billable_str = f"{int(total_billable * 24)}:{int((total_billable * 24 * 60) % 60):02d}"
+            non_billable_str = f"{int(total_non_billable * 24)}:{int((total_non_billable * 24 * 60) % 60):02d}"
+            overall_str = f"{int(total_overall * 24)}:{int((total_overall * 24 * 60) % 60):02d}"
+        else:
+            billable_str = f"{total_billable:.2f}h"
+            non_billable_str = f"{total_non_billable:.2f}h"
+            overall_str = f"{total_overall:.2f}h"
+        
+        table_data.append(['', 'BILLABLE TOTAL', '', billable_str])
+        table_data.append(['', 'NON-BILLABLE TOTAL', '', non_billable_str])
+        table_data.append(['', 'GRAND TOTAL', '', overall_str])
+        
+        # Tablo oluştur
+        t = Table(table_data, colWidths=[1.2*inch, 4*inch, 0.8*inch, 1*inch])
+        t.setStyle(TableStyle([
+            # Header
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4472C4')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+            
+            # Data rows
+            ('FONTSIZE', (0, 1), (-1, -4), 8),
+            ('GRID', (0, 0), (-1, -4), 0.5, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            
+            # Totals
+            ('BACKGROUND', (0, -3), (-1, -3), colors.HexColor('#C6EFCE')),
+            ('BACKGROUND', (0, -2), (-1, -2), colors.HexColor('#FFC7CE')),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#FFEB9C')),
+            ('FONTNAME', (0, -3), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, -3), (-1, -1), 9),
+            ('GRID', (0, -3), (-1, -1), 0.5, colors.grey),
+            
+            # Padding
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        
+        story.append(t)
+        story.append(Spacer(1, 0.3*inch))
+        
+        # Sayfa sonu (son user değilse)
+        if user != sorted(df["User"].dropna().unique())[-1]:
+            story.append(PageBreak())
+    
+    # PDF'i oluştur
+    doc.build(story)
+    output.seek(0)
+    return output
+
 
 # ============== Hata Yönetimi ==============
 
@@ -1088,7 +1220,6 @@ def server_error(e):
 def test_db():
     """Test MongoDB connection"""
     try:
-        # Test connection
         mongo.db.command('ping')
         user_count = mongo.db.users.count_documents({})
         return jsonify({
@@ -1106,3 +1237,42 @@ def test_db():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
+                
+                if company_info.get('contact_person'):
+                    summary_sheet.write(row, 0, "Contact:", info_label_format)
+                    summary_sheet.merge_range(row, 1, row, 2, sanitize_excel_cell(company_info.get('contact_person', '')), info_value_format)
+                    summary_sheet.set_row(row, 18)
+                    row += 1
+                
+                if company_info.get('phone'):
+                    summary_sheet.write(row, 0, "Phone:", info_label_format)
+                    summary_sheet.merge_range(row, 1, row, 2, sanitize_excel_cell(company_info.get('phone', '')), info_value_format)
+                    summary_sheet.set_row(row, 18)
+                    row += 1
+                
+                if company_info.get('address'):
+                    summary_sheet.write(row, 0, "Address:", info_label_format)
+                    summary_sheet.merge_range(row, 1, row, 2, sanitize_excel_cell(company_info.get('address', '')), info_value_format)
+                    summary_sheet.set_row(row, 18)
+                    row += 1
+            
+            if logo_data is not None:
+                try:
+                    temp_logo = BytesIO(logo_data['data'])
+                    logo_rows = row - table_start_row if row > table_start_row else 4
+                    
+                    summary_sheet.insert_image(table_start_row, 3, "logo", {
+                        'image_data': temp_logo,
+                        'x_scale': 0.25,
+                        'y_scale': 0.25,
+                        'x_offset': 10,
+                        'y_offset': 5,
+                        'positioning': 1
+                    })
+                    
+                    for i in range(table_start_row, row):
+                        summary_sheet.write(i, 3, "", info_value_format)
+                except Exception as e:
+                    pass
+            
+            row += 1

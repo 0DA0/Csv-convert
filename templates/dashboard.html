@@ -34,7 +34,6 @@
 
         <form id="uploadForm" action="{{ url_for('convert') }}" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="schema" id="selectedSchema" value="classic">
             
             <!-- Single Step: File Upload + Filters + Preview -->
             <div class="step-section active" id="step1">
@@ -133,6 +132,19 @@
                             <select name="formatSelect" id="formatSelect">
                                 <option value="decimal">Decimal (8.50)</option>
                                 <option value="hours">Time (8:30)</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label for="exportFormat">
+                                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                                </svg>
+                                Export Format
+                            </label>
+                            <select name="exportFormat" id="exportFormat">
+                                <option value="excel">Excel (.xlsx)</option>
+                                <option value="pdf">PDF (.pdf)</option>
                             </select>
                         </div>
                     </div>
