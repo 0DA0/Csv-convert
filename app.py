@@ -861,7 +861,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
         
         detail_row = 0
         
-        detail_sheet.merge_range(detail_row, 0, detail_row, 5, "Detailed Time Report", header_format)
+        detail_sheet.merge_range(detail_row, 0, detail_row, 4, "Detailed Time Report", header_format)
         detail_sheet.set_row(detail_row, 22)
         detail_row += 1
         
@@ -895,7 +895,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                 try:
                     temp_logo = BytesIO(logo_data['data'])
                     
-                    detail_sheet.insert_image(table_start_row, 5, "logo", {
+                    detail_sheet.insert_image(table_start_row, 4, "logo", {
                         'image_data': temp_logo,
                         'x_scale': 0.25,
                         'y_scale': 0.25,
@@ -915,21 +915,21 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
         detail_sheet.write(detail_row, 0, "Period:", info_label_format)
         detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(report_period), info_value_format)
         if logo_data:
-            detail_sheet.write(detail_row, 5, "", info_value_format)
+            detail_sheet.write(detail_row, 4, "", info_value_format)
         detail_sheet.set_row(detail_row, 18)
         detail_row += 1
         
         detail_sheet.write(detail_row, 0, "Projects:", info_label_format)
         detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(projects), info_value_format)
         if logo_data:
-            detail_sheet.write(detail_row, 5, "", info_value_format)
+            detail_sheet.write(detail_row, 4, "", info_value_format)
         detail_sheet.set_row(detail_row, 18)
         detail_row += 1
         
         detail_sheet.write(detail_row, 0, "Clients:", info_label_format)
         detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(customers), info_value_format)
         if logo_data:
-            detail_sheet.write(detail_row, 5, "", info_value_format)
+            detail_sheet.write(detail_row, 4, "", info_value_format)
         detail_sheet.set_row(detail_row, 18)
         detail_row += 2
         
@@ -985,7 +985,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
             
             detail_row += 1
         
-        detail_sheet.print_area(0, 0, detail_row - 1, 5)
+        detail_sheet.print_area(0, 0, detail_row - 1, 4)
         
         # Kolon genişlikleri
         detail_sheet.set_column(0, 0, 12)  # Start Time
