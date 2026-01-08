@@ -603,7 +603,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
             'border': 1, 
             'bg_color': '#4472C4', 
             'font_color': 'white', 
-            'align': 'center', 
+            'align': 'left', 
             'valign': 'vcenter',
             'font_size': 12
         })
@@ -753,7 +753,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
         for user in sorted(df["User"].dropna().unique()):
             user_df = df[df["User"] == user].copy()
             
-            summary_sheet.merge_range(row, 0, row, 4, sanitize_excel_cell(f"User: {user}"), user_header_format)
+            summary_sheet.merge_range(row, 0, row, 3, sanitize_excel_cell(f"User: {user}"), user_header_format)
             summary_sheet.set_row(row, 20)
             row += 1
             
