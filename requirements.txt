@@ -11,4 +11,3 @@ python-dotenv
 gunicorn
 Pillow
 dnspython
-reportlab
