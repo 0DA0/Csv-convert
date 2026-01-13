@@ -1,0 +1,115 @@
+<div class="auth-container">
+  <mat-card class="auth-card register-card">
+    <mat-card-header>
+      <mat-card-title>Create Account</mat-card-title>
+      <mat-card-subtitle>Choose your account type</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <!-- User Type Selection -->
+      <div class="type-selector">
+        <button mat-stroked-button 
+                [color]="selectedUserType === 'individual' ? 'primary' : ''"
+                (click)="selectUserType('individual')"
+                type="button"
+                class="type-btn">
+          <mat-icon>person</mat-icon>
+          Individual
+        </button>
+        <button mat-stroked-button 
+                [color]="selectedUserType === 'company' ? 'primary' : ''"
+                (click)="selectUserType('company')"
+                type="button"
+                class="type-btn">
+          <mat-icon>business</mat-icon>
+          Company
+        </button>
+      </div>
+
+      <form [formGroup]="registerForm" (ngSubmit)="onSubmit()">
+        <!-- Common Fields -->
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Email</mat-label>
+          <input matInput type="email" formControlName="email" required>
+          <mat-icon matPrefix>email</mat-icon>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Password</mat-label>
+          <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" required>
+          <mat-icon matPrefix>lock</mat-icon>
+          <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button">
+            <mat-icon>{{hidePassword ? 'visibility_off' : 'visibility'}}</mat-icon>
+          </button>
+        </mat-form-field>
+
+        <!-- Individual Fields -->
+        <ng-container *ngIf="selectedUserType === 'individual'">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Full Name</mat-label>
+            <input matInput formControlName="full_name" required>
+            <mat-icon matPrefix>person</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Phone</mat-label>
+            <input matInput formControlName="phone">
+            <mat-icon matPrefix>phone</mat-icon>
+          </mat-form-field>
+        </ng-container>
+
+        <!-- Company Fields -->
+        <ng-container *ngIf="selectedUserType === 'company'">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Company Name</mat-label>
+            <input matInput formControlName="company_name" required>
+            <mat-icon matPrefix>business</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Contact Person</mat-label>
+            <input matInput formControlName="contact_person">
+            <mat-icon matPrefix>person</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Phone</mat-label>
+            <input matInput formControlName="phone">
+            <mat-icon matPrefix>phone</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Address</mat-label>
+            <textarea matInput formControlName="address" rows="3"></textarea>
+            <mat-icon matPrefix>location_on</mat-icon>
+          </mat-form-field>
+
+          <!-- Logo Upload -->
+          <div class="logo-upload">
+            <button mat-stroked-button type="button" (click)="fileInput.click()">
+              <mat-icon>upload</mat-icon>
+              Upload Logo
+            </button>
+            <input #fileInput type="file" accept="image/*" (change)="onFileSelected($event)" hidden>
+            
+            <div *ngIf="logoPreview" class="logo-preview">
+              <img [src]="logoPreview" alt="Logo Preview">
+              <button mat-icon-button (click)="removeLogo()" type="button">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+          </div>
+        </ng-container>
+
+        <button mat-raised-button color="primary" type="submit" [disabled]="loading || registerForm.invalid" class="full-width">
+          <mat-spinner *ngIf="loading" diameter="20"></mat-spinner>
+          <span *ngIf="!loading">Register</span>
+        </button>
+      </form>
+    </mat-card-content>
+
+    <mat-card-footer>
+      <p>Already have an account? <a routerLink="/login">Login here</a></p>
+    </mat-card-footer>
+  </mat-card>
+</div>

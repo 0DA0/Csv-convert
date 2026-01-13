@@ -1,0 +1,70 @@
+<div class="profile-container">
+  <app-header></app-header>
+
+  <div class="content">
+    <mat-card class="profile-card">
+      <mat-card-header>
+        <mat-card-title>Profile Settings</mat-card-title>
+      </mat-card-header>
+
+      <mat-card-content>
+        <form [formGroup]="profileForm" (ngSubmit)="onSubmit()">
+          <ng-container *ngIf="user?.user_type === 'individual'">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Full Name</mat-label>
+              <input matInput formControlName="full_name" required>
+              <mat-icon matPrefix>person</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Phone</mat-label>
+              <input matInput formControlName="phone">
+              <mat-icon matPrefix>phone</mat-icon>
+            </mat-form-field>
+          </ng-container>
+
+          <ng-container *ngIf="user?.user_type === 'company'">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Company Name</mat-label>
+              <input matInput formControlName="company_name" required>
+              <mat-icon matPrefix>business</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Contact Person</mat-label>
+              <input matInput formControlName="contact_person">
+              <mat-icon matPrefix>person</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Phone</mat-label>
+              <input matInput formControlName="phone">
+              <mat-icon matPrefix>phone</mat-icon>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Address</mat-label>
+              <textarea matInput formControlName="address" rows="3"></textarea>
+              <mat-icon matPrefix>location_on</mat-icon>
+            </mat-form-field>
+
+            <div class="logo-section">
+              <h3>Company Logo</h3>
+              <img *ngIf="logoPreview" [src]="logoPreview" alt="Logo" class="logo-preview">
+              <input type="file" accept="image/*" (change)="onFileSelected($event)" #fileInput hidden>
+              <button mat-raised-button type="button" (click)="fileInput.click()">
+                <mat-icon>upload</mat-icon>
+                {{ logoPreview ? 'Change Logo' : 'Upload Logo' }}
+              </button>
+            </div>
+          </ng-container>
+
+          <button mat-raised-button color="primary" type="submit" [disabled]="loading || profileForm.invalid">
+            <mat-spinner *ngIf="loading" diameter="20"></mat-spinner>
+            <span *ngIf="!loading">Save Changes</span>
+          </button>
+        </form>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
