@@ -5,7 +5,7 @@
     <div class="welcome-section">
       <h1>
         <ng-container *ngIf="(authService.currentUser$ | async) as user">
-          {{ user.user_type === 'company' ? user.profile.company_name : user.profile.full_name }}
+          {{ user.user_type === 'company' ? (user.profile as any).company_name : (user.profile as any).full_name }}
         </ng-container>
       </h1>
       <p>Transform your time tracking data into professional reports</p>

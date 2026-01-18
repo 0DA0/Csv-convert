@@ -1,0 +1,23 @@
+<header class="app-header">
+  <div class="header-content">
+    <div class="logo" (click)="navigateToDashboard()">
+      <mat-icon>schedule</mat-icon>
+      <span>TimeTracker</span>
+    </div>
+
+    <nav class="nav-menu">
+      <button mat-button (click)="navigateToDashboard()">
+        <mat-icon>dashboard</mat-icon>
+        Dashboard
+      </button>
+      <button mat-button (click)="navigateToProfile()">
+        <mat-icon>person</mat-icon>
+        Profile
+      </button>
+      <button mat-button (click)="logout()">
+        <mat-icon>logout</mat-icon>
+        Logout
+      </button>
+    </nav>
+  </div>
+</header>

@@ -90,4 +90,16 @@ export class DashboardComponent {
     this.fileName = '';
     this.csvData = null;
   }
+
+  getUserDisplayName(): string {
+    if (!this.user) return '';
+    
+    if (this.user.user_type === 'company' && 'company_name' in this.user.profile) {
+      return this.user.profile.company_name;
+    } else if (this.user.user_type === 'individual' && 'full_name' in this.user.profile) {
+      return this.user.profile.full_name;
+    }
+    
+    return this.user.email;
+  }
 }

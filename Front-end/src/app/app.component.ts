@@ -1,10 +1,13 @@
 import { Component } from '@angular/core';
+import { RouterOutlet } from '@angular/router'; // 1. Bunu ekle
 
 @Component({
   selector: 'app-root',
-  template: '<router-outlet></router-outlet>',
-  styles: []
+  standalone: true, // Eğer burası true ise
+  imports: [RouterOutlet], // 2. Buraya RouterOutlet ekle
+  templateUrl: './app.component.html',
+  styleUrl: './app.component.css'
 })
 export class AppComponent {
-  title = 'timetracker-frontend';
+  title = 'Front-end';
 }
