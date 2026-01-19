@@ -1,27 +1,13 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule, Routes } from '@angular/router';
-import { SharedModule } from '../../shared/shared.module';
 
-// Auth components'leriniz varsa import edin
-// import { LoginComponent } from './login/login.component';
-// import { RegisterComponent } from './register/register.component';
-
-const routes: Routes = [
-  // { path: 'login', component: LoginComponent },
-  // { path: 'register', component: RegisterComponent },
-  { path: '', redirectTo: 'login', pathMatch: 'full' }
-];
+// BU MODÜL ARTIK GEREKSİZ ÇÜNKÜ COMPONENT'LER APP.MODULE'DE DECLARE EDİLDİ
+// Ama silmeyin, dashboard ve profile gibi modüller hala lazy loading kullanıyor
 
 @NgModule({
-  declarations: [
-    // LoginComponent,
-    // RegisterComponent
-  ],
+  declarations: [],
   imports: [
-    CommonModule,
-    SharedModule,
-    RouterModule.forChild(routes)
+    CommonModule
   ]
 })
 export class AuthModule { }

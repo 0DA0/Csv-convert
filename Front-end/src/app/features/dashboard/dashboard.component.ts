@@ -28,6 +28,19 @@ export class DashboardComponent {
     private snackBar: MatSnackBar
   ) {}
 
+  getUserDisplayName(): string {
+    const user = this.authService.getCurrentUser();
+    if (!user) return 'Guest';
+    
+    if (user.user_type === 'company') {
+      const profile = user.profile as any;
+      return profile.company_name || user.email;
+    } else {
+      const profile = user.profile as any;
+      return profile.full_name || user.email;
+    }
+  }
+
   onFileSelected(event: any): void {
     const file: File = event.target.files[0];
     if (file && file.name.endsWith('.csv')) {
@@ -89,17 +102,5 @@ export class DashboardComponent {
     this.selectedFile = null;
     this.fileName = '';
     this.csvData = null;
-  }
-
-  getUserDisplayName(): string {
-    if (!this.user) return '';
-    
-    if (this.user.user_type === 'company' && 'company_name' in this.user.profile) {
-      return this.user.profile.company_name;
-    } else if (this.user.user_type === 'individual' && 'full_name' in this.user.profile) {
-      return this.user.profile.full_name;
-    }
-    
-    return this.user.email;
   }
 }

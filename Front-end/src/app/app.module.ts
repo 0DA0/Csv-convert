@@ -7,13 +7,21 @@ import { AppComponent } from './app.component';
 import { JwtInterceptor } from './core/interceptors/jwt.interceptor';
 import { SharedModule } from './shared/shared.module';
 
+// Auth Components'leri import et
+import { LoginComponent } from './features/auth/login/login.component';
+import { RegisterComponent } from './features/auth/register/register.component';
+
 @NgModule({
-  declarations: [AppComponent],
+  declarations: [
+    AppComponent,
+    LoginComponent,      // Login component'i ekle
+    RegisterComponent    // Register component'i ekle
+  ],
   imports: [
     BrowserModule,
     BrowserAnimationsModule,
     HttpClientModule,
-    AppRoutingModule,  // ✅ Sadece bu
+    AppRoutingModule,
     SharedModule
   ],
   providers: [

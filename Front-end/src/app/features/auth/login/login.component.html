@@ -1,15 +1,19 @@
-<div class="auth-container">
-  <mat-card class="auth-card">
-    <mat-card-header>
-      <mat-card-title>Welcome Back</mat-card-title>
-      <mat-card-subtitle>Login to your account</mat-card-subtitle>
-    </mat-card-header>
+<div class="auth-wrapper">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="logo-section">
+          <mat-icon class="logo-icon">schedule</mat-icon>
+          <h1>TimeTracker</h1>
+        </div>
+        <h2>Welcome Back</h2>
+        <p>Sign in to continue to your account</p>
+      </div>
 
-    <mat-card-content>
-      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="auth-form">
         <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Email</mat-label>
-          <input matInput type="email" formControlName="email" required>
+          <mat-label>Email Address</mat-label>
+          <input matInput type="email" formControlName="email" placeholder="your@email.com" required>
           <mat-icon matPrefix>email</mat-icon>
           <mat-error *ngIf="loginForm.get('email')?.hasError('required')">
             Email is required
@@ -21,9 +25,9 @@
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Password</mat-label>
-          <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" required>
+          <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" placeholder="Enter your password" required>
           <mat-icon matPrefix>lock</mat-icon>
-          <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button">
+          <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button" tabindex="-1">
             <mat-icon>{{hidePassword ? 'visibility_off' : 'visibility'}}</mat-icon>
           </button>
           <mat-error *ngIf="loginForm.get('password')?.hasError('required')">
@@ -34,15 +38,15 @@
           </mat-error>
         </mat-form-field>
 
-        <button mat-raised-button color="primary" type="submit" [disabled]="loading || loginForm.invalid" class="full-width">
+        <button mat-raised-button color="primary" type="submit" [disabled]="loading || loginForm.invalid" class="submit-btn">
           <mat-spinner *ngIf="loading" diameter="20"></mat-spinner>
-          <span *ngIf="!loading">Login</span>
+          <span *ngIf="!loading">Sign In</span>
         </button>
       </form>
-    </mat-card-content>
 
-    <mat-card-footer>
-      <p>Don't have an account? <a routerLink="/register">Register here</a></p>
-    </mat-card-footer>
-  </mat-card>
+      <div class="auth-footer">
+        <p>Don't have an account? <a [routerLink]="['/register']" class="link-primary">Create Account</a></p>
+      </div>
+    </div>
+  </div>
 </div>
