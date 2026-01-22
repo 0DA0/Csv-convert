@@ -26,7 +26,7 @@ CORS(app, resources={
     r"/api/*": {
         "origins": [
             "http://localhost:4200",  # Local development
-            "https://timetracker-frontend.onrender.com",  # Render production
+            "https://csv-convert-front.onrender.com",  # Render production
             "https://*.onrender.com"  # Tüm Render subdomain'leri
         ],
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
