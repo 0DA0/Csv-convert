@@ -31,11 +31,10 @@ CORS(app, resources={
             "https://*.onrender.com"  # Tüm Render subdomain'leri
         ],
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
+        "allow_headers": ["Content-Type", "Authorization", "X-Clockify-Api-Key"],  # BU SATIRI GÜNCELLEDİK
         "supports_credentials": True
     }
 })
-
 mongo = PyMongo(app)
 jwt = JWTManager(app)
 
