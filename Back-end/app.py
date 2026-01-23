@@ -785,9 +785,6 @@ def get_clockify_time_entries():
         user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
         
         data = request.get_json()
-
-        app.logger.info(f"Received data: {data}")
-
         api_key = data.get('api_key')
         workspace_id = data.get('workspace_id')
         start_date = data.get('start_date')
@@ -795,71 +792,80 @@ def get_clockify_time_entries():
         project_ids = data.get('project_ids', [])
         
         if not all([api_key, workspace_id, start_date, end_date]):
-            missing = []
-            if not api_key: missing.append('api_key')
-            if not workspace_id: missing.append('workspace_id')
-            if not start_date: missing.append('start_date')
-            if not end_date: missing.append('end_date')
-            return jsonify({'error': f'Missing required parameters: {", ".join(missing)}'}), 400
+            return jsonify({'error': 'Missing required parameters'}), 400
         
         headers = {'X-Api-Key': api_key, 'Content-Type': 'application/json'}
         
-        # Clockify'dan time entries al
-        url = f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/user/me'
-        user_response = requests.get(url, headers=headers)
+        # Kullanıcı bilgilerini al
+        user_url = f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/user/me'
+        user_response = requests.get(user_url, headers=headers)
         
         if user_response.status_code != 200:
-            return jsonify({'error': 'Failed to get user info'}), 400
+            return jsonify({'error': 'Failed to get user info from Clockify'}), 400
         
         clockify_user = user_response.json()
         clockify_user_id = clockify_user['id']
         
-        # Time entries getir
-        url = f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/user/{clockify_user_id}/time-entries'
+        # Time entries al - URL'i düzelttik
+        entries_url = f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/user/{clockify_user_id}/time-entries'
         params = {
             'start': start_date,
             'end': end_date,
-            'page-size': 5000
+            'page-size': 5000,
+            'hydrated': 'true'  # Project ve client bilgilerini de getir
         }
         
-        entries_response = requests.get(url, headers=headers, params=params)
+        entries_response = requests.get(entries_url, headers=headers, params=params)
         
         if entries_response.status_code != 200:
-            return jsonify({'error': 'Failed to fetch time entries'}), 400
+            app.logger.error(f"Clockify API error: {entries_response.text}")
+            return jsonify({'error': f'Failed to fetch time entries: {entries_response.text}'}), 400
         
         time_entries = entries_response.json()
         
-        # Project bilgilerini çek
-        projects_url = f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/projects'
-        projects_response = requests.get(projects_url, headers=headers)
-        projects = {p['id']: p for p in projects_response.json()}
-        
-        # Client bilgilerini çek
-        clients_url = f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/clients'
-        clients_response = requests.get(clients_url, headers=headers)
-        clients = {c['id']: c for c in clients_response.json()}
+        if not time_entries:
+            return jsonify({'error': 'No time entries found for the selected period'}), 400
         
         # CSV formatına dönüştür
         csv_data = []
         for entry in time_entries:
-            if project_ids and entry.get('projectId') not in project_ids:
+            # Project filtresi
+            if project_ids and entry.get('projectId') and entry.get('projectId') not in project_ids:
                 continue
             
-            project = projects.get(entry.get('projectId', ''), {})
-            client = clients.get(project.get('clientId', ''), {})
+            # Project ve Client bilgileri
+            project_name = 'No Project'
+            client_name = 'No Client'
             
-            # Süreyi hesapla
-            start_time = datetime.fromisoformat(entry['timeInterval']['start'].replace('Z', '+00:00'))
-            end_time = datetime.fromisoformat(entry['timeInterval']['end'].replace('Z', '+00:00')) if entry['timeInterval'].get('end') else datetime.utcnow()
+            if entry.get('project'):
+                project_name = entry['project'].get('name', 'No Project')
+                if entry['project'].get('clientName'):
+                    client_name = entry['project']['clientName']
+            
+            # Zaman hesaplama
+            time_interval = entry.get('timeInterval', {})
+            start_str = time_interval.get('start')
+            end_str = time_interval.get('end')
+            
+            if not start_str:
+                continue
+                
+            start_time = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
+            
+            # Eğer end yok ise (running entry), şimdiyi kullan
+            if end_str:
+                end_time = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
+            else:
+                end_time = datetime.now(start_time.tzinfo)
+            
             duration = end_time - start_time
-            
             hours = int(duration.total_seconds() // 3600)
             minutes = int((duration.total_seconds() % 3600) // 60)
             seconds = int(duration.total_seconds() % 60)
             
             csv_data.append({
-                'Project': project.get('name', 'Unknown'),
-                'Client': client.get('name', 'Unknown'),
+                'Project': project_name,
+                'Client': client_name,
                 'User': clockify_user.get('name', 'Unknown'),
                 'Description': entry.get('description', ''),
                 'Start Date': start_time.strftime('%d/%m/%Y'),
@@ -870,33 +876,16 @@ def get_clockify_time_entries():
             })
         
         if not csv_data:
-            return jsonify({'error': 'No time entries found for selected criteria'}), 400
+            return jsonify({'error': 'No time entries found for selected filters'}), 400
         
         # DataFrame oluştur
         df = pd.DataFrame(csv_data)
-        
-        # Filtreleri al
-        selected_projects = data.get('projects', ['all'])
-        selected_clients = data.get('clients', ['all'])
-        selected_users = data.get('users', ['all'])
-        format_choice = data.get('format', 'decimal')
-        
-        # Filtreleri uygula
-        if selected_projects and 'all' not in [p.lower() for p in selected_projects]:
-            df = df[df["Project"].isin(selected_projects)]
-        if selected_clients and 'all' not in [c.lower() for c in selected_clients]:
-            df = df[df["Client"].isin(selected_clients)]
-        if selected_users and 'all' not in [u.lower() for u in selected_users]:
-            df = df[df["User"].isin(selected_users)]
-        
-        if df.empty:
-            return jsonify({'error': 'No data matches filters'}), 400
         
         # Rapor bilgileri
         overall_projects = ", ".join(df["Project"].dropna().unique())
         overall_customers = ", ".join(df["Client"].dropna().unique())
         
-        # Logo ve şirket bilgilerini hazırla
+        # Logo ve şirket bilgileri
         logo_data = None
         company_info = None
         
@@ -927,6 +916,9 @@ def get_clockify_time_entries():
                 report_period = f"{min_date.strftime('%B %Y')} - {max_date.strftime('%B %Y')}"
         else:
             report_period = "All Data"
+        
+        # Format al
+        format_choice = data.get('format', 'decimal')
         
         # Excel oluştur
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
