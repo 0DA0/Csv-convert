@@ -116,13 +116,23 @@ export class DashboardComponent implements OnInit {
   generateClockifyReport(): void {
     this.converting = true;
 
+    // Tarihleri doğru formatta gönder
+    const startDate = new Date(this.clockifyStartDate);
+    const endDate = new Date(this.clockifyEndDate);
+    
+    // End date'e 23:59:59 ekle (günün sonunu kapsasın)
+    endDate.setHours(23, 59, 59, 999);
+
     const data = {
       api_key: this.clockifyApiKey,
       workspace_id: this.selectedWorkspace,
-      start_date: new Date(this.clockifyStartDate).toISOString(),
-      end_date: new Date(this.clockifyEndDate).toISOString(),
-      project_ids: this.selectedClockifyProjects,
-      format: this.format
+      start_date: startDate.toISOString(),
+      end_date: endDate.toISOString(),
+      project_ids: this.selectedClockifyProjects.length > 0 ? this.selectedClockifyProjects : [],
+      format: this.format,
+      projects: ['all'],  // BUNU EKLEDİK
+      clients: ['all'],   // BUNU EKLEDİK
+      users: ['all']      // BUNU EKLEDİK
     };
 
     this.clockifyService.getTimeEntries(data).subscribe({
@@ -133,8 +143,14 @@ export class DashboardComponent implements OnInit {
         this.converting = false;
       },
       error: (error) => {
-        this.snackBar.open(error.error?.error || 'Error generating report', 'Close', { duration: 5000 });
+        // Daha detaylı hata mesajı göster
+        let errorMessage = 'Error generating report';
+        if (error.error && error.error.error) {
+          errorMessage = error.error.error;
+        }
+        this.snackBar.open(errorMessage, 'Close', { duration: 5000 });
         this.converting = false;
+        console.error('Clockify error:', error); // Debug için
       }
     });
   }

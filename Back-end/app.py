@@ -785,6 +785,9 @@ def get_clockify_time_entries():
         user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
         
         data = request.get_json()
+
+        app.logger.info(f"Received data: {data}")
+
         api_key = data.get('api_key')
         workspace_id = data.get('workspace_id')
         start_date = data.get('start_date')
@@ -792,7 +795,12 @@ def get_clockify_time_entries():
         project_ids = data.get('project_ids', [])
         
         if not all([api_key, workspace_id, start_date, end_date]):
-            return jsonify({'error': 'Missing required parameters'}), 400
+            missing = []
+            if not api_key: missing.append('api_key')
+            if not workspace_id: missing.append('workspace_id')
+            if not start_date: missing.append('start_date')
+            if not end_date: missing.append('end_date')
+            return jsonify({'error': f'Missing required parameters: {", ".join(missing)}'}), 400
         
         headers = {'X-Api-Key': api_key, 'Content-Type': 'application/json'}
         
