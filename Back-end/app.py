@@ -12,6 +12,7 @@ import base64
 from datetime import datetime, timedelta
 import calendar
 import traceback
+import requests
 
 # ============== Flask Yapılandırması ==============
 app = Flask(__name__)
@@ -728,6 +729,245 @@ def convert_csv():
         
     except Exception as e:
         app.logger.error(f"Error in convert: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clockify/workspaces', methods=['GET'])
+@jwt_required()
+def get_clockify_workspaces():
+    """Clockify workspace'lerini getir"""
+    try:
+        api_key = request.headers.get('X-Clockify-Api-Key')
+        if not api_key:
+            return jsonify({'error': 'Clockify API key required'}), 400
+        
+        headers = {'X-Api-Key': api_key}
+        response = requests.get('https://api.clockify.me/api/v1/workspaces', headers=headers)
+        
+        if response.status_code != 200:
+            return jsonify({'error': 'Invalid Clockify API key'}), 401
+        
+        workspaces = response.json()
+        return jsonify(workspaces), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clockify/projects', methods=['GET'])
+@jwt_required()
+def get_clockify_projects():
+    """Clockify projelerini getir"""
+    try:
+        api_key = request.headers.get('X-Clockify-Api-Key')
+        workspace_id = request.args.get('workspace_id')
+        
+        if not api_key or not workspace_id:
+            return jsonify({'error': 'API key and workspace_id required'}), 400
+        
+        headers = {'X-Api-Key': api_key}
+        response = requests.get(
+            f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/projects',
+            headers=headers
+        )
+        
+        if response.status_code != 200:
+            return jsonify({'error': 'Failed to fetch projects'}), 400
+        
+        return jsonify(response.json()), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clockify/time-entries', methods=['POST'])
+@jwt_required()
+def get_clockify_time_entries():
+    """Clockify time entries'leri getir ve CSV formatına dönüştür"""
+    try:
+        user_id = get_jwt_identity()
+        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+        
+        data = request.get_json()
+        api_key = data.get('api_key')
+        workspace_id = data.get('workspace_id')
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        project_ids = data.get('project_ids', [])
+        
+        if not all([api_key, workspace_id, start_date, end_date]):
+            return jsonify({'error': 'Missing required parameters'}), 400
+        
+        headers = {'X-Api-Key': api_key, 'Content-Type': 'application/json'}
+        
+        # Clockify'dan time entries al
+        url = f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/user/me'
+        user_response = requests.get(url, headers=headers)
+        
+        if user_response.status_code != 200:
+            return jsonify({'error': 'Failed to get user info'}), 400
+        
+        clockify_user = user_response.json()
+        clockify_user_id = clockify_user['id']
+        
+        # Time entries getir
+        url = f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/user/{clockify_user_id}/time-entries'
+        params = {
+            'start': start_date,
+            'end': end_date,
+            'page-size': 5000
+        }
+        
+        entries_response = requests.get(url, headers=headers, params=params)
+        
+        if entries_response.status_code != 200:
+            return jsonify({'error': 'Failed to fetch time entries'}), 400
+        
+        time_entries = entries_response.json()
+        
+        # Project bilgilerini çek
+        projects_url = f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/projects'
+        projects_response = requests.get(projects_url, headers=headers)
+        projects = {p['id']: p for p in projects_response.json()}
+        
+        # Client bilgilerini çek
+        clients_url = f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/clients'
+        clients_response = requests.get(clients_url, headers=headers)
+        clients = {c['id']: c for c in clients_response.json()}
+        
+        # CSV formatına dönüştür
+        csv_data = []
+        for entry in time_entries:
+            if project_ids and entry.get('projectId') not in project_ids:
+                continue
+            
+            project = projects.get(entry.get('projectId', ''), {})
+            client = clients.get(project.get('clientId', ''), {})
+            
+            # Süreyi hesapla
+            start_time = datetime.fromisoformat(entry['timeInterval']['start'].replace('Z', '+00:00'))
+            end_time = datetime.fromisoformat(entry['timeInterval']['end'].replace('Z', '+00:00')) if entry['timeInterval'].get('end') else datetime.utcnow()
+            duration = end_time - start_time
+            
+            hours = int(duration.total_seconds() // 3600)
+            minutes = int((duration.total_seconds() % 3600) // 60)
+            seconds = int(duration.total_seconds() % 60)
+            
+            csv_data.append({
+                'Project': project.get('name', 'Unknown'),
+                'Client': client.get('name', 'Unknown'),
+                'User': clockify_user.get('name', 'Unknown'),
+                'Description': entry.get('description', ''),
+                'Start Date': start_time.strftime('%d/%m/%Y'),
+                'Start Time': start_time.strftime('%H:%M:%S'),
+                'End Time': end_time.strftime('%H:%M:%S'),
+                'Duration (h)': f"{hours:02d}:{minutes:02d}:{seconds:02d}",
+                'Billable': 'Yes' if entry.get('billable') else 'No'
+            })
+        
+        if not csv_data:
+            return jsonify({'error': 'No time entries found for selected criteria'}), 400
+        
+        # DataFrame oluştur
+        df = pd.DataFrame(csv_data)
+        
+        # Filtreleri al
+        selected_projects = data.get('projects', ['all'])
+        selected_clients = data.get('clients', ['all'])
+        selected_users = data.get('users', ['all'])
+        format_choice = data.get('format', 'decimal')
+        
+        # Filtreleri uygula
+        if selected_projects and 'all' not in [p.lower() for p in selected_projects]:
+            df = df[df["Project"].isin(selected_projects)]
+        if selected_clients and 'all' not in [c.lower() for c in selected_clients]:
+            df = df[df["Client"].isin(selected_clients)]
+        if selected_users and 'all' not in [u.lower() for u in selected_users]:
+            df = df[df["User"].isin(selected_users)]
+        
+        if df.empty:
+            return jsonify({'error': 'No data matches filters'}), 400
+        
+        # Rapor bilgileri
+        overall_projects = ", ".join(df["Project"].dropna().unique())
+        overall_customers = ", ".join(df["Client"].dropna().unique())
+        
+        # Logo ve şirket bilgilerini hazırla
+        logo_data = None
+        company_info = None
+        
+        if user['user_type'] == 'company':
+            profile = user.get('company_profile', {})
+            if 'logo_data' in profile:
+                logo_data = {
+                    'data': profile['logo_data'],
+                    'mimetype': profile.get('logo_mimetype', 'image/png')
+                }
+            company_info = {
+                'company_name': profile.get('company_name', ''),
+                'contact_person': profile.get('contact_person', ''),
+                'phone': profile.get('phone', ''),
+                'address': profile.get('address', '')
+            }
+        
+        # Tarihleri parse et
+        df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
+        
+        # Rapor periyodu
+        if not df['ParsedDate'].dropna().empty:
+            min_date = df['ParsedDate'].min()
+            max_date = df['ParsedDate'].max()
+            if min_date.month == max_date.month and min_date.year == max_date.year:
+                report_period = min_date.strftime("%B %Y")
+            else:
+                report_period = f"{min_date.strftime('%B %Y')} - {max_date.strftime('%B %Y')}"
+        else:
+            report_period = "All Data"
+        
+        # Excel oluştur
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output = generate_excel_report(df, format_choice, report_period, 
+                                      overall_projects, overall_customers, logo_data, company_info)
+        filename = f"Clockify_Report_{timestamp}.xlsx"
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except Exception as e:
+        app.logger.error(f"Error in clockify time entries: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clockify/save-api-key', methods=['POST'])
+@jwt_required()
+def save_clockify_api_key():
+    """Clockify API key'i kaydet"""
+    try:
+        user_id = get_jwt_identity()
+        data = request.get_json()
+        
+        mongo.db.users.update_one(
+            {'_id': ObjectId(user_id)},
+            {'$set': {'clockify_api_key': data['api_key']}}
+        )
+        
+        return jsonify({'message': 'API key saved successfully'}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clockify/get-api-key', methods=['GET'])
+@jwt_required()
+def get_clockify_api_key():
+    """Kayıtlı Clockify API key'i getir"""
+    try:
+        user_id = get_jwt_identity()
+        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+        
+        api_key = user.get('clockify_api_key', '')
+        return jsonify({'api_key': api_key}), 200
+        
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 # ============== HEALTH CHECK ==============

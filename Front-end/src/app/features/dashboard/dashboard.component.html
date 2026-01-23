@@ -7,7 +7,31 @@
       <p>Transform your time tracking data into professional reports</p>
     </div>
 
-    <mat-card class="upload-card">
+    <!-- Source Selection -->
+    <mat-card class="source-card">
+      <mat-card-content>
+        <h2>Select Data Source</h2>
+        <div class="source-selector">
+          <button mat-raised-button 
+                  [class.selected]="dataSource === 'csv'"
+                  (click)="selectDataSource('csv')"
+                  class="source-btn">
+            <mat-icon>insert_drive_file</mat-icon>
+            <span>Upload CSV File</span>
+          </button>
+          <button mat-raised-button 
+                  [class.selected]="dataSource === 'clockify'"
+                  (click)="selectDataSource('clockify')"
+                  class="source-btn">
+            <mat-icon>cloud</mat-icon>
+            <span>Connect Clockify</span>
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- CSV Upload Section -->
+    <mat-card class="upload-card" *ngIf="dataSource === 'csv'">
       <mat-card-content>
         <div class="file-upload-area">
           <input type="file" accept=".csv" (change)="onFileSelected($event)" #fileInput hidden>
@@ -91,6 +115,82 @@
         <!-- Actions -->
         <div class="actions" *ngIf="selectedFile">
           <button mat-raised-button color="primary" (click)="onConvert()" [disabled]="converting || loading">
+            <mat-spinner *ngIf="converting" diameter="20"></mat-spinner>
+            <mat-icon *ngIf="!converting">download</mat-icon>
+            <span *ngIf="!converting">Generate Report</span>
+            <span *ngIf="converting">Generating...</span>
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Clockify Section -->
+    <mat-card class="clockify-card" *ngIf="dataSource === 'clockify'">
+      <mat-card-content>
+        <div class="clockify-config">
+          <h3>Clockify Configuration</h3>
+          
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Clockify API Key</mat-label>
+            <input matInput [(ngModel)]="clockifyApiKey" type="password" placeholder="Enter your Clockify API key">
+            <mat-icon matPrefix>vpn_key</mat-icon>
+            <mat-hint>Find your API key in Clockify settings</mat-hint>
+          </mat-form-field>
+
+          <div class="api-key-actions">
+            <button mat-raised-button (click)="loadClockifyWorkspaces()" [disabled]="!clockifyApiKey || clockifyLoading">
+              <mat-spinner *ngIf="clockifyLoading" diameter="20"></mat-spinner>
+              <span *ngIf="!clockifyLoading">Connect to Clockify</span>
+            </button>
+            <button mat-stroked-button (click)="saveClockifyApiKey()" [disabled]="!clockifyApiKey">
+              <mat-icon>save</mat-icon>
+              Save API Key
+            </button>
+          </div>
+        </div>
+
+        <!-- Clockify Filters -->
+        <div class="clockify-filters" *ngIf="clockifyWorkspaces.length > 0">
+          <h3>Select Data Range</h3>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Workspace</mat-label>
+            <mat-select [(ngModel)]="selectedWorkspace" (selectionChange)="onWorkspaceChange()">
+              <mat-option *ngFor="let workspace of clockifyWorkspaces" [value]="workspace.id">
+                {{ workspace.name }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width" *ngIf="clockifyProjects.length > 0">
+            <mat-label>Projects (Optional)</mat-label>
+            <mat-select [(ngModel)]="selectedClockifyProjects" multiple>
+              <mat-option *ngFor="let project of clockifyProjects" [value]="project.id">
+                {{ project.name }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Start Date</mat-label>
+            <input matInput type="date" [(ngModel)]="clockifyStartDate">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>End Date</mat-label>
+            <input matInput type="date" [(ngModel)]="clockifyEndDate">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Format</mat-label>
+            <mat-select [(ngModel)]="format">
+              <mat-option value="decimal">Decimal (8.50)</mat-option>
+              <mat-option value="hours">Time (8:30)</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <button mat-raised-button color="primary" (click)="generateClockifyReport()" 
+                  [disabled]="!selectedWorkspace || !clockifyStartDate || !clockifyEndDate || converting">
             <mat-spinner *ngIf="converting" diameter="20"></mat-spinner>
             <mat-icon *ngIf="!converting">download</mat-icon>
             <span *ngIf="!converting">Generate Report</span>
