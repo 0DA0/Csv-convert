@@ -11,7 +11,7 @@ import { saveAs } from 'file-saver';
   styleUrls: ['./dashboard.component.scss']
 })
 export class DashboardComponent implements OnInit {
-  dataSource: 'csv' | 'clockify' = 'csv';
+  userDataSource: 'csv' | 'clockify' = 'csv';
   
   // CSV
   selectedFile: File | null = null;
@@ -27,7 +27,6 @@ export class DashboardComponent implements OnInit {
   format = 'decimal';
 
   // Clockify
-  clockifyApiKey = '';
   clockifyWorkspaces: any[] = [];
   clockifyProjects: any[] = [];
   selectedWorkspace = '';
@@ -44,23 +43,19 @@ export class DashboardComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadSavedApiKey();
-    this.setDefaultDates();
-  }
-
-  selectDataSource(source: 'csv' | 'clockify'): void {
-    this.dataSource = source;
-  }
-
-  loadSavedApiKey(): void {
-    this.clockifyService.getApiKey().subscribe({
-      next: (response) => {
-        if (response.api_key) {
-          this.clockifyApiKey = response.api_key;
+    // Kullanıcının data source'unu al
+    this.authService.currentUser$.subscribe(user => {
+      if (user) {
+        this.userDataSource = user.data_source || 'csv';
+        
+        // Eğer Clockify kullanıcısıysa, otomatik bağlan
+        if (this.userDataSource === 'clockify') {
+          this.loadClockifyWorkspaces();
         }
-      },
-      error: () => {}
+      }
     });
+
+    this.setDefaultDates();
   }
 
   setDefaultDates(): void {
@@ -72,29 +67,18 @@ export class DashboardComponent implements OnInit {
     this.clockifyEndDate = lastDay.toISOString().split('T')[0];
   }
 
-  saveClockifyApiKey(): void {
-    this.clockifyService.saveApiKey(this.clockifyApiKey).subscribe({
-      next: () => {
-        this.snackBar.open('API key saved successfully!', 'Close', { duration: 3000 });
-      },
-      error: () => {
-        this.snackBar.open('Failed to save API key', 'Close', { duration: 3000 });
-      }
-    });
-  }
-
   loadClockifyWorkspaces(): void {
-    if (!this.clockifyApiKey) return;
-
     this.clockifyLoading = true;
-    this.clockifyService.getWorkspaces(this.clockifyApiKey).subscribe({
+    
+    // API key'i backend'den otomatik alacak
+    this.clockifyService.getWorkspaces('').subscribe({
       next: (workspaces) => {
         this.clockifyWorkspaces = workspaces;
         this.clockifyLoading = false;
         this.snackBar.open('Connected to Clockify!', 'Close', { duration: 3000 });
       },
-      error: () => {
-        this.snackBar.open('Invalid API key or connection failed', 'Close', { duration: 5000 });
+      error: (error) => {
+        this.snackBar.open('Failed to connect to Clockify. Please update your API key in profile settings.', 'Close', { duration: 5000 });
         this.clockifyLoading = false;
       }
     });
@@ -103,7 +87,7 @@ export class DashboardComponent implements OnInit {
   onWorkspaceChange(): void {
     if (!this.selectedWorkspace) return;
 
-    this.clockifyService.getProjects(this.clockifyApiKey, this.selectedWorkspace).subscribe({
+    this.clockifyService.getProjects('', this.selectedWorkspace).subscribe({
       next: (projects) => {
         this.clockifyProjects = projects;
       },
@@ -116,23 +100,16 @@ export class DashboardComponent implements OnInit {
   generateClockifyReport(): void {
     this.converting = true;
 
-    // Tarihleri doğru formatta gönder
     const startDate = new Date(this.clockifyStartDate);
     const endDate = new Date(this.clockifyEndDate);
-    
-    // End date'e 23:59:59 ekle (günün sonunu kapsasın)
     endDate.setHours(23, 59, 59, 999);
 
     const data = {
-      api_key: this.clockifyApiKey,
       workspace_id: this.selectedWorkspace,
       start_date: startDate.toISOString(),
       end_date: endDate.toISOString(),
       project_ids: this.selectedClockifyProjects.length > 0 ? this.selectedClockifyProjects : [],
-      format: this.format,
-      projects: ['all'],  // BUNU EKLEDİK
-      clients: ['all'],   // BUNU EKLEDİK
-      users: ['all']      // BUNU EKLEDİK
+      format: this.format
     };
 
     this.clockifyService.getTimeEntries(data).subscribe({
@@ -143,14 +120,12 @@ export class DashboardComponent implements OnInit {
         this.converting = false;
       },
       error: (error) => {
-        // Daha detaylı hata mesajı göster
         let errorMessage = 'Error generating report';
         if (error.error && error.error.error) {
           errorMessage = error.error.error;
         }
         this.snackBar.open(errorMessage, 'Close', { duration: 5000 });
         this.converting = false;
-        console.error('Clockify error:', error); // Debug için
       }
     });
   }
@@ -168,7 +143,9 @@ export class DashboardComponent implements OnInit {
     }
   }
 
-  onFileSelected(event: any): void {const file: File = event.target.files[0];
+  // CSV Methods
+  onFileSelected(event: any): void {
+    const file: File = event.target.files[0];
     if (file && file.name.endsWith('.csv')) {
       this.selectedFile = file;
       this.fileName = file.name;
@@ -176,9 +153,11 @@ export class DashboardComponent implements OnInit {
     } else {
       this.snackBar.open('Please select a CSV file', 'Close', { duration: 3000 });
     }
-    }
+  }
+
   loadCsvPreview(): void {
     if (!this.selectedFile) return;
+    
     this.loading = true;
     this.csvService.previewCsv(this.selectedFile).subscribe({
       next: (data) => {
@@ -191,12 +170,14 @@ export class DashboardComponent implements OnInit {
         this.loading = false;
       }
     });
-    }
+  }
+
   onConvert(): void {
     if (!this.selectedFile) {
-    this.snackBar.open('Please select a CSV file', 'Close', { duration: 3000 });
-    return;
+      this.snackBar.open('Please select a CSV file', 'Close', { duration: 3000 });
+      return;
     }
+
     this.converting = true;
 
     const filters = {
@@ -219,6 +200,7 @@ export class DashboardComponent implements OnInit {
       }
     });
   }
+
   removeFile(): void {
     this.selectedFile = null;
     this.fileName = '';

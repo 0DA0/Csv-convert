@@ -7,32 +7,14 @@
       <p>Transform your time tracking data into professional reports</p>
     </div>
 
-    <!-- Source Selection -->
-    <mat-card class="source-card">
+    <!-- CSV Upload Section - Sadece CSV kullanıcıları için -->
+    <mat-card class="upload-card" *ngIf="userDataSource === 'csv'">
       <mat-card-content>
-        <h2>Select Data Source</h2>
-        <div class="source-selector">
-          <button mat-raised-button 
-                  [class.selected]="dataSource === 'csv'"
-                  (click)="selectDataSource('csv')"
-                  class="source-btn">
-            <mat-icon>insert_drive_file</mat-icon>
-            <span>Upload CSV File</span>
-          </button>
-          <button mat-raised-button 
-                  [class.selected]="dataSource === 'clockify'"
-                  (click)="selectDataSource('clockify')"
-                  class="source-btn">
-            <mat-icon>cloud</mat-icon>
-            <span>Connect Clockify</span>
-          </button>
+        <div class="section-header">
+          <mat-icon>insert_drive_file</mat-icon>
+          <h2>CSV File Upload</h2>
         </div>
-      </mat-card-content>
-    </mat-card>
 
-    <!-- CSV Upload Section -->
-    <mat-card class="upload-card" *ngIf="dataSource === 'csv'">
-      <mat-card-content>
         <div class="file-upload-area">
           <input type="file" accept=".csv" (change)="onFileSelected($event)" #fileInput hidden>
           
@@ -124,29 +106,27 @@
       </mat-card-content>
     </mat-card>
 
-    <!-- Clockify Section -->
-    <mat-card class="clockify-card" *ngIf="dataSource === 'clockify'">
+    <!-- Clockify Section - Sadece Clockify kullanıcıları için -->
+    <mat-card class="clockify-card" *ngIf="userDataSource === 'clockify'">
       <mat-card-content>
-        <div class="clockify-config">
-          <h3>Clockify Configuration</h3>
-          
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Clockify API Key</mat-label>
-            <input matInput [(ngModel)]="clockifyApiKey" type="password" placeholder="Enter your Clockify API key">
-            <mat-icon matPrefix>vpn_key</mat-icon>
-            <mat-hint>Find your API key in Clockify settings</mat-hint>
-          </mat-form-field>
+        <div class="section-header">
+          <mat-icon>cloud</mat-icon>
+          <h2>Clockify Integration</h2>
+        </div>
 
-          <div class="api-key-actions">
-            <button mat-raised-button (click)="loadClockifyWorkspaces()" [disabled]="!clockifyApiKey || clockifyLoading">
-              <mat-spinner *ngIf="clockifyLoading" diameter="20"></mat-spinner>
-              <span *ngIf="!clockifyLoading">Connect to Clockify</span>
-            </button>
-            <button mat-stroked-button (click)="saveClockifyApiKey()" [disabled]="!clockifyApiKey">
-              <mat-icon>save</mat-icon>
-              Save API Key
-            </button>
-          </div>
+        <div class="clockify-status" *ngIf="clockifyWorkspaces.length > 0">
+          <mat-icon class="status-icon">check_circle</mat-icon>
+          <span>Connected to Clockify</span>
+        </div>
+
+        <div class="clockify-config" *ngIf="clockifyWorkspaces.length === 0">
+          <p class="info-text">Connect your Clockify account to generate reports automatically</p>
+          
+          <button mat-raised-button color="primary" (click)="loadClockifyWorkspaces()" [disabled]="clockifyLoading">
+            <mat-spinner *ngIf="clockifyLoading" diameter="20"></mat-spinner>
+            <mat-icon *ngIf="!clockifyLoading">cloud</mat-icon>
+            <span *ngIf="!clockifyLoading">Connect to Clockify</span>
+          </button>
         </div>
 
         <!-- Clockify Filters -->

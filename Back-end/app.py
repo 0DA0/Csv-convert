@@ -7,6 +7,7 @@ from bson.objectid import ObjectId
 import pandas as pd
 from io import BytesIO
 import os
+from cryptography.fernet import Fernet
 import re
 import base64
 from datetime import datetime, timedelta
@@ -37,6 +38,16 @@ CORS(app, resources={
 })
 mongo = PyMongo(app)
 jwt = JWTManager(app)
+
+# Encryption key - Environment variable'dan al veya generate et
+ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY')
+if not ENCRYPTION_KEY:
+    ENCRYPTION_KEY = Fernet.generate_key()
+    print(f"WARNING: Generated new encryption key. Add this to your environment: ENCRYPTION_KEY={ENCRYPTION_KEY.decode()}")
+else:
+    ENCRYPTION_KEY = ENCRYPTION_KEY.encode()
+
+cipher_suite = Fernet(ENCRYPTION_KEY)
 
 # ============== Yardımcı Fonksiyonlar ==============
 
@@ -440,11 +451,26 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
     output.seek(0)
     return output
 
+def encrypt_api_key(api_key):
+    """API key'i şifrele"""
+    if not api_key:
+        return None
+    return cipher_suite.encrypt(api_key.encode()).decode()
+
+def decrypt_api_key(encrypted_key):
+    """API key'i çöz"""
+    if not encrypted_key:
+        return None
+    try:
+        return cipher_suite.decrypt(encrypted_key.encode()).decode()
+    except:
+        return None
+
 # ============== AUTH ENDPOINTS ==============
 
 @app.route('/api/auth/register', methods=['POST'])
 def register():
-    """Kullanıcı kaydı"""
+    """Kullanıcı kaydı - Data Source seçimi ile"""
     try:
         data = request.get_json()
         
@@ -455,6 +481,7 @@ def register():
             'email': data['email'],
             'password_hash': generate_password_hash(data['password']),
             'user_type': data['user_type'],
+            'data_source': data.get('data_source', 'csv'),  # YENİ: csv veya clockify
             'created_at': datetime.utcnow()
         }
         
@@ -477,6 +504,11 @@ def register():
                 company_profile['logo_mimetype'] = data.get('logo_mimetype', 'image/png')
             
             user_doc['company_profile'] = company_profile
+        
+        # Eğer Clockify seçilmişse ve API key varsa, şifrele ve kaydet
+        if data.get('data_source') == 'clockify' and data.get('clockify_api_key'):
+            encrypted_key = encrypt_api_key(data['clockify_api_key'])
+            user_doc['clockify_api_key'] = encrypted_key
         
         result = mongo.db.users.insert_one(user_doc)
         
@@ -503,7 +535,8 @@ def login():
         user_info = {
             'id': str(user['_id']),
             'email': user['email'],
-            'user_type': user['user_type']
+            'user_type': user['user_type'],
+            'data_source': user.get('data_source', 'csv')  # YENİ
         }
         
         if user['user_type'] == 'individual':
@@ -538,7 +571,8 @@ def get_current_user():
         user_info = {
             'id': str(user['_id']),
             'email': user['email'],
-            'user_type': user['user_type']
+            'user_type': user['user_type'],
+            'data_source': user.get('data_source', 'csv')  # YENİ
         }
         
         if user['user_type'] == 'individual':
@@ -561,7 +595,7 @@ def get_current_user():
 @app.route('/api/profile', methods=['PUT'])
 @jwt_required()
 def update_profile():
-    """Profil güncelleme"""
+    """Profil güncelleme - Data Source değişimi ile"""
     try:
         user_id = get_jwt_identity()
         data = request.get_json()
@@ -572,18 +606,23 @@ def update_profile():
         
         update_data = {}
         
+        # Data source güncelleme
+        if 'data_source' in data:
+            update_data['data_source'] = data['data_source']
+            
+            # Eğer Clockify'a geçiş yapılıyorsa ve API key varsa
+            if data['data_source'] == 'clockify' and data.get('clockify_api_key'):
+                encrypted_key = encrypt_api_key(data['clockify_api_key'])
+                update_data['clockify_api_key'] = encrypted_key
+        
         if user['user_type'] == 'individual':
-            update_data = {
-                'individual_profile.full_name': data['full_name'],
-                'individual_profile.phone': data.get('phone', '')
-            }
+            update_data['individual_profile.full_name'] = data['full_name']
+            update_data['individual_profile.phone'] = data.get('phone', '')
         else:
-            update_data = {
-                'company_profile.company_name': data['company_name'],
-                'company_profile.contact_person': data.get('contact_person', ''),
-                'company_profile.phone': data.get('phone', ''),
-                'company_profile.address': data.get('address', '')
-            }
+            update_data['company_profile.company_name'] = data['company_name']
+            update_data['company_profile.contact_person'] = data.get('contact_person', '')
+            update_data['company_profile.phone'] = data.get('phone', '')
+            update_data['company_profile.address'] = data.get('address', '')
             
             if 'logo_base64' in data and data['logo_base64']:
                 logo_data = base64.b64decode(data['logo_base64'].split(',')[1])
@@ -735,7 +774,17 @@ def convert_csv():
 def get_clockify_workspaces():
     """Clockify workspace'lerini getir"""
     try:
+        user_id = get_jwt_identity()
+        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+        
+        # API key'i header'dan veya database'den al
         api_key = request.headers.get('X-Clockify-Api-Key')
+        
+        if not api_key:
+            # Database'den al ve decrypt et
+            encrypted_key = user.get('clockify_api_key', '')
+            api_key = decrypt_api_key(encrypted_key) if encrypted_key else None
+        
         if not api_key:
             return jsonify({'error': 'Clockify API key required'}), 400
         
@@ -756,8 +805,17 @@ def get_clockify_workspaces():
 def get_clockify_projects():
     """Clockify projelerini getir"""
     try:
-        api_key = request.headers.get('X-Clockify-Api-Key')
+        user_id = get_jwt_identity()
+        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+        
         workspace_id = request.args.get('workspace_id')
+        
+        # API key'i header'dan veya database'den al
+        api_key = request.headers.get('X-Clockify-Api-Key')
+        
+        if not api_key:
+            encrypted_key = user.get('clockify_api_key', '')
+            api_key = decrypt_api_key(encrypted_key) if encrypted_key else None
         
         if not api_key or not workspace_id:
             return jsonify({'error': 'API key and workspace_id required'}), 400
@@ -779,17 +837,22 @@ def get_clockify_projects():
 @app.route('/api/clockify/time-entries', methods=['POST'])
 @jwt_required()
 def get_clockify_time_entries():
-    """Clockify time entries'leri getir ve Excel'e dönüştür - FIXED"""
+    """Clockify time entries'leri getir ve Excel'e dönüştür"""
     try:
         user_id = get_jwt_identity()
         user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
         
         data = request.get_json()
-        api_key = data.get('api_key')
         workspace_id = data.get('workspace_id')
         start_date = data.get('start_date')
         end_date = data.get('end_date')
         project_ids = data.get('project_ids', [])
+        
+        # API key'i al ve decrypt et
+        api_key = data.get('api_key')
+        if not api_key:
+            encrypted_key = user.get('clockify_api_key', '')
+            api_key = decrypt_api_key(encrypted_key) if encrypted_key else None
         
         if not all([api_key, workspace_id, start_date, end_date]):
             return jsonify({'error': 'Missing required parameters'}), 400
@@ -811,12 +874,11 @@ def get_clockify_time_entries():
                 return jsonify({'error': 'Invalid Clockify API key'}), 400
                 
             clockify_user = user_response.json()
-            app.logger.info(f"User authenticated: {clockify_user.get('name')}")
         except Exception as e:
             app.logger.error(f"Auth error: {str(e)}")
             return jsonify({'error': 'Failed to authenticate with Clockify'}), 400
         
-        # Time entries al - DOĞRU ENDPOINT
+        # Time entries al
         try:
             report_url = f'https://reports.api.clockify.me/v1/workspaces/{workspace_id}/reports/detailed'
             
@@ -835,8 +897,6 @@ def get_clockify_time_entries():
                     "contains": "CONTAINS"
                 }
             
-            app.logger.info(f"Request URL: {report_url}")
-            
             report_response = requests.post(
                 report_url,
                 headers=headers,
@@ -845,19 +905,15 @@ def get_clockify_time_entries():
             )
             
             if report_response.status_code != 200:
-                app.logger.error(f"API Error: {report_response.status_code} - {report_response.text}")
+                app.logger.error(f"API Error: {report_response.text}")
                 return jsonify({'error': f'Clockify API error: {report_response.text}'}), 400
             
             report_data = report_response.json()
             time_entries = report_data.get('timeentries', [])
             
             if not time_entries:
-                return jsonify({'error': 'No time entries found for the selected period'}), 400
+                return jsonify({'error': 'No time entries found'}), 400
             
-            app.logger.info(f"Found {len(time_entries)} time entries")
-            
-        except requests.exceptions.Timeout:
-            return jsonify({'error': 'Clockify API request timed out'}), 400
         except Exception as e:
             app.logger.error(f"Fetch error: {str(e)}\n{traceback.format_exc()}")
             return jsonify({'error': f'Failed to fetch time entries: {str(e)}'}), 400
@@ -886,16 +942,11 @@ def get_clockify_time_entries():
                 else:
                     end_time = start_time + timedelta(seconds=duration_seconds)
                 
-                if duration_seconds > 0:
-                    total_seconds = duration_seconds
-                else:
-                    total_seconds = (end_time - start_time).total_seconds()
+                total_seconds = duration_seconds if duration_seconds > 0 else (end_time - start_time).total_seconds()
                 
                 hours = int(total_seconds // 3600)
                 minutes = int((total_seconds % 3600) // 60)
                 seconds = int(total_seconds % 60)
-                
-                is_billable = entry.get('billable', False)
                 
                 csv_data.append({
                     'Project': project_name,
@@ -906,7 +957,7 @@ def get_clockify_time_entries():
                     'Start Time': start_time.strftime('%H:%M:%S'),
                     'End Time': end_time.strftime('%H:%M:%S'),
                     'Duration (h)': f"{hours:02d}:{minutes:02d}:{seconds:02d}",
-                    'Billable': 'Yes' if is_billable else 'No'
+                    'Billable': 'Yes' if entry.get('billable', False) else 'No'
                 })
             except Exception as e:
                 app.logger.warning(f"Error processing entry: {str(e)}")
@@ -915,14 +966,11 @@ def get_clockify_time_entries():
         if not csv_data:
             return jsonify({'error': 'No valid time entries found'}), 400
         
-        # DataFrame oluştur
         df = pd.DataFrame(csv_data)
         
-        # Rapor bilgileri
         overall_projects = ", ".join(df["Project"].dropna().unique())
         overall_customers = ", ".join(df["Client"].dropna().unique())
         
-        # Logo ve şirket bilgileri
         logo_data = None
         company_info = None
         
@@ -940,10 +988,8 @@ def get_clockify_time_entries():
                 'address': profile.get('address', '')
             }
         
-        # Tarihleri parse et
         df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
         
-        # Rapor periyodu
         if not df['ParsedDate'].dropna().empty:
             min_date = df['ParsedDate'].min()
             max_date = df['ParsedDate'].max()
@@ -956,7 +1002,6 @@ def get_clockify_time_entries():
         
         format_choice = data.get('format', 'decimal')
         
-        # Excel oluştur
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output = generate_excel_report(df, format_choice, report_period, 
                                       overall_projects, overall_customers, logo_data, company_info)
@@ -970,20 +1015,22 @@ def get_clockify_time_entries():
         )
         
     except Exception as e:
-        app.logger.error(f"Error in clockify time entries: {str(e)}\n{traceback.format_exc()}")
+        app.logger.error(f"Error: {str(e)}\n{traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/clockify/save-api-key', methods=['POST'])
 @jwt_required()
 def save_clockify_api_key():
-    """Clockify API key'i kaydet"""
+    """Clockify API key'i kaydet - Şifreli"""
     try:
         user_id = get_jwt_identity()
         data = request.get_json()
         
+        encrypted_key = encrypt_api_key(data['api_key'])
+        
         mongo.db.users.update_one(
             {'_id': ObjectId(user_id)},
-            {'$set': {'clockify_api_key': data['api_key']}}
+            {'$set': {'clockify_api_key': encrypted_key}}
         )
         
         return jsonify({'message': 'API key saved successfully'}), 200
@@ -994,17 +1041,18 @@ def save_clockify_api_key():
 @app.route('/api/clockify/get-api-key', methods=['GET'])
 @jwt_required()
 def get_clockify_api_key():
-    """Kayıtlı Clockify API key'i getir"""
+    """Kayıtlı Clockify API key'i getir - Şifreli"""
     try:
         user_id = get_jwt_identity()
         user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
         
-        api_key = user.get('clockify_api_key', '')
-        return jsonify({'api_key': api_key}), 200
+        encrypted_key = user.get('clockify_api_key', '')
+        decrypted_key = decrypt_api_key(encrypted_key) if encrypted_key else ''
+        
+        return jsonify({'api_key': decrypted_key or ''}), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 # ============== HEALTH CHECK ==============
 
 @app.route('/api/health', methods=['GET'])

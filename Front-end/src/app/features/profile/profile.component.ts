@@ -12,8 +12,10 @@ import { User } from '../../core/models/user.model';
 export class ProfileComponent implements OnInit {
   profileForm: FormGroup;
   loading = false;
+  hideApiKey = true;
   logoPreview: string | null = null;
   user: User | null = null;
+  selectedDataSource: 'csv' | 'clockify' = 'csv';
 
   constructor(
     private fb: FormBuilder,
@@ -27,7 +29,9 @@ export class ProfileComponent implements OnInit {
       phone: [''],
       address: [''],
       logo_base64: [''],
-      logo_mimetype: ['']
+      logo_mimetype: [''],
+      data_source: ['csv'],
+      clockify_api_key: ['']
     });
   }
 
@@ -35,7 +39,13 @@ export class ProfileComponent implements OnInit {
     this.authService.currentUser$.subscribe(user => {
       if (user) {
         this.user = user;
+        this.selectedDataSource = user.data_source || 'csv';
+        
         const profile = user.profile;
+        
+        this.profileForm.patchValue({
+          data_source: user.data_source || 'csv'
+        });
         
         if (user.user_type === 'individual' && 'full_name' in profile) {
           this.profileForm.patchValue({
@@ -56,6 +66,11 @@ export class ProfileComponent implements OnInit {
         }
       }
     });
+  }
+
+  selectDataSource(source: 'csv' | 'clockify'): void {
+    this.selectedDataSource = source;
+    this.profileForm.patchValue({ data_source: source });
   }
 
   onFileSelected(event: any): void {
@@ -88,6 +103,9 @@ export class ProfileComponent implements OnInit {
       next: () => {
         this.snackBar.open('Profile updated successfully!', 'Close', { duration: 3000 });
         this.loading = false;
+        
+        // API key temizle (güvenlik için)
+        this.profileForm.patchValue({ clockify_api_key: '' });
       },
       error: (error) => {
         this.snackBar.open(error.error?.error || 'Update failed', 'Close', { duration: 5000 });

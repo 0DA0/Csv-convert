@@ -30,6 +30,29 @@
         </button>
       </div>
 
+      <!-- Data Source Selection -->
+      <div class="data-source-selector">
+        <h3>Select Data Source</h3>
+        <div class="source-options">
+          <button mat-stroked-button 
+                  [class.selected]="selectedDataSource === 'csv'"
+                  (click)="selectDataSource('csv')"
+                  type="button"
+                  class="source-btn">
+            <mat-icon>insert_drive_file</mat-icon>
+            <span>CSV Upload</span>
+          </button>
+          <button mat-stroked-button 
+                  [class.selected]="selectedDataSource === 'clockify'"
+                  (click)="selectDataSource('clockify')"
+                  type="button"
+                  class="source-btn">
+            <mat-icon>cloud</mat-icon>
+            <span>Clockify</span>
+          </button>
+        </div>
+      </div>
+
       <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="auth-form">
         <!-- Common Fields -->
         <mat-form-field appearance="outline" class="full-width">
@@ -114,6 +137,20 @@
               </div>
             </div>
           </div>
+        </ng-container>
+
+        <!-- Clockify API Key (sadece Clockify seçildiğinde) -->
+        <ng-container *ngIf="selectedDataSource === 'clockify'">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Clockify API Key</mat-label>
+            <input matInput [type]="hideApiKey ? 'password' : 'text'" formControlName="clockify_api_key" placeholder="Enter your Clockify API key" required>
+            <mat-icon matPrefix>vpn_key</mat-icon>
+            <button mat-icon-button matSuffix (click)="hideApiKey = !hideApiKey" type="button" tabindex="-1">
+              <mat-icon>{{hideApiKey ? 'visibility_off' : 'visibility'}}</mat-icon>
+            </button>
+            <mat-hint>Find your API key in Clockify settings</mat-hint>
+            <mat-error>Clockify API key is required</mat-error>
+          </mat-form-field>
         </ng-container>
 
         <button mat-raised-button color="primary" type="submit" [disabled]="loading || registerForm.invalid" class="submit-btn">

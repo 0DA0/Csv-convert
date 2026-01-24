@@ -19,6 +19,73 @@
         display: flex;
         flex-direction: column;
         gap: 16px;
+
+        .data-source-section {
+          margin-bottom: 24px;
+          padding-bottom: 24px;
+          border-bottom: 2px solid #e2e8f0;
+
+          h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a202c;
+            margin-bottom: 16px;
+          }
+
+          .source-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+
+            .source-btn {
+              padding: 24px 16px;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 8px;
+              border: 2px solid #e2e8f0;
+              border-radius: 12px;
+              background: #f7fafc;
+              transition: all 0.3s ease;
+              cursor: pointer;
+
+              mat-icon {
+                font-size: 32px;
+                width: 32px;
+                height: 32px;
+                color: #718096;
+                transition: all 0.3s ease;
+              }
+
+              span {
+                font-size: 14px;
+                font-weight: 600;
+                color: #4a5568;
+                transition: all 0.3s ease;
+              }
+
+              &:hover:not(.selected) {
+                border-color: #cbd5e0;
+                background: white;
+                transform: translateY(-2px);
+              }
+
+              &.selected {
+                border-color: #48bb78;
+                background: linear-gradient(135deg, rgba(72, 187, 120, 0.1) 0%, rgba(56, 161, 105, 0.1) 100%);
+                box-shadow: 0 4px 12px rgba(72, 187, 120, 0.2);
+
+                mat-icon {
+                  color: #48bb78;
+                }
+
+                span {
+                  color: #48bb78;
+                }
+              }
+            }
+          }
+        }
         
         .logo-section {
           margin: 16px 0;
@@ -41,6 +108,7 @@
           width: fit-content;
           padding: 0 32px;
           height: 48px;
+          margin-top: 16px;
           
           mat-spinner {
             display: inline-block;

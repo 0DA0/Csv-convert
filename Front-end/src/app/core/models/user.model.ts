@@ -2,6 +2,7 @@ export interface User {
   id: string;
   email: string;
   user_type: 'individual' | 'company';
+  data_source: 'csv' | 'clockify';  // YENİ
   profile: IndividualProfile | CompanyProfile;
 }
 

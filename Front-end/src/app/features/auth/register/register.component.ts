@@ -13,7 +13,9 @@ export class RegisterComponent {
   registerForm: FormGroup;
   loading = false;
   hidePassword = true;
+  hideApiKey = true;
   selectedUserType: 'individual' | 'company' = 'individual';
+  selectedDataSource: 'csv' | 'clockify' = 'csv';
   logoPreview: string | null = null;
 
   constructor(
@@ -26,13 +28,15 @@ export class RegisterComponent {
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]],
       user_type: ['individual'],
+      data_source: ['csv'],
       full_name: [''],
       company_name: [''],
       contact_person: [''],
       phone: [''],
       address: [''],
       logo_base64: [''],
-      logo_mimetype: ['']
+      logo_mimetype: [''],
+      clockify_api_key: ['']
     });
 
     this.updateValidators();
@@ -44,10 +48,18 @@ export class RegisterComponent {
     this.updateValidators();
   }
 
+  selectDataSource(source: 'csv' | 'clockify'): void {
+    this.selectedDataSource = source;
+    this.registerForm.patchValue({ data_source: source });
+    this.updateValidators();
+  }
+
   private updateValidators(): void {
     const fullName = this.registerForm.get('full_name');
     const companyName = this.registerForm.get('company_name');
+    const clockifyApiKey = this.registerForm.get('clockify_api_key');
 
+    // User type validators
     if (this.selectedUserType === 'individual') {
       fullName?.setValidators([Validators.required]);
       companyName?.clearValidators();
@@ -56,8 +68,16 @@ export class RegisterComponent {
       companyName?.setValidators([Validators.required]);
     }
 
+    // Data source validators
+    if (this.selectedDataSource === 'clockify') {
+      clockifyApiKey?.setValidators([Validators.required]);
+    } else {
+      clockifyApiKey?.clearValidators();
+    }
+
     fullName?.updateValueAndValidity();
     companyName?.updateValueAndValidity();
+    clockifyApiKey?.updateValueAndValidity();
   }
 
   onFileSelected(event: any): void {

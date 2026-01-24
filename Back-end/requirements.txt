@@ -10,3 +10,4 @@ xlsxwriter
 werkzeug
 python-dateutil
 requests
+cryptography

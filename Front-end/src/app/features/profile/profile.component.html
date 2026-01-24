@@ -9,6 +9,44 @@
 
       <mat-card-content>
         <form [formGroup]="profileForm" (ngSubmit)="onSubmit()">
+          
+          <!-- Data Source Selection -->
+          <div class="data-source-section">
+            <h3>Data Source</h3>
+            <div class="source-selector">
+              <button mat-stroked-button 
+                      type="button"
+                      [class.selected]="selectedDataSource === 'csv'"
+                      (click)="selectDataSource('csv')"
+                      class="source-btn">
+                <mat-icon>insert_drive_file</mat-icon>
+                <span>CSV Upload</span>
+              </button>
+              <button mat-stroked-button 
+                      type="button"
+                      [class.selected]="selectedDataSource === 'clockify'"
+                      (click)="selectDataSource('clockify')"
+                      class="source-btn">
+                <mat-icon>cloud</mat-icon>
+                <span>Clockify</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Clockify API Key (sadece Clockify seçildiğinde) -->
+          <ng-container *ngIf="selectedDataSource === 'clockify'">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Clockify API Key</mat-label>
+              <input matInput [type]="hideApiKey ? 'password' : 'text'" formControlName="clockify_api_key" placeholder="Enter your Clockify API key">
+              <mat-icon matPrefix>vpn_key</mat-icon>
+              <button mat-icon-button matSuffix (click)="hideApiKey = !hideApiKey" type="button" tabindex="-1">
+                <mat-icon>{{hideApiKey ? 'visibility_off' : 'visibility'}}</mat-icon>
+              </button>
+              <mat-hint>Find your API key in Clockify settings. Leave empty to keep current key.</mat-hint>
+            </mat-form-field>
+          </ng-container>
+
+          <!-- Profile Fields -->
           <ng-container *ngIf="user?.user_type === 'individual'">
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Full Name</mat-label>
