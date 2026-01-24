@@ -779,7 +779,7 @@ def get_clockify_projects():
 @app.route('/api/clockify/time-entries', methods=['POST'])
 @jwt_required()
 def get_clockify_time_entries():
-    """Clockify time entries'leri getir ve Excel'e dönüştür"""
+    """Clockify time entries'leri getir ve Excel'e dönüştür - FIXED"""
     try:
         user_id = get_jwt_identity()
         user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
@@ -791,16 +791,18 @@ def get_clockify_time_entries():
         end_date = data.get('end_date')
         project_ids = data.get('project_ids', [])
         
-        # Parametre kontrolü
         if not all([api_key, workspace_id, start_date, end_date]):
             return jsonify({'error': 'Missing required parameters'}), 400
         
-        headers = {'X-Api-Key': api_key}
+        headers = {
+            'X-Api-Key': api_key,
+            'Content-Type': 'application/json'
+        }
         
-        # Kullanıcı bilgisini al
+        # Kullanıcı doğrulama
         try:
             user_response = requests.get(
-                f'https://api.clockify.me/api/v1/user',
+                'https://api.clockify.me/api/v1/user',
                 headers=headers,
                 timeout=10
             )
@@ -809,14 +811,15 @@ def get_clockify_time_entries():
                 return jsonify({'error': 'Invalid Clockify API key'}), 400
                 
             clockify_user = user_response.json()
-            clockify_user_id = clockify_user['id']
+            app.logger.info(f"User authenticated: {clockify_user.get('name')}")
         except Exception as e:
-            app.logger.error(f"Error getting Clockify user: {str(e)}")
+            app.logger.error(f"Auth error: {str(e)}")
             return jsonify({'error': 'Failed to authenticate with Clockify'}), 400
         
-        # Time entries al - Detailed report endpoint kullan
+        # Time entries al - DOĞRU ENDPOINT
         try:
-            report_url = f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/reports/detailed'
+            report_url = f'https://reports.api.clockify.me/v1/workspaces/{workspace_id}/reports/detailed'
+            
             report_payload = {
                 "dateRangeStart": start_date,
                 "dateRangeEnd": end_date,
@@ -826,23 +829,24 @@ def get_clockify_time_entries():
                 }
             }
             
-            # Eğer proje filtresi varsa ekle
-            if project_ids:
+            if project_ids and len(project_ids) > 0:
                 report_payload["detailedFilter"]["projects"] = {
                     "ids": project_ids,
                     "contains": "CONTAINS"
                 }
             
+            app.logger.info(f"Request URL: {report_url}")
+            
             report_response = requests.post(
                 report_url,
-                headers={**headers, 'Content-Type': 'application/json'},
+                headers=headers,
                 json=report_payload,
                 timeout=30
             )
             
             if report_response.status_code != 200:
-                app.logger.error(f"Clockify API error: {report_response.text}")
-                return jsonify({'error': f'Clockify API returned error: {report_response.status_code}'}), 400
+                app.logger.error(f"API Error: {report_response.status_code} - {report_response.text}")
+                return jsonify({'error': f'Clockify API error: {report_response.text}'}), 400
             
             report_data = report_response.json()
             time_entries = report_data.get('timeentries', [])
@@ -850,23 +854,23 @@ def get_clockify_time_entries():
             if not time_entries:
                 return jsonify({'error': 'No time entries found for the selected period'}), 400
             
+            app.logger.info(f"Found {len(time_entries)} time entries")
+            
         except requests.exceptions.Timeout:
             return jsonify({'error': 'Clockify API request timed out'}), 400
         except Exception as e:
-            app.logger.error(f"Error fetching time entries: {str(e)}\n{traceback.format_exc()}")
+            app.logger.error(f"Fetch error: {str(e)}\n{traceback.format_exc()}")
             return jsonify({'error': f'Failed to fetch time entries: {str(e)}'}), 400
         
         # CSV formatına dönüştür
         csv_data = []
         for entry in time_entries:
             try:
-                # Project ve Client bilgileri
                 project_name = entry.get('projectName', 'No Project') or 'No Project'
                 client_name = entry.get('clientName', 'No Client') or 'No Client'
-                user_name = entry.get('userName', clockify_user.get('name', 'Unknown'))
+                user_name = entry.get('userName', 'Unknown')
                 description = entry.get('description', '')
                 
-                # Zaman bilgileri
                 time_interval = entry.get('timeInterval', {})
                 start_str = time_interval.get('start')
                 end_str = time_interval.get('end')
@@ -875,16 +879,13 @@ def get_clockify_time_entries():
                 if not start_str:
                     continue
                 
-                # Tarihleri parse et
                 start_time = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
                 
                 if end_str:
                     end_time = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
                 else:
-                    # Running entry için duration kullan
                     end_time = start_time + timedelta(seconds=duration_seconds)
                 
-                # Duration hesapla
                 if duration_seconds > 0:
                     total_seconds = duration_seconds
                 else:
@@ -894,7 +895,6 @@ def get_clockify_time_entries():
                 minutes = int((total_seconds % 3600) // 60)
                 seconds = int(total_seconds % 60)
                 
-                # Billable kontrolü
                 is_billable = entry.get('billable', False)
                 
                 csv_data.append({
@@ -954,7 +954,6 @@ def get_clockify_time_entries():
         else:
             report_period = "All Data"
         
-        # Format al
         format_choice = data.get('format', 'decimal')
         
         # Excel oluştur
