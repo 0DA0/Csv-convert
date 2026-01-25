@@ -161,39 +161,39 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
             
             if company_info:
                 summary_sheet.write(row, 0, "Company:", info_label_format)
-                summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(company_info.get('company_name', '')), info_value_format)
+                summary_sheet.merge_range(row, 1, row, 3, sanitize_excel_cell(company_info.get('company_name', '')), info_value_format)
                 summary_sheet.set_row(row, 18)
                 row += 1
                 
                 if company_info.get('contact_person'):
                     summary_sheet.write(row, 0, "Contact:", info_label_format)
-                    summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(company_info.get('contact_person', '')), info_value_format)
+                    summary_sheet.merge_range(row, 1, row, 3, sanitize_excel_cell(company_info.get('contact_person', '')), info_value_format)
                     summary_sheet.set_row(row, 18)
                     row += 1
                 
                 if company_info.get('phone'):
                     summary_sheet.write(row, 0, "Phone:", info_label_format)
-                    summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(company_info.get('phone', '')), info_value_format)
+                    summary_sheet.merge_range(row, 1, row, 3, sanitize_excel_cell(company_info.get('phone', '')), info_value_format)
                     summary_sheet.set_row(row, 18)
                     row += 1
                 
                 if company_info.get('address'):
                     summary_sheet.write(row, 0, "Address:", info_label_format)
-                    summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(company_info.get('address', '')), info_value_format)
+                    summary_sheet.merge_range(row, 1, row, 3, sanitize_excel_cell(company_info.get('address', '')), info_value_format)
                     summary_sheet.set_row(row, 18)
                     row += 1
             
             if logo_data is not None:
                 try:
                     temp_logo = BytesIO(logo_data['data'])
-                    summary_sheet.insert_image(table_start_row, 5, "logo", {
+                    summary_sheet.insert_image(table_start_row, 4, "logo", {
                         'image_data': temp_logo,
                         'x_scale': 0.25, 'y_scale': 0.25,
                         'x_offset': 10, 'y_offset': 5,
                         'positioning': 1
                     })
                     for i in range(table_start_row, row):
-                        summary_sheet.write(i, 5, "", info_value_format)
+                        summary_sheet.write(i, 4, "", info_value_format)
                 except:
                     pass
             
@@ -201,23 +201,23 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
         
         # Rapor Bilgileri
         summary_sheet.write(row, 0, "Period:", info_label_format)
-        summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(report_period), info_value_format)
+        summary_sheet.merge_range(row, 1, row, 3, sanitize_excel_cell(report_period), info_value_format)
         if logo_data:
-            summary_sheet.write(row, 5, "", info_value_format)
+            summary_sheet.write(row, 4, "", info_value_format)
         summary_sheet.set_row(row, 18)
         row += 1
         
         summary_sheet.write(row, 0, "Projects:", info_label_format)
-        summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(projects), info_value_format)
+        summary_sheet.merge_range(row, 1, row, 3, sanitize_excel_cell(projects), info_value_format)
         if logo_data:
-            summary_sheet.write(row, 5, "", info_value_format)
+            summary_sheet.write(row, 4, "", info_value_format)
         summary_sheet.set_row(row, 18)
         row += 1
         
         summary_sheet.write(row, 0, "Customers:", info_label_format)
-        summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(customers), info_value_format)
+        summary_sheet.merge_range(row, 1, row, 3, sanitize_excel_cell(customers), info_value_format)
         if logo_data:
-            summary_sheet.write(row, 5, "", info_value_format)
+            summary_sheet.write(row, 4, "", info_value_format)
         summary_sheet.set_row(row, 18)
         row += 2
         
@@ -225,16 +225,14 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
         for user in sorted(df["User"].dropna().unique()):
             user_df = df[df["User"] == user].copy()
             
-            summary_sheet.merge_range(row, 0, row, 4, sanitize_excel_cell(f"User: {user}"), user_header_format)
+            summary_sheet.merge_range(row, 0, row, 3, sanitize_excel_cell(f"User: {user}"), user_header_format)
             summary_sheet.set_row(row, 20)
             row += 1
             
-            # YENİ: Başlık satırı - Billable ve Free Duration olarak ayrıldı
             summary_sheet.write(row, 0, "Day", header_format)
             summary_sheet.write(row, 1, "Description", header_format)
-            summary_sheet.write(row, 2, "Billable Duration", header_format)
-            summary_sheet.write(row, 3, "Free Duration", header_format)
-            summary_sheet.write(row, 4, "Total Duration", header_format)
+            summary_sheet.write(row, 2, "Billable", header_format)
+            summary_sheet.write(row, 3, "Duration", header_format)
             summary_sheet.set_row(row, 18)
             row += 1
             
@@ -251,34 +249,29 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                 
                 combined_description = " | ".join(unique_descriptions) if unique_descriptions else ""
                 
-                # YENİ: Billable ve Non-billable süreleri ayrı hesapla
-                billable_duration = day_df[day_df["Billable"] == "Yes"]["formatted_duration"].sum()
-                free_duration = day_df[day_df["Billable"] == "No"]["formatted_duration"].sum()
+                billable_count = (day_df["Billable"] == "Yes").sum()
+                non_billable_count = (day_df["Billable"] == "No").sum()
+                
+                if billable_count > 0 and non_billable_count > 0:
+                    billable_status = "Mixed"
+                elif billable_count > 0:
+                    billable_status = "Yes"
+                else:
+                    billable_status = "No"
+                
                 total_duration = day_df["formatted_duration"].sum()
                 
                 summary_sheet.write(row, 0, sanitize_excel_cell(day), cell_format)
                 summary_sheet.write(row, 1, sanitize_excel_cell(combined_description), cell_wrap_format)
+                summary_sheet.write(row, 2, sanitize_excel_cell(billable_status), cell_center_format)
                 
-                # Billable Duration
                 if format_choice == "hours":
-                    summary_sheet.write_number(row, 2, billable_duration, time_format)
+                    summary_sheet.write_number(row, 3, total_duration, time_format)
                 else:
-                    summary_sheet.write_number(row, 2, billable_duration, number_format)
-                
-                # Free Duration
-                if format_choice == "hours":
-                    summary_sheet.write_number(row, 3, free_duration, time_format)
-                else:
-                    summary_sheet.write_number(row, 3, free_duration, number_format)
-                
-                # Total Duration
-                if format_choice == "hours":
-                    summary_sheet.write_number(row, 4, total_duration, time_format)
-                else:
-                    summary_sheet.write_number(row, 4, total_duration, number_format)
+                    summary_sheet.write_number(row, 3, total_duration, number_format)
                 
                 desc_length = len(combined_description)
-                lines_needed = max(1, (desc_length // 50) + 1)
+                lines_needed = max(1, (desc_length // 60) + 1)
                 row_height = 18 * lines_needed
                 summary_sheet.set_row(row, row_height)
                 row += 1
@@ -292,43 +285,35 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
             total_non_billable = non_billable_df["formatted_duration"].sum()
             total_overall = user_df["formatted_duration"].sum()
             
-            summary_sheet.merge_range(row, 0, row, 1, "BILLABLE TOTAL", green_format)
+            summary_sheet.merge_range(row, 0, row, 2, "BILLABLE TOTAL", green_format)
             if format_choice == "hours":
-                summary_sheet.write_number(row, 2, total_billable, green_time_format)
+                summary_sheet.write_number(row, 3, total_billable, green_time_format)
             else:
-                summary_sheet.write_number(row, 2, total_billable, green_number_format)
-            summary_sheet.write(row, 3, "", green_format)
-            summary_sheet.write(row, 4, "", green_format)
+                summary_sheet.write_number(row, 3, total_billable, green_number_format)
             summary_sheet.set_row(row, 20)
             row += 1
             
-            summary_sheet.merge_range(row, 0, row, 1, "FREE TOTAL", red_format)
-            summary_sheet.write(row, 2, "", red_format)
+            summary_sheet.merge_range(row, 0, row, 2, "NON-BILLABLE TOTAL", red_format)
             if format_choice == "hours":
                 summary_sheet.write_number(row, 3, total_non_billable, red_time_format)
             else:
                 summary_sheet.write_number(row, 3, total_non_billable, red_number_format)
-            summary_sheet.write(row, 4, "", red_format)
             summary_sheet.set_row(row, 20)
             row += 1
             
-            summary_sheet.merge_range(row, 0, row, 1, "GRAND TOTAL", yellow_format)
-            summary_sheet.write(row, 2, "", yellow_format)
-            summary_sheet.write(row, 3, "", yellow_format)
+            summary_sheet.merge_range(row, 0, row, 2, "GRAND TOTAL", yellow_format)
             if format_choice == "hours":
-                summary_sheet.write_number(row, 4, total_overall, yellow_time_format)
+                summary_sheet.write_number(row, 3, total_overall, yellow_time_format)
             else:
-                summary_sheet.write_number(row, 4, total_overall, yellow_number_format)
+                summary_sheet.write_number(row, 3, total_overall, yellow_number_format)
             summary_sheet.set_row(row, 20)
             row += 3
         
-        # YENİ: Kolon genişlikleri - landscape A4'e sığacak şekilde optimize edildi
-        summary_sheet.set_column(0, 0, 14)   # Day
-        summary_sheet.set_column(1, 1, 40)   # Description
-        summary_sheet.set_column(2, 2, 12)   # Billable Duration
-        summary_sheet.set_column(3, 3, 12)   # Free Duration
-        summary_sheet.set_column(4, 4, 12)   # Total Duration
-        summary_sheet.set_column(5, 5, 12)   # Logo column
+        summary_sheet.set_column(0, 0, 16)
+        summary_sheet.set_column(1, 1, 60)
+        summary_sheet.set_column(2, 2, 10)
+        summary_sheet.set_column(3, 3, 12)
+        summary_sheet.set_column(4, 4, 12)
         
         # ============== SAYFA 2: DETAYLI RAPOR ==============
         detail_sheet = workbook.add_worksheet("Detailed Report")
@@ -443,10 +428,10 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                     detail_sheet.write(detail_row, 3, desc_text, detail_cell_wrap)
                     detail_sheet.write(detail_row, 4, sanitize_excel_cell(str(row_data.get('Billable', 'No'))), detail_cell_center)
                     
-                    # Satır yüksekliği - daha kompakt
+                    # Satır yüksekliği
                     desc_length = len(desc_text)
-                    lines_needed = max(1, (desc_length // 60) + 1)
-                    row_height = 16 * lines_needed
+                    lines_needed = max(1, (desc_length // 50) + 1)
+                    row_height = 18 * lines_needed
                     detail_sheet.set_row(detail_row, row_height)
                     
                     detail_row += 1
@@ -455,13 +440,13 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
             
             detail_row += 1
         
-        # YENİ: Kolon genişlikleri - landscape A4'e tam sığacak şekilde optimize edildi
-        detail_sheet.set_column(0, 0, 10)   # Start Time
-        detail_sheet.set_column(1, 1, 10)   # End Time
-        detail_sheet.set_column(2, 2, 10)   # Duration
-        detail_sheet.set_column(3, 3, 42)   # Description
-        detail_sheet.set_column(4, 4, 8)    # Billable
-        detail_sheet.set_column(5, 5, 12)   # Logo column
+        # Kolon genişlikleri
+        detail_sheet.set_column(0, 0, 12)  # Start Time
+        detail_sheet.set_column(1, 1, 12)  # End Time
+        detail_sheet.set_column(2, 2, 12)  # Duration
+        detail_sheet.set_column(3, 3, 50)  # Description
+        detail_sheet.set_column(4, 4, 10)  # Billable
+        detail_sheet.set_column(5, 5, 12)  # Logo column
     
     output.seek(0)
     return output
