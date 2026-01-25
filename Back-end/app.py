@@ -800,27 +800,43 @@ def get_clockify_workspaces():
         user_id = get_jwt_identity()
         user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
         
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
         # API key'i header'dan veya database'den al
         api_key = request.headers.get('X-Clockify-Api-Key')
         
-        if not api_key or api_key == '':
+        if not api_key or api_key.strip() == '':
             # Database'den al ve decrypt et
             encrypted_key = user.get('clockify_api_key', '')
-            api_key = decrypt_api_key(encrypted_key) if encrypted_key else None
+            if encrypted_key:
+                api_key = decrypt_api_key(encrypted_key)
         
-        if not api_key:
-            return jsonify({'error': 'Clockify API key required'}), 400
+        if not api_key or api_key.strip() == '':
+            app.logger.error('No Clockify API key found')
+            return jsonify({'error': 'Clockify API key not configured. Please add your API key in profile settings.'}), 400
         
-        headers = {'X-Api-Key': api_key}
+        headers = {'X-Api-Key': api_key.strip()}
+        app.logger.info(f'Attempting to connect to Clockify API')
+        
         response = requests.get('https://api.clockify.me/api/v1/workspaces', headers=headers, timeout=10)
         
         if response.status_code != 200:
-            return jsonify({'error': 'Invalid Clockify API key'}), 401
+            app.logger.error(f'Clockify API error: {response.status_code} - {response.text}')
+            return jsonify({'error': 'Invalid Clockify API key or authentication failed'}), 401
         
         workspaces = response.json()
+        app.logger.info(f'Successfully fetched {len(workspaces)} workspaces')
         return jsonify(workspaces), 200
         
+    except requests.exceptions.Timeout:
+        app.logger.error('Clockify API timeout')
+        return jsonify({'error': 'Clockify API timeout. Please try again.'}), 504
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f'Clockify API request error: {str(e)}')
+        return jsonify({'error': 'Failed to connect to Clockify API'}), 503
     except Exception as e:
+        app.logger.error(f'Unexpected error: {str(e)}\n{traceback.format_exc()}')
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/clockify/projects', methods=['GET'])
