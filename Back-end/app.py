@@ -324,7 +324,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
         
         # YENİ: Kolon genişlikleri - landscape A4'e sığacak şekilde optimize edildi
         summary_sheet.set_column(0, 0, 14)   # Day
-        summary_sheet.set_column(1, 1, 40)   # Description
+        summary_sheet.set_column(1, 1, 100)   # Description
         summary_sheet.set_column(2, 2, 12)   # Billable Duration
         summary_sheet.set_column(3, 3, 12)   # Free Duration
         summary_sheet.set_column(4, 4, 12)   # Total Duration
@@ -459,7 +459,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
         detail_sheet.set_column(0, 0, 10)   # Start Time
         detail_sheet.set_column(1, 1, 10)   # End Time
         detail_sheet.set_column(2, 2, 10)   # Duration
-        detail_sheet.set_column(3, 3, 42)   # Description
+        detail_sheet.set_column(3, 3, 84)   # Description
         detail_sheet.set_column(4, 4, 8)    # Billable
         detail_sheet.set_column(5, 5, 12)   # Logo column
     
