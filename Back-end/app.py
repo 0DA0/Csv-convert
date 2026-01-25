@@ -278,7 +278,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                     summary_sheet.write_number(row, 4, total_duration, number_format)
                 
                 desc_length = len(combined_description)
-                lines_needed = max(1, (desc_length // 50) + 1)
+                lines_needed = max(1, (desc_length // 120) + 1)
                 row_height = 18 * lines_needed
                 summary_sheet.set_row(row, row_height)
                 row += 1
