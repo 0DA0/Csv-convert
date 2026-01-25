@@ -324,11 +324,11 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
         
         # YENİ: Kolon genişlikleri - landscape A4'e sığacak şekilde optimize edildi
         summary_sheet.set_column(0, 0, 14)   # Day
-        summary_sheet.set_column(1, 1, 100)   # Description
-        summary_sheet.set_column(2, 2, 12)   # Billable Duration
-        summary_sheet.set_column(3, 3, 12)   # Free Duration
-        summary_sheet.set_column(4, 4, 12)   # Total Duration
-        summary_sheet.set_column(5, 5, 12)   # Logo column
+        summary_sheet.set_column(1, 1, 90)   # Description
+        summary_sheet.set_column(2, 2, 15)   # Billable Duration
+        summary_sheet.set_column(3, 3, 15)   # Free Duration
+        summary_sheet.set_column(4, 4, 15)   # Total Duration
+        summary_sheet.set_column(5, 5, 15)   # Logo column
         
         # ============== SAYFA 2: DETAYLI RAPOR ==============
         detail_sheet = workbook.add_worksheet("Detailed Report")
