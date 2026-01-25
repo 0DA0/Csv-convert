@@ -89,6 +89,7 @@ export class ProfileComponent implements OnInit {
   }
 
   checkExistingApiKey(): void {
+    // Sadece API key durumunu kontrol et, bildirim gösterme
     this.clockifyService.getApiKey().subscribe({
       next: (response) => {
         if (response.has_key) {
@@ -108,7 +109,7 @@ export class ProfileComponent implements OnInit {
     this.selectedDataSource = source;
     this.profileForm.patchValue({ data_source: source });
     
-    // Clockify'a geçiş yapıldığında API key kontrolü yap
+    // Clockify'a geçiş yapıldığında API key kontrolü yap (sessizce)
     if (source === 'clockify') {
       this.checkExistingApiKey();
     }
@@ -153,7 +154,7 @@ export class ProfileComponent implements OnInit {
         // Form'u temizle
         this.profileForm.patchValue({ clockify_api_key: '' });
         
-        // API key kontrolünü yenile
+        // API key kontrolünü yenile (sessizce, bildirim yok)
         if (this.selectedDataSource === 'clockify') {
           setTimeout(() => {
             this.checkExistingApiKey();

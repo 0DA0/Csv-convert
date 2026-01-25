@@ -1,16 +1,17 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { AuthService } from '../../core/services/auth.service';
 import { CsvService } from '../../core/services/csv.service';
 import { ClockifyService } from '../../core/services/clockify.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { saveAs } from 'file-saver';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-dashboard',
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   userDataSource: 'csv' | 'clockify' = 'csv';
   
   // CSV
@@ -34,7 +35,8 @@ export class DashboardComponent implements OnInit {
   clockifyStartDate = '';
   clockifyEndDate = '';
   clockifyLoading = false;
-  clockifyInitialized = false; // YENİ: Sadece ilk kez yüklensin
+  private hasLoadedWorkspaces = false;
+  private userSubscription?: Subscription;
 
   constructor(
     public authService: AuthService,
@@ -44,20 +46,24 @@ export class DashboardComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    // Kullanıcının data source'unu al
-    this.authService.currentUser$.subscribe(user => {
+    this.userSubscription = this.authService.currentUser$.subscribe(user => {
       if (user) {
         this.userDataSource = user.data_source || 'csv';
         
         // Eğer Clockify kullanıcısıysa VE daha önce yüklenmediyse, otomatik bağlan
-        if (this.userDataSource === 'clockify' && !this.clockifyInitialized) {
-          this.clockifyInitialized = true;
+        if (this.userDataSource === 'clockify' && !this.hasLoadedWorkspaces) {
           this.loadClockifyWorkspaces();
         }
       }
     });
 
     this.setDefaultDates();
+  }
+
+  ngOnDestroy(): void {
+    if (this.userSubscription) {
+      this.userSubscription.unsubscribe();
+    }
   }
 
   setDefaultDates(): void {
@@ -71,29 +77,24 @@ export class DashboardComponent implements OnInit {
 
   loadClockifyWorkspaces(): void {
     // Eğer zaten yüklenmiş workspace'ler varsa, tekrar yükleme
-    if (this.clockifyWorkspaces.length > 0) {
+    if (this.hasLoadedWorkspaces || this.clockifyWorkspaces.length > 0) {
       return;
     }
 
     this.clockifyLoading = true;
     
-    // API key'i backend'den otomatik alacak
     this.clockifyService.getWorkspaces('').subscribe({
       next: (workspaces) => {
         this.clockifyWorkspaces = workspaces;
         this.clockifyLoading = false;
-        
-        // Sadece ilk başarılı yüklemede bildirim göster
-        if (!this.clockifyInitialized) {
-          this.snackBar.open('Connected to Clockify!', 'Close', { duration: 3000 });
-          this.clockifyInitialized = true;
-        }
+        this.hasLoadedWorkspaces = true;
+        // Bildirim yok - UI'da yeşil durum göstergesi var
       },
       error: (error) => {
         this.clockifyLoading = false;
         
-        // Hata mesajını sadece gerçekten bağlantı sorunu varsa göster
-        if (error.status !== 0) {
+        // Sadece gerçek hatalarda bildirim göster
+        if (error.status === 401 || error.status === 400) {
           this.snackBar.open('Failed to connect to Clockify. Please update your API key in profile settings.', 'Close', { duration: 5000 });
         }
       }
