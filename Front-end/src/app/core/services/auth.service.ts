@@ -14,10 +14,25 @@ export class AuthService {
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
   private jwtHelper = new JwtHelperService();
-  private isLoadingUser = false;
+  private isInitialized = false;
 
   constructor(private http: HttpClient, private router: Router) {
-    this.loadCurrentUser();
+    // Constructor'da initialize et
+    this.initializeAuth();
+  }
+
+  private initializeAuth(): void {
+    if (this.isInitialized) return;
+    this.isInitialized = true;
+
+    const token = this.getToken();
+    if (token && !this.jwtHelper.isTokenExpired(token)) {
+      // Token varsa ve geçerliyse user bilgisini yükle
+      this.loadCurrentUser();
+    } else if (token && this.jwtHelper.isTokenExpired(token)) {
+      // Token expire olduysa temizle
+      this.clearAuth();
+    }
   }
 
   register(userData: any): Observable<any> {
@@ -34,9 +49,13 @@ export class AuthService {
   }
 
   logout(): void {
+    this.clearAuth();
+    this.router.navigate(['/login']);
+  }
+
+  private clearAuth(): void {
     localStorage.removeItem('access_token');
     this.currentUserSubject.next(null);
-    this.router.navigate(['/login']);
   }
 
   getToken(): string | null {
@@ -45,7 +64,13 @@ export class AuthService {
 
   isAuthenticated(): boolean {
     const token = this.getToken();
-    return token !== null && !this.jwtHelper.isTokenExpired(token);
+    if (!token) return false;
+    
+    try {
+      return !this.jwtHelper.isTokenExpired(token);
+    } catch (error) {
+      return false;
+    }
   }
 
   getCurrentUser(): User | null {
@@ -53,24 +78,12 @@ export class AuthService {
   }
 
   private loadCurrentUser(): void {
-    if (this.isLoadingUser) return;
-    
-    const token = this.getToken();
-    
-    if (!token || this.jwtHelper.isTokenExpired(token)) {
-      this.currentUserSubject.next(null);
-      return;
-    }
-
-    this.isLoadingUser = true;
-    
     this.http.get<User>(`${this.apiUrl}/auth/me`).pipe(
       catchError(error => {
         console.error('Error loading user:', error);
         if (error.status === 401) {
-          this.logout();
+          this.clearAuth();
         }
-        this.isLoadingUser = false;
         return of(null);
       })
     ).subscribe({
@@ -78,14 +91,16 @@ export class AuthService {
         if (user) {
           this.currentUserSubject.next(user);
         }
-        this.isLoadingUser = false;
       }
     });
   }
 
   updateProfile(profileData: any): Observable<any> {
     return this.http.put(`${this.apiUrl}/profile`, profileData).pipe(
-      tap(() => this.loadCurrentUser())
+      tap(() => {
+        // Profil güncellenince user'ı yeniden yükle
+        this.loadCurrentUser();
+      })
     );
   }
 }

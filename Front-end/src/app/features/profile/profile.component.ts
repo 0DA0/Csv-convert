@@ -13,6 +13,7 @@ import { User } from '../../core/models/user.model';
 export class ProfileComponent implements OnInit {
   profileForm: FormGroup;
   loading = false;
+  loadingProfile = true;
   hideApiKey = true;
   logoPreview: string | null = null;
   user: User | null = null;
@@ -40,8 +41,10 @@ export class ProfileComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // User değişikliklerini dinle
     this.authService.currentUser$.subscribe(user => {
       if (user) {
+        this.loadingProfile = false;
         this.user = user;
         this.selectedDataSource = user.data_source || 'csv';
         
@@ -73,6 +76,14 @@ export class ProfileComponent implements OnInit {
             this.logoPreview = profile.logo_base64;
           }
         }
+      } else {
+        // User yoksa timeout ile tekrar kontrol et
+        setTimeout(() => {
+          const currentUser = this.authService.getCurrentUser();
+          if (!currentUser) {
+            this.loadingProfile = false;
+          }
+        }, 2000);
       }
     });
   }
@@ -83,7 +94,6 @@ export class ProfileComponent implements OnInit {
         if (response.has_key) {
           this.hasExistingApiKey = true;
           this.maskedApiKey = response.api_key;
-          // Placeholder olarak maskelenmiş key'i göster ama form'a koymuyoruz
         } else {
           this.hasExistingApiKey = false;
         }
