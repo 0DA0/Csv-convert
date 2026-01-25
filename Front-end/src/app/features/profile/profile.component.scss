@@ -86,6 +86,50 @@
             }
           }
         }
+
+        .api-key-section {
+          margin-bottom: 16px;
+
+          ::ng-deep {
+            .success-hint {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              color: #48bb78;
+              font-weight: 500;
+
+              mat-icon {
+                font-size: 18px;
+                width: 18px;
+                height: 18px;
+              }
+            }
+          }
+
+          .api-key-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, rgba(72, 187, 120, 0.1) 0%, rgba(56, 161, 105, 0.1) 100%);
+            border-radius: 8px;
+            border-left: 4px solid #48bb78;
+            margin-top: 8px;
+
+            .success-icon {
+              font-size: 24px;
+              width: 24px;
+              height: 24px;
+              color: #48bb78;
+            }
+
+            span {
+              font-size: 14px;
+              font-weight: 600;
+              color: #2d3748;
+            }
+          }
+        }
         
         .logo-section {
           margin: 16px 0;

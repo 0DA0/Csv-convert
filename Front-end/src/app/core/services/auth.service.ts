@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, tap, catchError, of } from 'rxjs';
 import { JwtHelperService } from '@auth0/angular-jwt';
 import { environment } from '../../../environments/environment';
 import { User, AuthResponse } from '../models/user.model';
@@ -14,6 +14,7 @@ export class AuthService {
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
   private jwtHelper = new JwtHelperService();
+  private isLoadingUser = false;
 
   constructor(private http: HttpClient, private router: Router) {
     this.loadCurrentUser();
@@ -52,12 +53,34 @@ export class AuthService {
   }
 
   private loadCurrentUser(): void {
-    if (this.isAuthenticated()) {
-      this.http.get<User>(`${this.apiUrl}/auth/me`).subscribe({
-        next: (user) => this.currentUserSubject.next(user),
-        error: () => this.logout()
-      });
+    if (this.isLoadingUser) return;
+    
+    const token = this.getToken();
+    
+    if (!token || this.jwtHelper.isTokenExpired(token)) {
+      this.currentUserSubject.next(null);
+      return;
     }
+
+    this.isLoadingUser = true;
+    
+    this.http.get<User>(`${this.apiUrl}/auth/me`).pipe(
+      catchError(error => {
+        console.error('Error loading user:', error);
+        if (error.status === 401) {
+          this.logout();
+        }
+        this.isLoadingUser = false;
+        return of(null);
+      })
+    ).subscribe({
+      next: (user) => {
+        if (user) {
+          this.currentUserSubject.next(user);
+        }
+        this.isLoadingUser = false;
+      }
+    });
   }
 
   updateProfile(profileData: any): Observable<any> {

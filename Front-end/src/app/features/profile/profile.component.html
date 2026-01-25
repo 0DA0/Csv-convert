@@ -35,15 +35,31 @@
 
           <!-- Clockify API Key (sadece Clockify seçildiğinde) -->
           <ng-container *ngIf="selectedDataSource === 'clockify'">
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Clockify API Key</mat-label>
-              <input matInput [type]="hideApiKey ? 'password' : 'text'" formControlName="clockify_api_key" placeholder="Enter your Clockify API key">
-              <mat-icon matPrefix>vpn_key</mat-icon>
-              <button mat-icon-button matSuffix (click)="hideApiKey = !hideApiKey" type="button" tabindex="-1">
-                <mat-icon>{{hideApiKey ? 'visibility_off' : 'visibility'}}</mat-icon>
-              </button>
-              <mat-hint>Find your API key in Clockify settings. Leave empty to keep current key.</mat-hint>
-            </mat-form-field>
+            <div class="api-key-section">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Clockify API Key</mat-label>
+                <input matInput 
+                       [type]="hideApiKey ? 'password' : 'text'" 
+                       formControlName="clockify_api_key" 
+                       [placeholder]="hasExistingApiKey ? 'Enter new API key to update' : 'Enter your Clockify API key'">
+                <mat-icon matPrefix>vpn_key</mat-icon>
+                <button mat-icon-button matSuffix (click)="hideApiKey = !hideApiKey" type="button" tabindex="-1">
+                  <mat-icon>{{hideApiKey ? 'visibility_off' : 'visibility'}}</mat-icon>
+                </button>
+                <mat-hint *ngIf="hasExistingApiKey" class="success-hint">
+                  <mat-icon>check_circle</mat-icon>
+                  API key is configured. Leave empty to keep current key.
+                </mat-hint>
+                <mat-hint *ngIf="!hasExistingApiKey">
+                  Find your API key in Clockify settings
+                </mat-hint>
+              </mat-form-field>
+
+              <div class="api-key-status" *ngIf="hasExistingApiKey">
+                <mat-icon class="success-icon">verified</mat-icon>
+                <span>Clockify API Key Configured</span>
+              </div>
+            </div>
           </ng-container>
 
           <!-- Profile Fields -->

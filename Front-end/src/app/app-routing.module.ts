@@ -5,14 +5,18 @@ import { LoginComponent } from './features/auth/login/login.component';
 import { RegisterComponent } from './features/auth/register/register.component';
 
 const routes: Routes = [
-  { path: '', redirectTo: '/login', pathMatch: 'full' },
+  { 
+    path: '', 
+    redirectTo: '/dashboard', 
+    pathMatch: 'full' 
+  },
   { 
     path: 'login', 
-    component: LoginComponent  // Direkt component kullan
+    component: LoginComponent
   },
   { 
     path: 'register', 
-    component: RegisterComponent  // Direkt component kullan
+    component: RegisterComponent
   },
   {
     path: 'dashboard',
@@ -24,7 +28,10 @@ const routes: Routes = [
     loadChildren: () => import('./features/profile/profile.module').then(m => m.ProfileModule),
     canActivate: [AuthGuard]
   },
-  { path: '**', redirectTo: '/login' }
+  { 
+    path: '**', 
+    redirectTo: '/dashboard' 
+  }
 ];
 
 @NgModule({

@@ -612,8 +612,16 @@ def update_profile():
             
             # Eğer Clockify'a geçiş yapılıyorsa ve API key varsa
             if data['data_source'] == 'clockify' and data.get('clockify_api_key'):
-                encrypted_key = encrypt_api_key(data['clockify_api_key'])
-                update_data['clockify_api_key'] = encrypted_key
+                # Boş string veya maskelenmiş değer değilse şifrele
+                api_key = data['clockify_api_key']
+                if api_key and not '*' in api_key:
+                    encrypted_key = encrypt_api_key(api_key)
+                    update_data['clockify_api_key'] = encrypted_key
+        
+        # Eğer sadece API key güncellemesi yapılıyorsa
+        if data.get('clockify_api_key') and not '*' in data.get('clockify_api_key', ''):
+            encrypted_key = encrypt_api_key(data['clockify_api_key'])
+            update_data['clockify_api_key'] = encrypted_key
         
         if user['user_type'] == 'individual':
             update_data['individual_profile.full_name'] = data['full_name']
@@ -780,7 +788,7 @@ def get_clockify_workspaces():
         # API key'i header'dan veya database'den al
         api_key = request.headers.get('X-Clockify-Api-Key')
         
-        if not api_key:
+        if not api_key or api_key == '':
             # Database'den al ve decrypt et
             encrypted_key = user.get('clockify_api_key', '')
             api_key = decrypt_api_key(encrypted_key) if encrypted_key else None
@@ -789,7 +797,7 @@ def get_clockify_workspaces():
             return jsonify({'error': 'Clockify API key required'}), 400
         
         headers = {'X-Api-Key': api_key}
-        response = requests.get('https://api.clockify.me/api/v1/workspaces', headers=headers)
+        response = requests.get('https://api.clockify.me/api/v1/workspaces', headers=headers, timeout=10)
         
         if response.status_code != 200:
             return jsonify({'error': 'Invalid Clockify API key'}), 401
@@ -813,7 +821,7 @@ def get_clockify_projects():
         # API key'i header'dan veya database'den al
         api_key = request.headers.get('X-Clockify-Api-Key')
         
-        if not api_key:
+        if not api_key or api_key == '':
             encrypted_key = user.get('clockify_api_key', '')
             api_key = decrypt_api_key(encrypted_key) if encrypted_key else None
         
@@ -823,7 +831,8 @@ def get_clockify_projects():
         headers = {'X-Api-Key': api_key}
         response = requests.get(
             f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/projects',
-            headers=headers
+            headers=headers,
+            timeout=10
         )
         
         if response.status_code != 200:
@@ -1041,18 +1050,32 @@ def save_clockify_api_key():
 @app.route('/api/clockify/get-api-key', methods=['GET'])
 @jwt_required()
 def get_clockify_api_key():
-    """Kayıtlı Clockify API key'i getir - Şifreli"""
+    """Kayıtlı Clockify API key'i getir - Maskelenmiş"""
     try:
         user_id = get_jwt_identity()
         user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
         
         encrypted_key = user.get('clockify_api_key', '')
-        decrypted_key = decrypt_api_key(encrypted_key) if encrypted_key else ''
         
-        return jsonify({'api_key': decrypted_key or ''}), 200
+        if encrypted_key:
+            # API key var ama güvenlik için maskelenmiş göster
+            decrypted_key = decrypt_api_key(encrypted_key)
+            if decrypted_key and len(decrypted_key) > 8:
+                # İlk 4 ve son 4 karakteri göster, ortası yıldız
+                masked_key = decrypted_key[:4] + '*' * (len(decrypted_key) - 8) + decrypted_key[-4:]
+                return jsonify({
+                    'api_key': masked_key,
+                    'has_key': True
+                }), 200
+            
+        return jsonify({
+            'api_key': '',
+            'has_key': False
+        }), 200
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 # ============== HEALTH CHECK ==============
 
 @app.route('/api/health', methods=['GET'])

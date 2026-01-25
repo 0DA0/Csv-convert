@@ -12,12 +12,13 @@ export class ClockifyService {
   constructor(private http: HttpClient) {}
 
   getWorkspaces(apiKey: string): Observable<any> {
-    const headers = new HttpHeaders({ 'X-Clockify-Api-Key': apiKey });
+    // API key boşsa backend kendi database'inden alacak
+    const headers = apiKey ? new HttpHeaders({ 'X-Clockify-Api-Key': apiKey }) : new HttpHeaders();
     return this.http.get(`${this.apiUrl}/clockify/workspaces`, { headers });
   }
 
   getProjects(apiKey: string, workspaceId: string): Observable<any> {
-    const headers = new HttpHeaders({ 'X-Clockify-Api-Key': apiKey });
+    const headers = apiKey ? new HttpHeaders({ 'X-Clockify-Api-Key': apiKey }) : new HttpHeaders();
     return this.http.get(`${this.apiUrl}/clockify/projects?workspace_id=${workspaceId}`, { headers });
   }
 
