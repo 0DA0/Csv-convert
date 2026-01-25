@@ -34,6 +34,7 @@ export class DashboardComponent implements OnInit {
   clockifyStartDate = '';
   clockifyEndDate = '';
   clockifyLoading = false;
+  clockifyInitialized = false; // YENİ: Sadece ilk kez yüklensin
 
   constructor(
     public authService: AuthService,
@@ -48,8 +49,9 @@ export class DashboardComponent implements OnInit {
       if (user) {
         this.userDataSource = user.data_source || 'csv';
         
-        // Eğer Clockify kullanıcısıysa, otomatik bağlan
-        if (this.userDataSource === 'clockify') {
+        // Eğer Clockify kullanıcısıysa VE daha önce yüklenmediyse, otomatik bağlan
+        if (this.userDataSource === 'clockify' && !this.clockifyInitialized) {
+          this.clockifyInitialized = true;
           this.loadClockifyWorkspaces();
         }
       }
@@ -68,6 +70,11 @@ export class DashboardComponent implements OnInit {
   }
 
   loadClockifyWorkspaces(): void {
+    // Eğer zaten yüklenmiş workspace'ler varsa, tekrar yükleme
+    if (this.clockifyWorkspaces.length > 0) {
+      return;
+    }
+
     this.clockifyLoading = true;
     
     // API key'i backend'den otomatik alacak
@@ -75,11 +82,20 @@ export class DashboardComponent implements OnInit {
       next: (workspaces) => {
         this.clockifyWorkspaces = workspaces;
         this.clockifyLoading = false;
-        this.snackBar.open('Connected to Clockify!', 'Close', { duration: 3000 });
+        
+        // Sadece ilk başarılı yüklemede bildirim göster
+        if (!this.clockifyInitialized) {
+          this.snackBar.open('Connected to Clockify!', 'Close', { duration: 3000 });
+          this.clockifyInitialized = true;
+        }
       },
       error: (error) => {
-        this.snackBar.open('Failed to connect to Clockify. Please update your API key in profile settings.', 'Close', { duration: 5000 });
         this.clockifyLoading = false;
+        
+        // Hata mesajını sadece gerçekten bağlantı sorunu varsa göster
+        if (error.status !== 0) {
+          this.snackBar.open('Failed to connect to Clockify. Please update your API key in profile settings.', 'Close', { duration: 5000 });
+        }
       }
     });
   }
