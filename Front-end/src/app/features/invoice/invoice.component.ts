@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
-import { InvoiceService, InvoiceData, InvoiceService as InvoiceServiceItem } from '../../core/services/invoice.service';
+import { InvoiceService as InvoiceAPIService, InvoiceData } from '../../core/services/invoice.service';
 import { AuthService } from '../../core/services/auth.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { saveAs } from 'file-saver';
@@ -13,10 +13,15 @@ import { saveAs } from 'file-saver';
 export class InvoiceComponent implements OnInit {
   invoiceForm: FormGroup;
   loading = false;
+  logoPreview: string | null = null;
+  companyName = 'ULEPUS';
+  companyAddress = 'ODTÜ Teknokent Mustafa Kemal Mah. Dumlupınar Blv. No:280/G İç Kapı No:305 Çankaya/Ankara';
+  companyPhone = '+90-312-486-1158';
+  companyEmail = 'info@ulepus.com';
 
   constructor(
     private fb: FormBuilder,
-    private invoiceService: InvoiceService,
+    private invoiceService: InvoiceAPIService,
     private authService: AuthService,
     private snackBar: MatSnackBar
   ) {
@@ -112,13 +117,68 @@ export class InvoiceComponent implements OnInit {
     }, 0);
   }
 
+  numberToWords(num: number): string {
+    if (num === 0) return 'Zero';
+    
+    const units = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+    const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const thousands = ['', 'Thousand', 'Million', 'Billion'];
+
+    let words = '';
+    let thousandIndex = 0;
+    let n = Math.floor(num);
+
+    while (n > 0) {
+      let part = n % 1000;
+      if (part > 0) {
+        let partWords = '';
+        if (part >= 100) {
+          partWords += units[Math.floor(part / 100)] + ' Hundred ';
+          part %= 100;
+        }
+        if (part >= 20) {
+          partWords += tens[Math.floor(part / 10)] + ' ';
+          part %= 10;
+        }
+        if (part >= 10) {
+          partWords += teens[part - 10] + ' ';
+          part = 0;
+        }
+        if (part > 0) {
+          partWords += units[part] + ' ';
+        }
+        words = partWords + thousands[thousandIndex] + ' ' + words;
+      }
+      n = Math.floor(n / 1000);
+      thousandIndex++;
+    }
+    return words.trim();
+  }
+
   loadUserDefaults(): void {
     const user = this.authService.getCurrentUser();
     if (user && user.user_type === 'company') {
       const profile = user.profile as any;
       
-      // Banka bilgilerini form'a yükle (eğer varsa)
-      // Bu kısım isteğe bağlı - şirket profilinde banka bilgileri tutabilirsiniz
+      // Şirket bilgilerini güncelle
+      if (profile.company_name) {
+        this.companyName = profile.company_name;
+      }
+      if (profile.address) {
+        this.companyAddress = profile.address;
+      }
+      if (profile.phone) {
+        this.companyPhone = profile.phone;
+      }
+      if (profile.contact_person) {
+        this.companyEmail = profile.contact_person;
+      }
+      
+      // Logo varsa göster
+      if (profile.logo_base64) {
+        this.logoPreview = profile.logo_base64;
+      }
     }
   }
 
