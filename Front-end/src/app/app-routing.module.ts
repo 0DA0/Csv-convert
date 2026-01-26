@@ -28,6 +28,11 @@ const routes: Routes = [
     loadChildren: () => import('./features/profile/profile.module').then(m => m.ProfileModule),
     canActivate: [AuthGuard]
   },
+  {
+    path: 'invoice',  // YENİ
+    loadChildren: () => import('./features/invoice/invoice.module').then(m => m.InvoiceModule),
+    canActivate: [AuthGuard]
+  },
   { 
     path: '**', 
     redirectTo: '/dashboard' 

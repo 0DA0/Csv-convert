@@ -21,6 +21,10 @@ export class HeaderComponent {
     this.router.navigate(['/dashboard']);
   }
 
+  navigateToInvoice(): void {  // YENİ
+    this.router.navigate(['/invoice']);
+  }
+
   logout(): void {
     this.authService.logout();
   }

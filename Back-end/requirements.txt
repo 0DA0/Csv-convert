@@ -7,7 +7,9 @@ pymongo
 dnspython
 pandas
 xlsxwriter
+openpyxl
 werkzeug
 python-dateutil
 requests
 cryptography
+num2words
