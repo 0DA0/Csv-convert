@@ -259,11 +259,9 @@
                     <td style="border: none;">
                       <table style="width: 100%; border: none;">
                         <tr><td style="border: none;"><strong>{{ companyName }}</strong></td></tr>
-                        <tr><td style="border: none; font-size: 10px;">{{ companyAddress }}</td></tr>
-                        <tr><td style="border: none;">GSTIN: 33AAFCF7868L1Z3</td></tr>
-                        <tr><td style="border: none;">CIN: U74999TN2019PTC134833</td></tr>
-                        <tr><td style="border: none;">{{ companyEmail }}</td></tr>
-                        <tr><td style="border: none;">Contact: {{ companyPhone }}</td></tr>
+                        <tr *ngIf="companyAddress"><td style="border: none; font-size: 10px;">{{ companyAddress }}</td></tr>
+                        <tr *ngIf="companyEmail"><td style="border: none;">{{ companyEmail }}</td></tr>
+                        <tr *ngIf="companyPhone"><td style="border: none;">Contact: {{ companyPhone }}</td></tr>
                         <tr><td style="border-top: 2px solid #2d3748; padding-top: 8px; margin-top: 8px;"></td></tr>
                         <tr><td style="border: none; padding-top: 8px;"><strong>Buyer (Bill To):</strong></td></tr>
                         <tr><td style="border: none;"><strong id="buyer-name">{{ invoiceForm.get('buyer_name')?.value || 'Buyer Name' }}</strong></td></tr>
