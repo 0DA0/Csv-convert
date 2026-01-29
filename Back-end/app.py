@@ -51,8 +51,8 @@ cipher_suite = Fernet(ENCRYPTION_KEY)
 
 # ============== Yardımcı Fonksiyonlar ==============
 
-def generate_invoice_excel(data, logo_data=None, company_info=None, user_type='company'):
-    """Invoice Excel dosyası oluştur - Profesyonel görünüm"""
+def generate_invoice_excel(data, logo_data=None, company_info=None):
+    """Invoice Excel dosyası oluştur - Openpyxl ile"""
     from openpyxl import Workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Side, Border
     from openpyxl.drawing.image import Image as XLImage
@@ -63,259 +63,305 @@ def generate_invoice_excel(data, logo_data=None, company_info=None, user_type='c
     ws.title = "Tax Invoice"
     
     # Formatlar
-    title_font = Font(bold=True, size=16, name='Calibri')
-    header_font = Font(bold=True, size=11, name='Calibri', color='FFFFFF')
-    bold_font = Font(bold=True, size=10, name='Calibri')
-    regular_font = Font(size=10, name='Calibri')
-    small_font = Font(size=9, name='Calibri')
-    
+    bold_font = Font(bold=True, size=10, name='Arial')
+    regular_font = Font(size=9, name='Arial')
+    small_font = Font(size=8, name='Arial')
+    note_font = Font(size=7, color='7F8C8D', name='Arial')
     center_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-    left_alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
-    right_alignment = Alignment(horizontal='right', vertical='center', wrap_text=True)
-    
-    # Renkler
-    header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
-    light_fill = PatternFill(start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
-    total_fill = PatternFill(start_color='E7E6E6', end_color='E7E6E6', fill_type='solid')
-    
-    # Borders
-    thin_border = Border(
-        left=Side(style='thin', color='000000'),
-        right=Side(style='thin', color='000000'),
-        top=Side(style='thin', color='000000'),
-        bottom=Side(style='thin', color='000000')
+    left_center_alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+    right_center_alignment = Alignment(horizontal='right', vertical='center', wrap_text=True)
+    header_fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+    border_side = Side(style='thin', color='000000')
+    border = Border(left=border_side, right=border_side, top=border_side, bottom=border_side)
+    thick_border_side = Side(style='medium', color='000000')
+    thick_border = Border(
+        left=thick_border_side, 
+        right=thick_border_side, 
+        top=thick_border_side, 
+        bottom=thick_border_side
     )
     
     # Sütun genişlikleri
-    ws.column_dimensions['A'].width = 3
-    ws.column_dimensions['B'].width = 30
-    ws.column_dimensions['C'].width = 12
-    ws.column_dimensions['D'].width = 10
-    ws.column_dimensions['E'].width = 12
-    ws.column_dimensions['F'].width = 10
+    ws.column_dimensions['A'].width = 4
+    ws.column_dimensions['B'].width = 35
+    ws.column_dimensions['C'].width = 10
+    ws.column_dimensions['D'].width = 8
+    ws.column_dimensions['E'].width = 10
+    ws.column_dimensions['F'].width = 8
     ws.column_dimensions['G'].width = 12
     
     row = 1
     
-    # ===== BAŞLIK =====
+    # Tüm tablo için dış border (A1:G100)
+    for r in range(1, 100):
+        ws.cell(row=r, column=1).border = Border(left=thick_border_side)
+        ws.cell(row=r, column=7).border = Border(right=thick_border_side)
+    
+    # Üst border
+    for c in range(1, 8):
+        ws.cell(row=1, column=c).border = Border(
+            top=thick_border_side,
+            left=thick_border_side if c == 1 else border_side,
+            right=thick_border_side if c == 7 else border_side
+        )
+    
+    # Başlık "Tax Invoice"
+    ws.cell(row=row, column=1, value="Tax Invoice")
+    ws.cell(row=row, column=1).font = Font(bold=True, size=14, name='Arial')
+    ws.cell(row=row, column=1).alignment = center_alignment
     ws.merge_cells(f'A{row}:G{row}')
-    title_cell = ws.cell(row=row, column=1, value="TAX INVOICE")
-    title_cell.font = title_font
-    title_cell.alignment = center_alignment
-    title_cell.fill = header_fill
-    title_cell.font = Font(bold=True, size=16, name='Calibri', color='FFFFFF')
-    ws.row_dimensions[row].height = 30
-    row += 1
-    
-    # Alt başlık
-    ws.merge_cells(f'A{row}:G{row}')
-    note_cell = ws.cell(row=row, column=1, 
-                       value="(SUPPLY MEANT FOR EXPORT UNDER BOND OR LETTER OF UNDERTAKING WITHOUT PAYMENT OF IGST)")
-    note_cell.font = Font(size=8, name='Calibri', italic=True)
-    note_cell.alignment = center_alignment
-    ws.row_dimensions[row].height = 25
-    row += 1
-    
-    # Boşluk
-    ws.row_dimensions[row].height = 5
-    row += 1
-    
-    # ===== ÜST BÖLÜM: SELLER VE INVOICE DETAYLARI =====
-    top_section_start = row
-    
-    # Şirket/Bireysel bilgilerini hazırla
-    if user_type == 'company' and company_info:
-        seller_name = company_info.get('company_name', 'Company Name')
-        seller_address = company_info.get('address', '')
-        seller_phone = company_info.get('phone', '')
-        seller_email = company_info.get('email', '')
-    else:
-        seller_name = company_info.get('full_name', 'Full Name') if company_info else 'Full Name'
-        seller_address = data.get('seller_address', '') if data else ''
-        seller_phone = company_info.get('phone', '') if company_info else ''
-        seller_email = company_info.get('email', '') if company_info else ''
-    
-    # SOL PANEL: Seller Information (A-D kolonları)
-    ws.merge_cells(f'A{row}:D{row}')
-    seller_header = ws.cell(row=row, column=1, value="SELLER INFORMATION")
-    seller_header.font = header_font
-    seller_header.fill = header_fill
-    seller_header.alignment = center_alignment
     ws.row_dimensions[row].height = 20
     row += 1
     
-    # Logo ve İsim
-    logo_row = row
+    # Alt başlık notu
+    note_text = "(SUPPLY MEANT FOR EXPORT/ SUPPLY TO SEZ UNIT OR SEZ DEVELOPER FOR AUTHORISED OPERATIONS UNDER BOND OR LETTER OF UNDERTAKING WITHOUT PAYMENT OF IGST)"
+    ws.cell(row=row, column=1, value=note_text)
+    ws.cell(row=row, column=1).font = note_font
+    ws.cell(row=row, column=1).alignment = center_alignment
+    ws.merge_cells(f'A{row}:G{row}')
+    ws.row_dimensions[row].height = 25
+    row += 1
+    
+    # Satır 3: Şirket ve Buyer bilgileri başlangıcı
+    company_start_row = row
+    
+    # SOL TARAF: Logo + Şirket Bilgileri (A-C kolonları)
+    # Logo bölgesi (A3:A14)
     if logo_data:
         try:
             temp_logo = BytesIO(logo_data)
             logo = XLImage(temp_logo)
-            logo.width = 80
-            logo.height = 80
+            logo.width = 90
+            logo.height = 90
             ws.add_image(logo, f'A{row}')
-            
-            ws.merge_cells(f'B{row}:D{row+2}')
-            name_cell = ws.cell(row=row, column=2, value=seller_name)
-            name_cell.font = Font(bold=True, size=14, name='Calibri')
-            name_cell.alignment = left_alignment
-            row += 3
-        except:
-            ws.merge_cells(f'A{row}:D{row}')
-            name_cell = ws.cell(row=row, column=1, value=seller_name)
-            name_cell.font = Font(bold=True, size=14, name='Calibri')
-            name_cell.alignment = left_alignment
-            row += 1
-    else:
-        ws.merge_cells(f'A{row}:D{row}')
-        name_cell = ws.cell(row=row, column=1, value=seller_name)
-        name_cell.font = Font(bold=True, size=14, name='Calibri')
-        name_cell.alignment = left_alignment
-        row += 1
+        except Exception as e:
+            app.logger.warning(f"Logo eklenemedi: {str(e)}")
     
-    # Adres
-    if seller_address:
-        ws.merge_cells(f'A{row}:D{row+1}')
-        addr_cell = ws.cell(row=row, column=1, value=seller_address)
-        addr_cell.font = small_font
-        addr_cell.alignment = left_alignment
-        row += 2
+    ws.merge_cells(f'A{row}:A{row+11}')
     
-    # GSTIN, CIN
-    seller_info = [
-        ("GSTIN:", "33AAFCF7868L1Z3"),
-        ("CIN:", "U74999TN2019PTC134833"),
-        ("Email:", seller_email),
-        ("Phone:", seller_phone)
-    ]
+    # Şirket bilgileri (B-C kolonları)
+    company_name = company_info.get('company_name', 'ULEPUS') if company_info else 'ULEPUS'
+    company_address = company_info.get('address', 'ODTÜ Teknokent Mustafa Kemal Mah. Dumlupınar Blv. No:280/G İç Kapı No:305 Çankaya/Ankara') if company_info else 'ODTÜ Teknokent Mustafa Kemal Mah. Dumlupınar Blv. No:280/G İç Kapı No:305 Çankaya/Ankara'
+    company_phone = company_info.get('phone', '+90-312-486-1158') if company_info else '+90-312-486-1158'
+    company_email = company_info.get('email', 'info@ulepus.com') if company_info else 'info@ulepus.com'
     
-    for label, value in seller_info:
-        if value:
-            ws.cell(row=row, column=1, value=label).font = bold_font
-            ws.merge_cells(f'B{row}:D{row}')
-            ws.cell(row=row, column=2, value=value).font = regular_font
-            ws.row_dimensions[row].height = 18
-            row += 1
+    # ULEPUS
+    ws.cell(row=row, column=2, value=company_name)
+    ws.cell(row=row, column=2).font = Font(bold=True, size=12, name='Arial')
+    ws.cell(row=row, column=2).alignment = left_center_alignment
+    ws.merge_cells(f'B{row}:C{row}')
+    row += 1
     
-    # SAĞ PANEL: Invoice Details (E-G kolonları)
-    detail_row = top_section_start
+    # Adres (3 satır)
+    ws.cell(row=row, column=2, value=company_address)
+    ws.cell(row=row, column=2).font = small_font
+    ws.cell(row=row, column=2).alignment = left_center_alignment
+    ws.merge_cells(f'B{row}:C{row+2}')
+    row += 3
     
-    ws.merge_cells(f'E{detail_row}:G{detail_row}')
-    inv_header = ws.cell(row=detail_row, column=5, value="INVOICE DETAILS")
-    inv_header.font = header_font
-    inv_header.fill = header_fill
-    inv_header.alignment = center_alignment
-    ws.row_dimensions[detail_row].height = 20
-    detail_row += 1
+    # GSTIN
+    ws.cell(row=row, column=2, value="GSTIN: 33AAFCF7868L1Z3")
+    ws.cell(row=row, column=2).font = small_font
+    ws.cell(row=row, column=2).alignment = left_center_alignment
+    ws.merge_cells(f'B{row}:C{row}')
+    row += 1
     
-    invoice_details = [
-        ("Invoice No:", data.get('invoice_no', '')),
-        ("Invoice Date:", data.get('invoice_date', '')),
-        ("Delivery Note:", data.get('delivery_note', '')),
-        ("Payment Terms:", data.get('payment_terms', '')),
-        ("Ref. & Date:", data.get('ref_date', '')),
-        ("Buyer's Order:", data.get('buyer_order_no', '')),
-        ("Order Date:", data.get('order_date', '')),
-        ("Dispatch Doc:", data.get('dispatch_doc_no', '')),
-        ("Destination:", data.get('destination', '')),
-        ("Country:", data.get('country', '')),
-        ("LUT/Bond No:", data.get('lut_bond_no', '')),
-        ("From:", data.get('from', '')),
-        ("To:", data.get('to', '')),
-        ("Delivery Terms:", data.get('terms_of_delivery', ''))
-    ]
+    # CIN
+    ws.cell(row=row, column=2, value="CIN: U74999TN2019PTC134833")
+    ws.cell(row=row, column=2).font = small_font
+    ws.cell(row=row, column=2).alignment = left_center_alignment
+    ws.merge_cells(f'B{row}:C{row}')
+    row += 1
     
-    for label, value in invoice_details:
-        if value or label in ["Invoice No:", "Invoice Date:"]:  # Zorunlu alanlar
-            ws.cell(row=detail_row, column=5, value=label).font = bold_font
-            ws.cell(row=detail_row, column=5).alignment = left_alignment
-            ws.merge_cells(f'F{detail_row}:G{detail_row}')
-            ws.cell(row=detail_row, column=6, value=value).font = regular_font
-            ws.cell(row=detail_row, column=6).alignment = left_alignment
-            ws.row_dimensions[detail_row].height = 18
-            detail_row += 1
+    # Email
+    ws.cell(row=row, column=2, value=company_email)
+    ws.cell(row=row, column=2).font = small_font
+    ws.cell(row=row, column=2).alignment = left_center_alignment
+    ws.merge_cells(f'B{row}:C{row}')
+    row += 1
     
-    # Satırları eşitle
-    row = max(row, detail_row) + 1
+    # Contact
+    ws.cell(row=row, column=2, value=f"Contact: {company_phone}")
+    ws.cell(row=row, column=2).font = small_font
+    ws.cell(row=row, column=2).alignment = left_center_alignment
+    ws.merge_cells(f'B{row}:C{row}')
+    row += 1
     
-    # ===== BUYER INFORMATION =====
-    ws.merge_cells(f'A{row}:G{row}')
-    buyer_header = ws.cell(row=row, column=1, value="BUYER INFORMATION")
-    buyer_header.font = header_font
-    buyer_header.fill = header_fill
-    buyer_header.alignment = center_alignment
-    ws.row_dimensions[row].height = 20
+    # Ayırıcı çizgi
+    for c in range(2, 4):
+        cell = ws.cell(row=row, column=c)
+        cell.border = Border(bottom=thick_border_side)
+    ws.merge_cells(f'B{row}:C{row}')
+    row += 1
+    
+    # Buyer (Bill To)
+    ws.cell(row=row, column=2, value="Buyer (Bill To):")
+    ws.cell(row=row, column=2).font = Font(bold=True, size=10, name='Arial')
+    ws.cell(row=row, column=2).alignment = left_center_alignment
+    ws.merge_cells(f'B{row}:C{row}')
     row += 1
     
     # Buyer Name
-    ws.cell(row=row, column=1, value="Name:").font = bold_font
-    ws.merge_cells(f'B{row}:D{row}')
-    ws.cell(row=row, column=2, value=data.get('buyer_name', '')).font = Font(bold=True, size=11, name='Calibri')
-    
-    # Buyer Email
-    ws.cell(row=row, column=5, value="Email:").font = bold_font
-    ws.merge_cells(f'F{row}:G{row}')
-    ws.cell(row=row, column=6, value=data.get('buyer_email', '')).font = regular_font
-    ws.row_dimensions[row].height = 20
+    ws.cell(row=row, column=2, value=data.get('buyer_name', ''))
+    ws.cell(row=row, column=2).font = Font(bold=True, size=10, name='Arial')
+    ws.cell(row=row, column=2).alignment = left_center_alignment
+    ws.merge_cells(f'B{row}:C{row}')
     row += 1
     
-    # Address
+    # Buyer Address
     buyer_address = data.get('buyer_address', '')
     if buyer_address:
-        ws.cell(row=row, column=1, value="Address:").font = bold_font
-        ws.merge_cells(f'B{row}:D{row+1}')
-        addr_cell = ws.cell(row=row, column=2, value=buyer_address)
-        addr_cell.font = regular_font
-        addr_cell.alignment = left_alignment
-        
-        # Contact Person
-        ws.cell(row=row, column=5, value="Contact:").font = bold_font
-        ws.merge_cells(f'F{row}:G{row}')
-        ws.cell(row=row, column=6, value=data.get('contact_person', '')).font = regular_font
-        row += 2
-    else:
-        ws.cell(row=row, column=5, value="Contact:").font = bold_font
-        ws.merge_cells(f'F{row}:G{row}')
-        ws.cell(row=row, column=6, value=data.get('contact_person', '')).font = regular_font
-        row += 1
+        ws.cell(row=row, column=2, value=buyer_address)
+        ws.cell(row=row, column=2).font = small_font
+        ws.cell(row=row, column=2).alignment = left_center_alignment
+        ws.merge_cells(f'B{row}:C{row+2}')
+        row += 3
     
-    # State ve Place of Supply
+    # State Name
     buyer_state = data.get('buyer_state', '')
-    place_of_supply = data.get('place_of_supply', '')
-    
-    if buyer_state or place_of_supply:
-        ws.cell(row=row, column=1, value="State:").font = bold_font
-        ws.merge_cells(f'B{row}:D{row}')
-        ws.cell(row=row, column=2, value=buyer_state).font = regular_font
-        
-        ws.cell(row=row, column=5, value="Supply Place:").font = bold_font
-        ws.merge_cells(f'F{row}:G{row}')
-        ws.cell(row=row, column=6, value=place_of_supply).font = regular_font
-        ws.row_dimensions[row].height = 18
+    if buyer_state:
+        ws.cell(row=row, column=2, value=f"State Name: {buyer_state}")
+        ws.cell(row=row, column=2).font = small_font
+        ws.cell(row=row, column=2).alignment = left_center_alignment
+        ws.merge_cells(f'B{row}:C{row}')
         row += 1
     
-    row += 1
+    # Place of Supply
+    place_of_supply = data.get('place_of_supply', '')
+    if place_of_supply:
+        ws.cell(row=row, column=2, value=f"Place of Supply: {place_of_supply}")
+        ws.cell(row=row, column=2).font = small_font
+        ws.cell(row=row, column=2).alignment = left_center_alignment
+        ws.merge_cells(f'B{row}:C{row}')
+        row += 1
     
-    # ===== SERVICES TABLE =====
-    ws.merge_cells(f'A{row}:G{row}')
-    services_header = ws.cell(row=row, column=1, value="SERVICES / GOODS")
-    services_header.font = header_font
-    services_header.fill = header_fill
-    services_header.alignment = center_alignment
-    ws.row_dimensions[row].height = 20
-    row += 1
+    # Contact Person
+    contact_person = data.get('contact_person', '')
+    if contact_person:
+        ws.cell(row=row, column=2, value=f"Contact Person: {contact_person}")
+        ws.cell(row=row, column=2).font = small_font
+        ws.cell(row=row, column=2).alignment = left_center_alignment
+        ws.merge_cells(f'B{row}:C{row}')
+        row += 1
     
-    # Tablo başlıkları
-    headers = ["No.", "Description", "HSN/SAC", "Qty", "Rate", "Unit", "Amount"]
+    # Email
+    buyer_email = data.get('buyer_email', '')
+    if buyer_email:
+        ws.cell(row=row, column=2, value=f"E-Mail: {buyer_email}")
+        ws.cell(row=row, column=2).font = small_font
+        ws.cell(row=row, column=2).alignment = left_center_alignment
+        ws.merge_cells(f'B{row}:C{row}')
+        row += 1
+    
+    # SAĞ TARAF: Invoice Detayları (D-G kolonları)
+    detail_row = company_start_row
+    
+    details = [
+        ("Invoice No.:", data.get('invoice_no', ''), "Dated:", data.get('invoice_date', '')),
+        ("Delivery Note:", data.get('delivery_note', ''), "Mode/Terms of Payment:", data.get('payment_terms', '')),
+        ("Ref. & Date:", data.get('ref_date', ''), "Other References:", data.get('other_references', '')),
+        ("Buyer's Order No.:", data.get('buyer_order_no', ''), "Dated:", data.get('order_date', '')),
+        ("Dispatch Doc No.:", data.get('dispatch_doc_no', ''), "Delivery Note Date:", data.get('delivery_note_date', '')),
+        ("Dispatched through:", data.get('dispatched_through', ''), "Destination:", data.get('destination', '')),
+    ]
+    
+    for label1, value1, label2, value2 in details:
+        # Sol kolon (D-E)
+        ws.cell(row=detail_row, column=4, value=label1)
+        ws.cell(row=detail_row, column=4).font = small_font
+        ws.cell(row=detail_row, column=4).alignment = center_alignment
+        ws.merge_cells(f'D{detail_row}:E{detail_row}')
+        
+        ws.cell(row=detail_row + 1, column=4, value=value1)
+        ws.cell(row=detail_row + 1, column=4).font = small_font
+        ws.cell(row=detail_row + 1, column=4).alignment = center_alignment
+        ws.merge_cells(f'D{detail_row + 1}:E{detail_row + 1}')
+        
+        # Sağ kolon (F-G)
+        ws.cell(row=detail_row, column=6, value=label2)
+        ws.cell(row=detail_row, column=6).font = small_font
+        ws.cell(row=detail_row, column=6).alignment = center_alignment
+        ws.merge_cells(f'F{detail_row}:G{detail_row}')
+        
+        ws.cell(row=detail_row + 1, column=6, value=value2)
+        ws.cell(row=detail_row + 1, column=6).font = small_font
+        ws.cell(row=detail_row + 1, column=6).alignment = center_alignment
+        ws.merge_cells(f'F{detail_row + 1}:G{detail_row + 1}')
+        
+        detail_row += 2
+    
+    # Tek kolon detaylar
+    single_details = [
+        ("LUT/Bond No.:", data.get('lut_bond_no', '')),
+        ("Country:", data.get('country', '')),
+    ]
+    
+    for label, value in single_details:
+        ws.cell(row=detail_row, column=4, value=label)
+        ws.cell(row=detail_row, column=4).font = small_font
+        ws.cell(row=detail_row, column=4).alignment = center_alignment
+        ws.merge_cells(f'D{detail_row}:G{detail_row}')
+        
+        ws.cell(row=detail_row + 1, column=4, value=value)
+        ws.cell(row=detail_row + 1, column=4).font = small_font
+        ws.cell(row=detail_row + 1, column=4).alignment = center_alignment
+        ws.merge_cells(f'D{detail_row + 1}:G{detail_row + 1}')
+        
+        detail_row += 2
+    
+    # From - To
+    ws.cell(row=detail_row, column=4, value="From:")
+    ws.cell(row=detail_row, column=4).font = small_font
+    ws.cell(row=detail_row, column=4).alignment = center_alignment
+    ws.merge_cells(f'D{detail_row}:E{detail_row}')
+    
+    ws.cell(row=detail_row + 1, column=4, value=data.get('from', ''))
+    ws.cell(row=detail_row + 1, column=4).font = small_font
+    ws.cell(row=detail_row + 1, column=4).alignment = center_alignment
+    ws.merge_cells(f'D{detail_row + 1}:E{detail_row + 1}')
+    
+    ws.cell(row=detail_row, column=6, value="To:")
+    ws.cell(row=detail_row, column=6).font = small_font
+    ws.cell(row=detail_row, column=6).alignment = center_alignment
+    ws.merge_cells(f'F{detail_row}:G{detail_row}')
+    
+    ws.cell(row=detail_row + 1, column=6, value=data.get('to', ''))
+    ws.cell(row=detail_row + 1, column=6).font = small_font
+    ws.cell(row=detail_row + 1, column=6).alignment = center_alignment
+    ws.merge_cells(f'F{detail_row + 1}:G{detail_row + 1}')
+    
+    detail_row += 2
+    
+    # Terms of Delivery
+    ws.cell(row=detail_row, column=4, value="Terms of Delivery:")
+    ws.cell(row=detail_row, column=4).font = small_font
+    ws.cell(row=detail_row, column=4).alignment = center_alignment
+    ws.merge_cells(f'D{detail_row}:G{detail_row}')
+    
+    ws.cell(row=detail_row + 1, column=4, value=data.get('terms_of_delivery', ''))
+    ws.cell(row=detail_row + 1, column=4).font = small_font
+    ws.cell(row=detail_row + 1, column=4).alignment = center_alignment
+    ws.merge_cells(f'D{detail_row + 1}:G{detail_row + 1}')
+    
+    # Hizmet tablosuna geç
+    row = max(row, detail_row + 2)
+    
+    # Hizmet tablosu başlıkları
+    headers = ["Sl No.", "Description of Goods", "HSN/SAC", "Quantity", "Rate", "Per", "Amount"]
+    header_row = row
+    
     for col_idx, header in enumerate(headers, 1):
-        cell = ws.cell(row=row, column=col_idx, value=header)
-        cell.font = header_font
-        cell.fill = light_fill
+        cell = ws.cell(row=header_row, column=col_idx)
+        cell.value = header
+        cell.font = Font(bold=True, size=9, name='Arial')
         cell.alignment = center_alignment
-        cell.border = thin_border
-    ws.row_dimensions[row].height = 22
+        cell.fill = header_fill
+        cell.border = border
+    
+    ws.row_dimensions[header_row].height = 18
     row += 1
     
-    # Services
+    # Hizmetler
     services = data.get('services', [])
     total_quantity = 0
     total_amount = 0
@@ -327,158 +373,157 @@ def generate_invoice_excel(data, logo_data=None, company_info=None, user_type='c
         total_quantity += quantity
         total_amount += amount
         
-        # Row data
-        row_data = [
-            (idx, center_alignment),
-            (service.get('description', ''), left_alignment),
-            (service.get('hsn', ''), center_alignment),
-            (quantity, center_alignment),
-            (rate, right_alignment),
-            (service.get('per', ''), center_alignment),
-            (amount, right_alignment)
-        ]
+        ws.cell(row=row, column=1, value=idx).font = regular_font
+        ws.cell(row=row, column=1).alignment = center_alignment
+        ws.cell(row=row, column=1).border = border
         
-        for col_idx, (value, align) in enumerate(row_data, 1):
-            cell = ws.cell(row=row, column=col_idx, value=value)
-            cell.font = regular_font
-            cell.alignment = align
-            cell.border = thin_border
-            
-            # Number formatting
-            if col_idx in [5, 7]:  # Rate and Amount
-                cell.number_format = '#,##0.00'
+        ws.cell(row=row, column=2, value=service.get('description', '')).font = regular_font
+        ws.cell(row=row, column=2).alignment = left_center_alignment
+        ws.cell(row=row, column=2).border = border
         
-        ws.row_dimensions[row].height = 20
+        ws.cell(row=row, column=3, value=service.get('hsn', '')).font = regular_font
+        ws.cell(row=row, column=3).alignment = center_alignment
+        ws.cell(row=row, column=3).border = border
+        
+        ws.cell(row=row, column=4, value=quantity).font = regular_font
+        ws.cell(row=row, column=4).alignment = center_alignment
+        ws.cell(row=row, column=4).border = border
+        
+        ws.cell(row=row, column=5, value=rate).font = regular_font
+        ws.cell(row=row, column=5).alignment = right_center_alignment
+        ws.cell(row=row, column=5).border = border
+        ws.cell(row=row, column=5).number_format = '#,##0.00'
+        
+        ws.cell(row=row, column=6, value=service.get('per', '')).font = regular_font
+        ws.cell(row=row, column=6).alignment = center_alignment
+        ws.cell(row=row, column=6).border = border
+        
+        ws.cell(row=row, column=7, value=amount).font = regular_font
+        ws.cell(row=row, column=7).alignment = right_center_alignment
+        ws.cell(row=row, column=7).border = border
+        ws.cell(row=row, column=7).number_format = '#,##0.00'
+        
+        ws.row_dimensions[row].height = 15
         row += 1
     
-    # Total row
-    ws.merge_cells(f'A{row}:C{row}')
-    total_label = ws.cell(row=row, column=1, value="TOTAL")
-    total_label.font = Font(bold=True, size=11, name='Calibri')
-    total_label.alignment = center_alignment
-    total_label.fill = total_fill
-    total_label.border = thin_border
+    # Total satırı
+    ws.cell(row=row, column=1, value="Total").font = bold_font
+    ws.cell(row=row, column=1).alignment = center_alignment
+    ws.cell(row=row, column=1).border = border
+    ws.merge_cells(f'A{row}:B{row}')
     
-    qty_cell = ws.cell(row=row, column=4, value=total_quantity)
-    qty_cell.font = bold_font
-    qty_cell.alignment = center_alignment
-    qty_cell.fill = total_fill
-    qty_cell.border = thin_border
+    ws.cell(row=row, column=3, value="").border = border
     
-    ws.cell(row=row, column=5).fill = total_fill
-    ws.cell(row=row, column=5).border = thin_border
-    ws.cell(row=row, column=6).fill = total_fill
-    ws.cell(row=row, column=6).border = thin_border
+    ws.cell(row=row, column=4, value=total_quantity).font = bold_font
+    ws.cell(row=row, column=4).alignment = center_alignment
+    ws.cell(row=row, column=4).border = border
     
-    amount_cell = ws.cell(row=row, column=7, value=total_amount)
-    amount_cell.font = bold_font
-    amount_cell.alignment = right_alignment
-    amount_cell.fill = total_fill
-    amount_cell.border = thin_border
-    amount_cell.number_format = '#,##0.00'
+    ws.cell(row=row, column=5, value="").border = border
+    ws.cell(row=row, column=6, value="").border = border
     
-    ws.row_dimensions[row].height = 25
+    ws.cell(row=row, column=7, value=total_amount).font = bold_font
+    ws.cell(row=row, column=7).alignment = right_center_alignment
+    ws.cell(row=row, column=7).border = border
+    ws.cell(row=row, column=7).number_format = '#,##0.00'
+    
+    ws.row_dimensions[row].height = 18
     row += 1
     
-    # Amount in words
+    # Amount Chargeable
     try:
         from num2words import num2words
         amount_words = num2words(int(total_amount), lang='en').title() + " Euro Only"
     except:
         amount_words = f"{int(total_amount)} Euro Only"
     
+    ws.cell(row=row, column=1, value=f"Amount Chargeable (in words): {amount_words}")
+    ws.cell(row=row, column=1).font = regular_font
+    ws.cell(row=row, column=1).alignment = left_center_alignment
     ws.merge_cells(f'A{row}:G{row}')
-    words_cell = ws.cell(row=row, column=1, value=f"Amount in Words: {amount_words}")
-    words_cell.font = Font(bold=True, size=10, name='Calibri', italic=True)
-    words_cell.alignment = left_alignment
-    ws.row_dimensions[row].height = 22
-    row += 1
-    
-    ws.merge_cells(f'A{row}:G{row}')
-    eoe_cell = ws.cell(row=row, column=1, value="E. & O.E. (Errors and Omissions Excepted)")
-    eoe_cell.font = Font(size=8, name='Calibri', italic=True)
-    eoe_cell.alignment = left_alignment
-    ws.row_dimensions[row].height = 18
-    row += 2
-    
-    # ===== ALT BÖLÜM: TERMS & BANK DETAILS =====
-    bottom_start = row
-    
-    # SOL: Terms & Conditions
-    ws.merge_cells(f'A{row}:D{row}')
-    terms_header = ws.cell(row=row, column=1, value="TERMS & CONDITIONS")
-    terms_header.font = header_font
-    terms_header.fill = header_fill
-    terms_header.alignment = center_alignment
     ws.row_dimensions[row].height = 20
     row += 1
     
+    ws.cell(row=row, column=1, value="E. & O.E")
+    ws.cell(row=row, column=1).font = Font(bold=True, size=9, name='Arial')
+    ws.cell(row=row, column=1).alignment = left_center_alignment
+    ws.merge_cells(f'A{row}:G{row}')
+    ws.row_dimensions[row].height = 15
+    row += 1
+    
+    # Alt bölüm: Declaration ve Bank Details
+    declaration_start_row = row
+    
+    # Sol: Declaration (A-C)
+    ws.cell(row=row, column=1, value="Declaration")
+    ws.cell(row=row, column=1).font = Font(bold=True, size=10, name='Arial')
+    ws.cell(row=row, column=1).alignment = left_center_alignment
+    ws.merge_cells(f'A{row}:C{row}')
+    row += 1
+    
+    ws.cell(row=row, column=1, value="Terms & Conditions:")
+    ws.cell(row=row, column=1).font = Font(bold=True, size=9, name='Arial')
+    ws.cell(row=row, column=1).alignment = left_center_alignment
+    ws.merge_cells(f'A{row}:C{row}')
+    row += 1
+    
     terms = [
-        "1. All services carried out from seller's location.",
-        "2. Payment terms as specified above.",
-        "3. Services provided as per agreement.",
-        "4. Rates apply to agreed working hours.",
-        "5. Any dispute subject to jurisdiction only."
+        "1. All layout services will be carried out from the ULEPUS office.",
+        "2. The customer will provide all the software licenses required, accessed through a secure VPN tunnel.",
+        "3. The customer will retain responsibility for the circuit design at all times.",
+        "4. Rates apply to a 40 hour working week."
     ]
     
     for term in terms:
-        ws.merge_cells(f'A{row}:D{row}')
-        term_cell = ws.cell(row=row, column=1, value=term)
-        term_cell.font = small_font
-        term_cell.alignment = left_alignment
+        ws.cell(row=row, column=1, value=term)
+        ws.cell(row=row, column=1).font = small_font
+        ws.cell(row=row, column=1).alignment = left_center_alignment
+        ws.merge_cells(f'A{row}:C{row}')
         ws.row_dimensions[row].height = 18
         row += 1
     
-    # SAĞ: Bank Details
-    bank_row = bottom_start
+    # Sağ: Bank Details (D-G)
+    bank_row = declaration_start_row
     
-    ws.merge_cells(f'E{bank_row}:G{bank_row}')
-    bank_header = ws.cell(row=bank_row, column=5, value="BANK DETAILS")
-    bank_header.font = header_font
-    bank_header.fill = header_fill
-    bank_header.alignment = center_alignment
-    ws.row_dimensions[bank_row].height = 20
+    ws.cell(row=bank_row, column=4, value="Company's Bank Details")
+    ws.cell(row=bank_row, column=4).font = Font(bold=True, size=10, name='Arial')
+    ws.cell(row=bank_row, column=4).alignment = left_center_alignment
+    ws.merge_cells(f'D{bank_row}:G{bank_row}')
     bank_row += 1
     
     bank_details = [
-        ("Account Holder:", data.get('bank_holder', '')),
-        ("Bank Name:", data.get('bank_name', '')),
-        ("Account Number:", data.get('bank_account', '')),
-        ("Branch & IFSC:", data.get('bank_branch', '')),
-        ("SWIFT Code:", data.get('bank_swift', ''))
+        f"A/c Holder's Name: {data.get('bank_holder', '')}",
+        f"Bank Name: {data.get('bank_name', '')}",
+        f"A/c No.: {data.get('bank_account', '')}",
+        f"Branch & IFS Code: {data.get('bank_branch', '')}",
+        f"SWIFT Code: {data.get('bank_swift', '')}"
     ]
     
-    for label, value in bank_details:
-        ws.cell(row=bank_row, column=5, value=label).font = bold_font
-        ws.cell(row=bank_row, column=5).alignment = left_alignment
-        ws.merge_cells(f'F{bank_row}:G{bank_row}')
-        ws.cell(row=bank_row, column=6, value=value).font = regular_font
-        ws.cell(row=bank_row, column=6).alignment = left_alignment
+    for detail in bank_details:
+        ws.cell(row=bank_row, column=4, value=detail)
+        ws.cell(row=bank_row, column=4).font = small_font
+        ws.cell(row=bank_row, column=4).alignment = left_center_alignment
+        ws.merge_cells(f'D{bank_row}:G{bank_row}')
         ws.row_dimensions[bank_row].height = 18
         bank_row += 1
     
-    # Satırları eşitle
-    final_row = max(row, bank_row) + 1
+    # Alt border
+    final_row = max(row, bank_row)
+    for c in range(1, 8):
+        cell = ws.cell(row=final_row, column=c)
+        current_border = cell.border
+        cell.border = Border(
+            left=thick_border_side if c == 1 else (current_border.left if current_border else border_side),
+            right=thick_border_side if c == 7 else (current_border.right if current_border else border_side),
+            top=current_border.top if current_border else border_side,
+            bottom=thick_border_side
+        )
     
-    # ===== SIGNATURE =====
-    ws.merge_cells(f'E{final_row}:G{final_row}')
-    sign_cell = ws.cell(row=final_row, column=5, value="Authorized Signature")
-    sign_cell.font = bold_font
-    sign_cell.alignment = center_alignment
-    ws.row_dimensions[final_row].height = 40
-    
-    # Print ayarları
-    ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
-    ws.page_setup.paperSize = ws.PAPERSIZE_A4
-    ws.page_setup.fitToPage = True
-    ws.page_setup.fitToHeight = 1
-    ws.page_setup.fitToWidth = 1
-    
-    # Margins
-    ws.page_margins.left = 0.5
-    ws.page_margins.right = 0.5
-    ws.page_margins.top = 0.5
-    ws.page_margins.bottom = 0.5
+    # Tüm hücrelere iç border ekle
+    for r in range(1, final_row + 1):
+        for c in range(1, 8):
+            cell = ws.cell(row=r, column=c)
+            if not cell.border or cell.border == Border():
+                cell.border = border
     
     output = BytesIO()
     wb.save(output)
@@ -1235,45 +1280,27 @@ def get_clockify_workspaces():
         user_id = get_jwt_identity()
         user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
         
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-        
         # API key'i header'dan veya database'den al
         api_key = request.headers.get('X-Clockify-Api-Key')
         
         if not api_key or api_key == '':
             # Database'den al ve decrypt et
             encrypted_key = user.get('clockify_api_key', '')
-            if encrypted_key:
-                try:
-                    api_key = decrypt_api_key(encrypted_key)
-                except Exception as decrypt_error:
-                    app.logger.error(f"Decryption error: {str(decrypt_error)}")
-                    return jsonify({'error': 'Failed to decrypt API key'}), 500
-            else:
-                api_key = None
+            api_key = decrypt_api_key(encrypted_key) if encrypted_key else None
         
         if not api_key:
             return jsonify({'error': 'Clockify API key required'}), 400
         
         headers = {'X-Api-Key': api_key}
+        response = requests.get('https://api.clockify.me/api/v1/workspaces', headers=headers, timeout=10)
         
-        try:
-            response = requests.get('https://api.clockify.me/api/v1/workspaces', headers=headers, timeout=10)
-            
-            if response.status_code != 200:
-                app.logger.error(f"Clockify API error: {response.status_code} - {response.text}")
-                return jsonify({'error': 'Invalid Clockify API key'}), 401
-            
-            workspaces = response.json()
-            return jsonify(workspaces), 200
-            
-        except requests.exceptions.RequestException as req_error:
-            app.logger.error(f"Request error: {str(req_error)}")
-            return jsonify({'error': 'Failed to connect to Clockify'}), 500
+        if response.status_code != 200:
+            return jsonify({'error': 'Invalid Clockify API key'}), 401
+        
+        workspaces = response.json()
+        return jsonify(workspaces), 200
         
     except Exception as e:
-        app.logger.error(f"Unexpected error: {str(e)}\n{traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/clockify/projects', methods=['GET'])
@@ -1284,9 +1311,6 @@ def get_clockify_projects():
         user_id = get_jwt_identity()
         user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
         
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-        
         workspace_id = request.args.get('workspace_id')
         
         # API key'i header'dan veya database'den al
@@ -1294,38 +1318,24 @@ def get_clockify_projects():
         
         if not api_key or api_key == '':
             encrypted_key = user.get('clockify_api_key', '')
-            if encrypted_key:
-                try:
-                    api_key = decrypt_api_key(encrypted_key)
-                except Exception:
-                    return jsonify({'error': 'Failed to decrypt API key'}), 500
-            else:
-                api_key = None
+            api_key = decrypt_api_key(encrypted_key) if encrypted_key else None
         
         if not api_key or not workspace_id:
             return jsonify({'error': 'API key and workspace_id required'}), 400
         
         headers = {'X-Api-Key': api_key}
+        response = requests.get(
+            f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/projects',
+            headers=headers,
+            timeout=10
+        )
         
-        try:
-            response = requests.get(
-                f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/projects',
-                headers=headers,
-                timeout=10
-            )
-            
-            if response.status_code != 200:
-                app.logger.error(f"Clockify API error: {response.status_code}")
-                return jsonify({'error': 'Failed to fetch projects'}), 400
-            
-            return jsonify(response.json()), 200
-            
-        except requests.exceptions.RequestException as req_error:
-            app.logger.error(f"Request error: {str(req_error)}")
-            return jsonify({'error': 'Failed to connect to Clockify'}), 500
+        if response.status_code != 200:
+            return jsonify({'error': 'Failed to fetch projects'}), 400
+        
+        return jsonify(response.json()), 200
         
     except Exception as e:
-        app.logger.error(f"Unexpected error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/clockify/time-entries', methods=['POST'])
@@ -1581,34 +1591,23 @@ def generate_invoice():
             if field not in data:
                 return jsonify({'error': f'Missing field: {field}'}), 400
         
-        # Logo ve kullanıcı bilgilerini al
+        # Logo ve şirket bilgilerini al
         logo_data = None
         company_info = None
-        user_type = user.get('user_type', 'individual')
         
-        if user_type == 'company':
+        if user.get('user_type') == 'company':
             profile = user.get('company_profile', {})
             if 'logo_data' in profile:
                 logo_data = profile['logo_data']
             company_info = {
-                'company_name': profile.get('company_name', ''),
-                'address': profile.get('address', ''),
-                'phone': profile.get('phone', ''),
-                'email': user.get('email', ''),
-                'contact_person': profile.get('contact_person', '')
-            }
-        else:
-            # Bireysel kullanıcı
-            profile = user.get('individual_profile', {})
-            company_info = {
-                'full_name': profile.get('full_name', ''),
-                'address': data.get('seller_address', ''),  # Form'dan alınabilir
-                'phone': profile.get('phone', ''),
-                'email': user.get('email', '')
+                'company_name': profile.get('company_name', 'ULEPUS'),
+                'address': profile.get('address', 'ODTÜ Teknokent Mustafa Kemal Mah. Dumlupınar Blv. No:280/G İç Kapı No:305 Çankaya/Ankara'),
+                'phone': profile.get('phone', '+90-312-486-1158'),
+                'email': profile.get('contact_person', 'info@ulepus.com')
             }
         
         # Excel oluştur
-        output = generate_invoice_excel(data, logo_data, company_info, user_type)
+        output = generate_invoice_excel(data, logo_data, company_info)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"Invoice_{data.get('invoice_no', timestamp)}.xlsx"

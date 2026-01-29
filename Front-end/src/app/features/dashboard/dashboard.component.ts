@@ -36,7 +36,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   clockifyEndDate = '';
   clockifyLoading = false;
   private hasLoadedWorkspaces = false;
-  private hasAttemptedConnection = false;
   private userSubscription?: Subscription;
 
   constructor(
@@ -51,13 +50,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       if (user) {
         this.userDataSource = user.data_source || 'csv';
         
-        // Eğer Clockify kullanıcısıysa VE daha önce yüklenmediyse VE API key varsa, otomatik bağlan
-        if (this.userDataSource === 'clockify' && !this.hasLoadedWorkspaces && !this.hasAttemptedConnection) {
-          this.hasAttemptedConnection = true;
-          // Biraz gecikme ile bağlan (sayfa yüklenmesini bekle)
-          setTimeout(() => {
-            this.loadClockifyWorkspaces();
-          }, 500);
+        // Eğer Clockify kullanıcısıysa VE daha önce yüklenmediyse, otomatik bağlan
+        if (this.userDataSource === 'clockify' && !this.hasLoadedWorkspaces) {
+          this.loadClockifyWorkspaces();
         }
       }
     });
@@ -86,11 +81,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Zaten yükleme yapılıyorsa, tekrar başlatma
-    if (this.clockifyLoading) {
-      return;
-    }
-
     this.clockifyLoading = true;
     
     this.clockifyService.getWorkspaces('').subscribe({
@@ -98,30 +88,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.clockifyWorkspaces = workspaces;
         this.clockifyLoading = false;
         this.hasLoadedWorkspaces = true;
-        // Başarılı bağlantı - bildirim yok, sadece yeşil durum göster
+        // Bildirim yok - UI'da yeşil durum göstergesi var
       },
       error: (error) => {
         this.clockifyLoading = false;
         
-        // Hata durumunda sadece gerçek hatalarda bildirim göster
-        // 400 veya 401 hatalarında kullanıcının profile'a gitmesi gerekiyor
+        // Sadece gerçek hatalarda bildirim göster
         if (error.status === 401 || error.status === 400) {
-          // API key problemi - kullanıcıya haber ver
-          this.snackBar.open(
-            'Clockify connection failed. Please update your API key in Profile settings.', 
-            'Go to Profile', 
-            { 
-              duration: 0,  // Manuel kapatana kadar göster
-              horizontalPosition: 'center',
-              verticalPosition: 'top'
-            }
-          ).onAction().subscribe(() => {
-            // "Go to Profile" butonuna tıklandığında
-            window.location.href = '/profile';
-          });
-        } else {
-          // Diğer hatalar (network vb.)
-          console.error('Clockify connection error:', error);
+          this.snackBar.open('Failed to connect to Clockify. Please update your API key in profile settings.', 'Close', { duration: 5000 });
         }
       }
     });
@@ -134,8 +108,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       next: (projects) => {
         this.clockifyProjects = projects;
       },
-      error: (error) => {
-        console.error('Failed to load projects:', error);
+      error: () => {
         this.snackBar.open('Failed to load projects', 'Close', { duration: 3000 });
       }
     });
@@ -165,22 +138,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         let errorMessage = 'Error generating report';
-        if (error.error) {
-          // Blob hatasını text'e çevir
-          const reader = new FileReader();
-          reader.onload = () => {
-            try {
-              const errorObj = JSON.parse(reader.result as string);
-              errorMessage = errorObj.error || errorMessage;
-            } catch {
-              errorMessage = 'Error generating report';
-            }
-            this.snackBar.open(errorMessage, 'Close', { duration: 5000 });
-          };
-          reader.readAsText(error.error);
-        } else {
-          this.snackBar.open(errorMessage, 'Close', { duration: 5000 });
+        if (error.error && error.error.error) {
+          errorMessage = error.error.error;
         }
+        this.snackBar.open(errorMessage, 'Close', { duration: 5000 });
         this.converting = false;
       }
     });
