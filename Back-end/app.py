@@ -51,7 +51,7 @@ cipher_suite = Fernet(ENCRYPTION_KEY)
 
 # ============== Yardımcı Fonksiyonlar ==============
 
-def generate_invoice_excel(data, logo_data=None, company_info=None):
+def generate_invoice_excel(data, logo_data=None, company_info=None, user_type='company'):
     """Invoice Excel dosyası oluştur - Openpyxl ile"""
     from openpyxl import Workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Side, Border
@@ -125,7 +125,22 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     # Satır 3: Şirket ve Buyer bilgileri başlangıcı
     company_start_row = row
     
-    # SOL TARAF: Logo + Şirket Bilgileri (A-C kolonları)
+    # Şirket/Bireysel bilgilerini hazırla
+    if user_type == 'company' and company_info:
+        seller_name = company_info.get('company_name', 'Company Name')
+        seller_address = company_info.get('address', '')
+        seller_phone = company_info.get('phone', '')
+        seller_email = company_info.get('email', '')
+        seller_contact = company_info.get('contact_person', '')
+    else:
+        # Bireysel kullanıcı için
+        seller_name = company_info.get('full_name', 'Full Name') if company_info else 'Full Name'
+        seller_address = data.get('seller_address', '') if data else ''
+        seller_phone = company_info.get('phone', '') if company_info else ''
+        seller_email = company_info.get('email', '') if company_info else ''
+        seller_contact = ''
+    
+    # SOL TARAF: Logo + Şirket/Bireysel Bilgileri (A-C kolonları)
     # Logo bölgesi (A3:A14)
     if logo_data:
         try:
@@ -139,25 +154,23 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     
     ws.merge_cells(f'A{row}:A{row+11}')
     
-    # Şirket bilgileri (B-C kolonları)
-    company_name = company_info.get('company_name', 'ULEPUS') if company_info else 'ULEPUS'
-    company_address = company_info.get('address', 'ODTÜ Teknokent Mustafa Kemal Mah. Dumlupınar Blv. No:280/G İç Kapı No:305 Çankaya/Ankara') if company_info else 'ODTÜ Teknokent Mustafa Kemal Mah. Dumlupınar Blv. No:280/G İç Kapı No:305 Çankaya/Ankara'
-    company_phone = company_info.get('phone', '+90-312-486-1158') if company_info else '+90-312-486-1158'
-    company_email = company_info.get('email', 'info@ulepus.com') if company_info else 'info@ulepus.com'
-    
-    # ULEPUS
-    ws.cell(row=row, column=2, value=company_name)
+    # Şirket/Bireysel bilgileri (B-C kolonları)
+    # İsim (Şirket adı veya Tam ad)
+    ws.cell(row=row, column=2, value=seller_name)
     ws.cell(row=row, column=2).font = Font(bold=True, size=12, name='Arial')
     ws.cell(row=row, column=2).alignment = left_center_alignment
     ws.merge_cells(f'B{row}:C{row}')
     row += 1
     
     # Adres (3 satır)
-    ws.cell(row=row, column=2, value=company_address)
-    ws.cell(row=row, column=2).font = small_font
-    ws.cell(row=row, column=2).alignment = left_center_alignment
-    ws.merge_cells(f'B{row}:C{row+2}')
-    row += 3
+    if seller_address:
+        ws.cell(row=row, column=2, value=seller_address)
+        ws.cell(row=row, column=2).font = small_font
+        ws.cell(row=row, column=2).alignment = left_center_alignment
+        ws.merge_cells(f'B{row}:C{row+2}')
+        row += 3
+    else:
+        row += 3
     
     # GSTIN
     ws.cell(row=row, column=2, value="GSTIN: 33AAFCF7868L1Z3")
@@ -174,18 +187,20 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     row += 1
     
     # Email
-    ws.cell(row=row, column=2, value=company_email)
-    ws.cell(row=row, column=2).font = small_font
-    ws.cell(row=row, column=2).alignment = left_center_alignment
-    ws.merge_cells(f'B{row}:C{row}')
-    row += 1
+    if seller_email:
+        ws.cell(row=row, column=2, value=seller_email)
+        ws.cell(row=row, column=2).font = small_font
+        ws.cell(row=row, column=2).alignment = left_center_alignment
+        ws.merge_cells(f'B{row}:C{row}')
+        row += 1
     
     # Contact
-    ws.cell(row=row, column=2, value=f"Contact: {company_phone}")
-    ws.cell(row=row, column=2).font = small_font
-    ws.cell(row=row, column=2).alignment = left_center_alignment
-    ws.merge_cells(f'B{row}:C{row}')
-    row += 1
+    if seller_phone:
+        ws.cell(row=row, column=2, value=f"Contact: {seller_phone}")
+        ws.cell(row=row, column=2).font = small_font
+        ws.cell(row=row, column=2).alignment = left_center_alignment
+        ws.merge_cells(f'B{row}:C{row}')
+        row += 1
     
     # Ayırıcı çizgi
     for c in range(2, 4):
@@ -467,10 +482,10 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     row += 1
     
     terms = [
-        "1. All layout services will be carried out from the ULEPUS office.",
-        "2. The customer will provide all the software licenses required, accessed through a secure VPN tunnel.",
-        "3. The customer will retain responsibility for the circuit design at all times.",
-        "4. Rates apply to a 40 hour working week."
+        "1. All services carried out from seller's location.",
+        "2. Payment terms as specified above.",
+        "3. Services provided as per agreement.",
+        "4. Rates apply to agreed working hours."
     ]
     
     for term in terms:
@@ -484,7 +499,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     # Sağ: Bank Details (D-G)
     bank_row = declaration_start_row
     
-    ws.cell(row=bank_row, column=4, value="Company's Bank Details")
+    ws.cell(row=bank_row, column=4, value="Bank Details")
     ws.cell(row=bank_row, column=4).font = Font(bold=True, size=10, name='Arial')
     ws.cell(row=bank_row, column=4).alignment = left_center_alignment
     ws.merge_cells(f'D{bank_row}:G{bank_row}')
@@ -1280,27 +1295,45 @@ def get_clockify_workspaces():
         user_id = get_jwt_identity()
         user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
         
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
         # API key'i header'dan veya database'den al
         api_key = request.headers.get('X-Clockify-Api-Key')
         
         if not api_key or api_key == '':
             # Database'den al ve decrypt et
             encrypted_key = user.get('clockify_api_key', '')
-            api_key = decrypt_api_key(encrypted_key) if encrypted_key else None
+            if encrypted_key:
+                try:
+                    api_key = decrypt_api_key(encrypted_key)
+                except Exception as decrypt_error:
+                    app.logger.error(f"Decryption error: {str(decrypt_error)}")
+                    return jsonify({'error': 'Failed to decrypt API key'}), 500
+            else:
+                api_key = None
         
         if not api_key:
             return jsonify({'error': 'Clockify API key required'}), 400
         
         headers = {'X-Api-Key': api_key}
-        response = requests.get('https://api.clockify.me/api/v1/workspaces', headers=headers, timeout=10)
         
-        if response.status_code != 200:
-            return jsonify({'error': 'Invalid Clockify API key'}), 401
-        
-        workspaces = response.json()
-        return jsonify(workspaces), 200
+        try:
+            response = requests.get('https://api.clockify.me/api/v1/workspaces', headers=headers, timeout=10)
+            
+            if response.status_code != 200:
+                app.logger.error(f"Clockify API error: {response.status_code} - {response.text}")
+                return jsonify({'error': 'Invalid Clockify API key'}), 401
+            
+            workspaces = response.json()
+            return jsonify(workspaces), 200
+            
+        except requests.exceptions.RequestException as req_error:
+            app.logger.error(f"Request error: {str(req_error)}")
+            return jsonify({'error': 'Failed to connect to Clockify'}), 500
         
     except Exception as e:
+        app.logger.error(f"Unexpected error: {str(e)}\n{traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/clockify/projects', methods=['GET'])
@@ -1311,6 +1344,9 @@ def get_clockify_projects():
         user_id = get_jwt_identity()
         user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
         
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
         workspace_id = request.args.get('workspace_id')
         
         # API key'i header'dan veya database'den al
@@ -1318,24 +1354,38 @@ def get_clockify_projects():
         
         if not api_key or api_key == '':
             encrypted_key = user.get('clockify_api_key', '')
-            api_key = decrypt_api_key(encrypted_key) if encrypted_key else None
+            if encrypted_key:
+                try:
+                    api_key = decrypt_api_key(encrypted_key)
+                except Exception:
+                    return jsonify({'error': 'Failed to decrypt API key'}), 500
+            else:
+                api_key = None
         
         if not api_key or not workspace_id:
             return jsonify({'error': 'API key and workspace_id required'}), 400
         
         headers = {'X-Api-Key': api_key}
-        response = requests.get(
-            f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/projects',
-            headers=headers,
-            timeout=10
-        )
         
-        if response.status_code != 200:
-            return jsonify({'error': 'Failed to fetch projects'}), 400
-        
-        return jsonify(response.json()), 200
+        try:
+            response = requests.get(
+                f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/projects',
+                headers=headers,
+                timeout=10
+            )
+            
+            if response.status_code != 200:
+                app.logger.error(f"Clockify API error: {response.status_code}")
+                return jsonify({'error': 'Failed to fetch projects'}), 400
+            
+            return jsonify(response.json()), 200
+            
+        except requests.exceptions.RequestException as req_error:
+            app.logger.error(f"Request error: {str(req_error)}")
+            return jsonify({'error': 'Failed to connect to Clockify'}), 500
         
     except Exception as e:
+        app.logger.error(f"Unexpected error: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/clockify/time-entries', methods=['POST'])
@@ -1591,23 +1641,34 @@ def generate_invoice():
             if field not in data:
                 return jsonify({'error': f'Missing field: {field}'}), 400
         
-        # Logo ve şirket bilgilerini al
+        # Logo ve kullanıcı bilgilerini al
         logo_data = None
         company_info = None
+        user_type = user.get('user_type', 'individual')
         
-        if user.get('user_type') == 'company':
+        if user_type == 'company':
             profile = user.get('company_profile', {})
             if 'logo_data' in profile:
                 logo_data = profile['logo_data']
             company_info = {
-                'company_name': profile.get('company_name', 'ULEPUS'),
-                'address': profile.get('address', 'ODTÜ Teknokent Mustafa Kemal Mah. Dumlupınar Blv. No:280/G İç Kapı No:305 Çankaya/Ankara'),
-                'phone': profile.get('phone', '+90-312-486-1158'),
-                'email': profile.get('contact_person', 'info@ulepus.com')
+                'company_name': profile.get('company_name', ''),
+                'address': profile.get('address', ''),
+                'phone': profile.get('phone', ''),
+                'email': user.get('email', ''),
+                'contact_person': profile.get('contact_person', '')
+            }
+        else:
+            # Bireysel kullanıcı
+            profile = user.get('individual_profile', {})
+            company_info = {
+                'full_name': profile.get('full_name', ''),
+                'address': data.get('seller_address', ''),  # Form'dan alınabilir
+                'phone': profile.get('phone', ''),
+                'email': user.get('email', '')
             }
         
         # Excel oluştur
-        output = generate_invoice_excel(data, logo_data, company_info)
+        output = generate_invoice_excel(data, logo_data, company_info, user_type)
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"Invoice_{data.get('invoice_no', timestamp)}.xlsx"

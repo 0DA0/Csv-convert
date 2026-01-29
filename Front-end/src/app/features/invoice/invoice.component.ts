@@ -14,10 +14,13 @@ export class InvoiceComponent implements OnInit {
   invoiceForm: FormGroup;
   loading = false;
   logoPreview: string | null = null;
-  companyName = 'ULEPUS';
-  companyAddress = 'ODTÜ Teknokent Mustafa Kemal Mah. Dumlupınar Blv. No:280/G İç Kapı No:305 Çankaya/Ankara';
-  companyPhone = '+90-312-486-1158';
-  companyEmail = 'info@ulepus.com';
+  userType: 'individual' | 'company' = 'individual';
+  
+  // Seller bilgileri (preview için)
+  sellerName = '';
+  sellerAddress = '';
+  sellerPhone = '';
+  sellerEmail = '';
 
   constructor(
     private fb: FormBuilder,
@@ -31,10 +34,21 @@ export class InvoiceComponent implements OnInit {
   ngOnInit(): void {
     this.loadUserDefaults();
     this.addService(); // İlk servis satırını ekle
+    
+    // Form değişikliklerini dinle (preview için)
+    this.invoiceForm.valueChanges.subscribe(() => {
+      this.updateSellerInfo();
+    });
   }
 
   createForm(): FormGroup {
     return this.fb.group({
+      // Seller Information (Bireysel için)
+      seller_name: [''],
+      seller_address: [''],
+      seller_phone: [''],
+      seller_email: [''],
+      
       // Invoice Details
       invoice_no: ['', Validators.required],
       invoice_date: [this.formatDate(new Date()), Validators.required],
@@ -158,27 +172,46 @@ export class InvoiceComponent implements OnInit {
 
   loadUserDefaults(): void {
     const user = this.authService.getCurrentUser();
-    if (user && user.user_type === 'company') {
+    if (!user) return;
+    
+    this.userType = user.user_type;
+    
+    if (user.user_type === 'company') {
       const profile = user.profile as any;
       
-      // Şirket bilgilerini güncelle
-      if (profile.company_name) {
-        this.companyName = profile.company_name;
-      }
-      if (profile.address) {
-        this.companyAddress = profile.address;
-      }
-      if (profile.phone) {
-        this.companyPhone = profile.phone;
-      }
-      if (profile.contact_person) {
-        this.companyEmail = profile.contact_person;
-      }
+      // Şirket bilgilerini yükle
+      this.sellerName = profile.company_name || '';
+      this.sellerAddress = profile.address || '';
+      this.sellerPhone = profile.phone || '';
+      this.sellerEmail = user.email || '';
       
       // Logo varsa göster
       if (profile.logo_base64) {
         this.logoPreview = profile.logo_base64;
       }
+    } else {
+      // Bireysel kullanıcı
+      const profile = user.profile as any;
+      
+      this.sellerName = profile.full_name || '';
+      this.sellerPhone = profile.phone || '';
+      this.sellerEmail = user.email || '';
+      
+      // Form'u doldur
+      this.invoiceForm.patchValue({
+        seller_name: this.sellerName,
+        seller_phone: this.sellerPhone,
+        seller_email: this.sellerEmail
+      });
+    }
+  }
+
+  updateSellerInfo(): void {
+    if (this.userType === 'individual') {
+      this.sellerName = this.invoiceForm.get('seller_name')?.value || '';
+      this.sellerAddress = this.invoiceForm.get('seller_address')?.value || '';
+      this.sellerPhone = this.invoiceForm.get('seller_phone')?.value || '';
+      this.sellerEmail = this.invoiceForm.get('seller_email')?.value || '';
     }
   }
 
@@ -193,7 +226,12 @@ export class InvoiceComponent implements OnInit {
     }
 
     this.loading = true;
-    const formData: InvoiceData = this.invoiceForm.value;
+    const formData: any = { ...this.invoiceForm.value };
+    
+    // Bireysel kullanıcı için seller bilgilerini ekle
+    if (this.userType === 'individual') {
+      formData.seller_address = this.invoiceForm.get('seller_address')?.value || '';
+    }
 
     this.invoiceService.generateInvoice(formData).subscribe({
       next: (blob) => {
@@ -215,7 +253,10 @@ export class InvoiceComponent implements OnInit {
       invoice_date: this.formatDate(new Date()),
       order_date: this.formatDate(new Date()),
       payment_terms: 'Online',
-      other_references: '--'
+      other_references: '--',
+      seller_name: this.sellerName,
+      seller_phone: this.sellerPhone,
+      seller_email: this.sellerEmail
     });
     
     // Tüm servisleri temizle ve bir tane ekle
