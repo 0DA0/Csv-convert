@@ -140,10 +140,10 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.merge_cells(f'A{row}:A{row+11}')
     
     # Şirket bilgileri (B-C kolonları)
-    company_name = company_info.get('company_name', 'ULEPUS') if company_info else 'ULEPUS'
-    company_address = company_info.get('address', 'ODTÜ Teknokent Mustafa Kemal Mah. Dumlupınar Blv. No:280/G İç Kapı No:305 Çankaya/Ankara') if company_info else 'ODTÜ Teknokent Mustafa Kemal Mah. Dumlupınar Blv. No:280/G İç Kapı No:305 Çankaya/Ankara'
-    company_phone = company_info.get('phone', '+90-312-486-1158') if company_info else '+90-312-486-1158'
-    company_email = company_info.get('email', 'info@ulepus.com') if company_info else 'info@ulepus.com'
+    company_name = company_info.get('company_name', '') if company_info else ''
+    company_address = company_info.get('address', '') if company_info else ''
+    company_phone = company_info.get('phone', '') if company_info else ''
+    company_email = company_info.get('email', '') if company_info else ''
     
     # ULEPUS
     ws.cell(row=row, column=2, value=company_name)
@@ -158,20 +158,6 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.cell(row=row, column=2).alignment = left_center_alignment
     ws.merge_cells(f'B{row}:C{row+2}')
     row += 3
-    
-    # GSTIN
-    ws.cell(row=row, column=2, value="GSTIN: 33AAFCF7868L1Z3")
-    ws.cell(row=row, column=2).font = small_font
-    ws.cell(row=row, column=2).alignment = left_center_alignment
-    ws.merge_cells(f'B{row}:C{row}')
-    row += 1
-    
-    # CIN
-    ws.cell(row=row, column=2, value="CIN: U74999TN2019PTC134833")
-    ws.cell(row=row, column=2).font = small_font
-    ws.cell(row=row, column=2).alignment = left_center_alignment
-    ws.merge_cells(f'B{row}:C{row}')
-    row += 1
     
     # Email
     ws.cell(row=row, column=2, value=company_email)

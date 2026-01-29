@@ -14,10 +14,10 @@ export class InvoiceComponent implements OnInit {
   invoiceForm: FormGroup;
   loading = false;
   logoPreview: string | null = null;
-  companyName = 'ULEPUS';
-  companyAddress = 'ODTÜ Teknokent Mustafa Kemal Mah. Dumlupınar Blv. No:280/G İç Kapı No:305 Çankaya/Ankara';
-  companyPhone = '+90-312-486-1158';
-  companyEmail = 'info@ulepus.com';
+  companyName = '';
+  companyAddress = '';
+  companyPhone = '';
+  companyEmail = '';
 
   constructor(
     private fb: FormBuilder,
