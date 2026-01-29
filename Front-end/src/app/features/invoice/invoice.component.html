@@ -13,63 +13,133 @@
               <h2>Invoice Details</h2>
               
               <div class="input-group">
-                <label>Invoice No: <input type="text" formControlName="invoice_no" required></label>
-                <label>Date: <input type="date" formControlName="invoice_date" required></label>
+                <label>
+                  Invoice No: *
+                  <input type="text" formControlName="invoice_no" required placeholder="INV-001">
+                </label>
+                <label>
+                  Date: *
+                  <input type="date" formControlName="invoice_date" required>
+                </label>
               </div>
 
               <div class="input-group">
-                <label>Delivery Note: <input type="text" formControlName="delivery_note"></label>
-                <label>Payment Terms: <input type="text" formControlName="payment_terms"></label>
+                <label>
+                  Delivery Note:
+                  <input type="text" formControlName="delivery_note" placeholder="Optional">
+                </label>
+                <label>
+                  Payment Terms:
+                  <input type="text" formControlName="payment_terms" placeholder="e.g., Online, Bank Transfer">
+                </label>
               </div>
 
               <div class="input-group">
-                <label>Ref. & Date: <input type="text" formControlName="ref_date"></label>
-                <label>Other References: <input type="text" formControlName="other_references"></label>
+                <label>
+                  Ref. & Date:
+                  <input type="text" formControlName="ref_date" placeholder="Optional">
+                </label>
+                <label>
+                  Other References:
+                  <input type="text" formControlName="other_references" placeholder="Optional">
+                </label>
               </div>
 
               <div class="input-group">
-                <label>Buyer's Order No: <input type="text" formControlName="buyer_order_no"></label>
-                <label>Dated: <input type="date" formControlName="order_date"></label>
+                <label>
+                  Buyer's Order No:
+                  <input type="text" formControlName="buyer_order_no" placeholder="Optional">
+                </label>
+                <label>
+                  Dated:
+                  <input type="date" formControlName="order_date">
+                </label>
               </div>
 
               <div class="input-group">
-                <label>Dispatch Doc No: <input type="text" formControlName="dispatch_doc_no"></label>
-                <label>Delivery Note Date: <input type="date" formControlName="delivery_note_date"></label>
+                <label>
+                  Dispatch Doc No:
+                  <input type="text" formControlName="dispatch_doc_no" placeholder="Optional">
+                </label>
+                <label>
+                  Delivery Note Date:
+                  <input type="date" formControlName="delivery_note_date">
+                </label>
               </div>
 
               <div class="input-group">
-                <label>Dispatched Through: <input type="text" formControlName="dispatched_through"></label>
-                <label>Destination: <input type="text" formControlName="destination"></label>
+                <label>
+                  Dispatched Through:
+                  <input type="text" formControlName="dispatched_through" placeholder="Optional">
+                </label>
+                <label>
+                  Destination:
+                  <input type="text" formControlName="destination" placeholder="Optional">
+                </label>
               </div>
 
               <div class="input-group">
-                <label>Country: <input type="text" formControlName="country"></label>
-                <label>LUT/Bond No: <input type="text" formControlName="lut_bond_no"></label>
+                <label>
+                  Country:
+                  <input type="text" formControlName="country" placeholder="e.g., Turkey">
+                </label>
+                <label>
+                  LUT/Bond No:
+                  <input type="text" formControlName="lut_bond_no" placeholder="Optional">
+                </label>
               </div>
 
               <div class="input-group">
-                <label>From: <input type="date" formControlName="from"></label>
-                <label>To: <input type="date" formControlName="to"></label>
+                <label>
+                  From:
+                  <input type="date" formControlName="from">
+                </label>
+                <label>
+                  To:
+                  <input type="date" formControlName="to">
+                </label>
               </div>
 
-              <label class="full-width">Terms of Delivery: <input type="text" formControlName="terms_of_delivery"></label>
+              <label class="full-width">
+                Terms of Delivery:
+                <input type="text" formControlName="terms_of_delivery" placeholder="Optional">
+              </label>
             </div>
 
             <!-- Buyer Information Section -->
             <div class="section">
               <h2>Buyer Information</h2>
 
-              <label class="full-width">Name: <input type="text" formControlName="buyer_name" required></label>
-              <label class="full-width">Address: <textarea formControlName="buyer_address" rows="2"></textarea></label>
+              <label class="full-width">
+                Name: *
+                <input type="text" formControlName="buyer_name" required placeholder="Buyer company name">
+              </label>
+              
+              <label class="full-width">
+                Address:
+                <textarea formControlName="buyer_address" rows="2" placeholder="Full address"></textarea>
+              </label>
               
               <div class="input-group">
-                <label>State: <input type="text" formControlName="buyer_state"></label>
-                <label>Place of Supply: <input type="text" formControlName="place_of_supply"></label>
+                <label>
+                  State:
+                  <input type="text" formControlName="buyer_state" placeholder="e.g., California">
+                </label>
+                <label>
+                  Place of Supply:
+                  <input type="text" formControlName="place_of_supply" placeholder="Optional">
+                </label>
               </div>
 
               <div class="input-group">
-                <label>Contact Person: <input type="text" formControlName="contact_person"></label>
-                <label>Email: <input type="email" formControlName="buyer_email"></label>
+                <label>
+                  Contact Person:
+                  <input type="text" formControlName="contact_person" placeholder="Optional">
+                </label>
+                <label>
+                  Email:
+                  <input type="email" formControlName="buyer_email" placeholder="contact@company.com">
+                </label>
               </div>
             </div>
 
@@ -77,23 +147,51 @@
             <div class="section">
               <div class="section-header">
                 <h2>Services</h2>
-                <button type="button" class="btn-add" (click)="addService()">Add Service</button>
+                <button type="button" class="btn-add" (click)="addService()">
+                  + Add Service
+                </button>
               </div>
 
               <div id="services-input" formArrayName="services">
                 <div class="service-row" *ngFor="let service of services.controls; let i = index" [formGroupName]="i">
-                  <label>Description: <input type="text" class="input-description" formControlName="description" required></label>
-                  <label>HSN/SAC: <input type="text" class="input-hsn" formControlName="hsn"></label>
-                  <label>Quantity: <input type="number" class="input-quantity" formControlName="quantity" step="1" required></label>
-                  <label>Rate: <input type="number" class="input-rate" formControlName="rate" step="0.01" required></label>
-                  <label>Unit: 
+                  <button type="button" class="remove-service" (click)="removeService(i)" *ngIf="services.length > 1">
+                    Remove
+                  </button>
+                  
+                  <label>
+                    Description: *
+                    <input type="text" class="input-description" formControlName="description" required placeholder="Service description">
+                  </label>
+                  
+                  <label>
+                    HSN/SAC:
+                    <input type="text" class="input-hsn" formControlName="hsn" placeholder="Optional">
+                  </label>
+                  
+                  <label>
+                    Quantity: *
+                    <input type="number" class="input-quantity" formControlName="quantity" step="1" min="0" required placeholder="1">
+                  </label>
+                  
+                  <label>
+                    Rate: *
+                    <input type="number" class="input-rate" formControlName="rate" step="0.01" min="0" required placeholder="0.00">
+                  </label>
+                  
+                  <label>
+                    Unit: *
                     <select class="input-per" formControlName="per" required>
                       <option value="Hour">Hour</option>
                       <option value="Day">Day</option>
                       <option value="Unit">Unit</option>
+                      <option value="Piece">Piece</option>
+                      <option value="Service">Service</option>
                     </select>
                   </label>
-                  <button type="button" class="remove-service" (click)="removeService(i)" *ngIf="services.length > 1">Remove</button>
+                  
+                  <label>
+                    Amount: <strong>{{ calculateServiceAmount(i).toFixed(2) }} €</strong>
+                  </label>
                 </div>
               </div>
             </div>
@@ -102,16 +200,37 @@
             <div class="section">
               <h2>Bank Details</h2>
 
-              <label class="full-width">Account Holder: <input type="text" formControlName="bank_holder"></label>
-              <label class="full-width">Bank Name: <input type="text" formControlName="bank_name"></label>
-              <label class="full-width">Account No: <input type="text" formControlName="bank_account"></label>
-              <label class="full-width">Branch & IFS Code: <input type="text" formControlName="bank_branch"></label>
-              <label class="full-width">SWIFT Code: <input type="text" formControlName="bank_swift"></label>
+              <label class="full-width">
+                Account Holder:
+                <input type="text" formControlName="bank_holder" placeholder="Account holder name">
+              </label>
+              
+              <label class="full-width">
+                Bank Name:
+                <input type="text" formControlName="bank_name" placeholder="Bank name">
+              </label>
+              
+              <label class="full-width">
+                Account No:
+                <input type="text" formControlName="bank_account" placeholder="Account number">
+              </label>
+              
+              <label class="full-width">
+                Branch & IFS Code:
+                <input type="text" formControlName="bank_branch" placeholder="Branch and IFS code">
+              </label>
+              
+              <label class="full-width">
+                SWIFT Code:
+                <input type="text" formControlName="bank_swift" placeholder="SWIFT code">
+              </label>
             </div>
 
             <button type="submit" class="btn-submit" [disabled]="loading || invoiceForm.invalid">
+              <mat-icon *ngIf="!loading">download</mat-icon>
               <span *ngIf="!loading">Export to Excel</span>
               <mat-spinner *ngIf="loading" diameter="20"></mat-spinner>
+              <span *ngIf="loading">Generating...</span>
             </button>
           </form>
         </mat-card>
@@ -125,76 +244,133 @@
             (SUPPLY MEANT FOR EXPORT/ SUPPLY TO SEZ UNIT OR SEZ DEVELOPER FOR AUTHORISED OPERATIONS UNDER BOND OR LETTER OF UNDERTAKING WITHOUT PAYMENT OF IGST)
           </p>
 
-          <table border="1">
+          <table border="1" cellspacing="0" cellpadding="0">
             <tr>
               <td style="width: 65%; vertical-align: top;">
-                <table style="width: 100%;">
+                <table style="width: 100%; border: none;">
                   <tr>
-                    <td style="width: 100px; vertical-align: top;">
-                      <img *ngIf="logoPreview" [src]="logoPreview" alt="Logo" style="max-height: 120px;">
+                    <td style="width: 120px; vertical-align: top; border: none; padding-right: 10px;">
+                      <img *ngIf="logoPreview" [src]="logoPreview" alt="Logo" style="max-height: 120px; max-width: 100%; display: block;">
                       <div *ngIf="!logoPreview" class="logo-placeholder">
                         <mat-icon>business</mat-icon>
                         <span>Company Logo</span>
                       </div>
                     </td>
-                    <td>
-                      <table>
-                        <tr><td><strong>{{ companyName }}</strong></td></tr>
-                        <tr><td>{{ companyAddress }}</td></tr>
-                        <tr><td>GSTIN: 33AAFCF7868L1Z3</td></tr>
-                        <tr><td>CIN: U74999TN2019PTC134833</td></tr>
-                        <tr><td>{{ companyEmail }}</td></tr>
-                        <tr><td>Contact: {{ companyPhone }}</td></tr>
-                        <tr><td style="border-top: 2px solid black;"></td></tr>
-                        <tr><td><strong>Buyer (Bill To):</strong></td></tr>
-                        <tr><td><span id="buyer-name">{{ invoiceForm.get('buyer_name')?.value || '-' }}</span></td></tr>
-                        <tr><td><span id="buyer-address">{{ invoiceForm.get('buyer_address')?.value || '-' }}</span></td></tr>
-                        <tr><td>State Name: <span id="buyer-state">{{ invoiceForm.get('buyer_state')?.value || '-' }}</span></td></tr>
-                        <tr><td>Place of Supply: <span id="place-of-supply">{{ invoiceForm.get('place_of_supply')?.value || '-' }}</span></td></tr>
-                        <tr><td>Contact Person: <span id="contact-person">{{ invoiceForm.get('contact_person')?.value || '-' }}</span></td></tr>
-                        <tr><td>E-Mail: <span id="buyer-email">{{ invoiceForm.get('buyer_email')?.value || '-' }}</span></td></tr>
+                    <td style="border: none;">
+                      <table style="width: 100%; border: none;">
+                        <tr><td style="border: none;"><strong>{{ companyName }}</strong></td></tr>
+                        <tr><td style="border: none; font-size: 10px;">{{ companyAddress }}</td></tr>
+                        <tr><td style="border: none;">GSTIN: 33AAFCF7868L1Z3</td></tr>
+                        <tr><td style="border: none;">CIN: U74999TN2019PTC134833</td></tr>
+                        <tr><td style="border: none;">{{ companyEmail }}</td></tr>
+                        <tr><td style="border: none;">Contact: {{ companyPhone }}</td></tr>
+                        <tr><td style="border-top: 2px solid #2d3748; padding-top: 8px; margin-top: 8px;"></td></tr>
+                        <tr><td style="border: none; padding-top: 8px;"><strong>Buyer (Bill To):</strong></td></tr>
+                        <tr><td style="border: none;"><strong id="buyer-name">{{ invoiceForm.get('buyer_name')?.value || 'Buyer Name' }}</strong></td></tr>
+                        <tr><td style="border: none; font-size: 10px;" id="buyer-address">{{ invoiceForm.get('buyer_address')?.value || 'Buyer address' }}</td></tr>
+                        <tr><td style="border: none;">State Name: <span id="buyer-state">{{ invoiceForm.get('buyer_state')?.value || '-' }}</span></td></tr>
+                        <tr><td style="border: none;">Place of Supply: <span id="place-of-supply">{{ invoiceForm.get('place_of_supply')?.value || '-' }}</span></td></tr>
+                        <tr><td style="border: none;">Contact Person: <span id="contact-person">{{ invoiceForm.get('contact_person')?.value || '-' }}</span></td></tr>
+                        <tr><td style="border: none;">E-Mail: <span id="buyer-email">{{ invoiceForm.get('buyer_email')?.value || '-' }}</span></td></tr>
                       </table>
                     </td>
                   </tr>
                 </table>
               </td>
               <td style="width: 35%; vertical-align: top;">
-                <table style="width: 100%;">
-                  <tr><td>Invoice No.: {{ invoiceForm.get('invoice_no')?.value || '-' }}</td><td>Dated: {{ invoiceForm.get('invoice_date')?.value || '-' }}</td></tr>
-                  <tr><td>Delivery Note: {{ invoiceForm.get('delivery_note')?.value || '-' }}</td><td>Mode/Terms of Payment: {{ invoiceForm.get('payment_terms')?.value || '-' }}</td></tr>
-                  <tr><td>Ref. & Date: {{ invoiceForm.get('ref_date')?.value || '-' }}</td><td>Other References: {{ invoiceForm.get('other_references')?.value || '-' }}</td></tr>
-                  <tr><td>Buyer's Order No: {{ invoiceForm.get('buyer_order_no')?.value || '-' }}</td><td>Dated: {{ invoiceForm.get('order_date')?.value || '-' }}</td></tr>
-                  <tr><td>Dispatch Doc No.: {{ invoiceForm.get('dispatch_doc_no')?.value || '-' }}</td><td>Delivery Note Date: {{ invoiceForm.get('delivery_note_date')?.value || '-' }}</td></tr>
-                  <tr><td>Dispatched through: {{ invoiceForm.get('dispatched_through')?.value || '-' }}</td><td>Destination: {{ invoiceForm.get('destination')?.value || '-' }}</td></tr>
-                  <tr><td colspan="2">Country: {{ invoiceForm.get('country')?.value || '-' }}</td></tr>
-                  <tr><td colspan="2">LUT/Bond No.: {{ invoiceForm.get('lut_bond_no')?.value || '-' }}</td></tr>
-                  <tr><td>From: {{ invoiceForm.get('from')?.value || '-' }}</td><td>To: {{ invoiceForm.get('to')?.value || '-' }}</td></tr>
-                  <tr><td colspan="2">Terms of Delivery: {{ invoiceForm.get('terms_of_delivery')?.value || '-' }}</td></tr>
+                <table style="width: 100%; border: none;">
+                  <tr>
+                    <td style="border: none; padding: 4px;"><strong>Invoice No.:</strong></td>
+                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('invoice_no')?.value || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td style="border: none; padding: 4px;"><strong>Dated:</strong></td>
+                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('invoice_date')?.value || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td style="border: none; padding: 4px;"><strong>Delivery Note:</strong></td>
+                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('delivery_note')?.value || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td style="border: none; padding: 4px;"><strong>Payment Terms:</strong></td>
+                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('payment_terms')?.value || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td style="border: none; padding: 4px;"><strong>Ref. & Date:</strong></td>
+                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('ref_date')?.value || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td style="border: none; padding: 4px;"><strong>Other References:</strong></td>
+                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('other_references')?.value || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td style="border: none; padding: 4px;"><strong>Buyer's Order No:</strong></td>
+                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('buyer_order_no')?.value || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td style="border: none; padding: 4px;"><strong>Order Date:</strong></td>
+                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('order_date')?.value || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td style="border: none; padding: 4px;"><strong>Dispatch Doc No:</strong></td>
+                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('dispatch_doc_no')?.value || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td style="border: none; padding: 4px;"><strong>Delivery Note Date:</strong></td>
+                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('delivery_note_date')?.value || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td style="border: none; padding: 4px;"><strong>Dispatched Through:</strong></td>
+                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('dispatched_through')?.value || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td style="border: none; padding: 4px;"><strong>Destination:</strong></td>
+                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('destination')?.value || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td colspan="2" style="border: none; padding: 4px;"><strong>Country:</strong> {{ invoiceForm.get('country')?.value || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td colspan="2" style="border: none; padding: 4px;"><strong>LUT/Bond No.:</strong> {{ invoiceForm.get('lut_bond_no')?.value || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td style="border: none; padding: 4px;"><strong>From:</strong></td>
+                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('from')?.value || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td style="border: none; padding: 4px;"><strong>To:</strong></td>
+                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('to')?.value || '-' }}</td>
+                  </tr>
+                  <tr>
+                    <td colspan="2" style="border: none; padding: 4px;"><strong>Terms of Delivery:</strong> {{ invoiceForm.get('terms_of_delivery')?.value || '-' }}</td>
+                  </tr>
                 </table>
               </td>
             </tr>
+            
+            <!-- Services Table -->
             <tr>
-              <td colspan="2">
-                <table border="1" style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+              <td colspan="2" style="padding: 0;">
+                <table border="1" style="width: 100%; border-collapse: collapse; margin: 0;">
                   <thead>
                     <tr>
-                      <th>Sl No.</th>
-                      <th>Description of Goods</th>
-                      <th>HSN/SAC</th>
-                      <th>Quantity</th>
-                      <th>Rate</th>
-                      <th>Per</th>
-                      <th>Amount</th>
+                      <th style="width: 5%;">Sl No.</th>
+                      <th style="width: 40%;">Description of Goods</th>
+                      <th style="width: 10%;">HSN/SAC</th>
+                      <th style="width: 10%;">Quantity</th>
+                      <th style="width: 12%;">Rate</th>
+                      <th style="width: 8%;">Per</th>
+                      <th style="width: 15%;">Amount</th>
                     </tr>
                   </thead>
                   <tbody id="services-tbody">
                     <tr *ngFor="let service of services.controls; let i = index">
                       <td>{{ i + 1 }}</td>
-                      <td>{{ service.get('description')?.value || '-' }}</td>
+                      <td>{{ service.get('description')?.value || 'Service description' }}</td>
                       <td>{{ service.get('hsn')?.value || '-' }}</td>
                       <td>{{ service.get('quantity')?.value || 0 }}</td>
-                      <td>{{ service.get('rate')?.value || 0 }}</td>
-                      <td>{{ service.get('per')?.value || '-' }}</td>
+                      <td>{{ (service.get('rate')?.value || 0).toFixed(2) }}</td>
+                      <td>{{ service.get('per')?.value || 'Hour' }}</td>
                       <td>{{ calculateServiceAmount(i).toFixed(2) }}</td>
                     </tr>
                   </tbody>
@@ -212,31 +388,37 @@
                 </table>
               </td>
             </tr>
+            
+            <!-- Amount in Words -->
             <tr>
-              <td colspan="2">
-                <strong>Amount Chargeable (in words):</strong> <span id="amount-in-words">{{ numberToWords(calculateTotalAmount()) }} Euro Only</span><br>
+              <td colspan="2" style="padding: 10px;">
+                <strong>Amount Chargeable (in words):</strong> 
+                <span id="amount-in-words">{{ numberToWords(calculateTotalAmount()) }} Euro Only</span>
+                <br><br>
                 <strong>E. & O.E</strong>
               </td>
             </tr>
+            
+            <!-- Declaration and Bank Details -->
             <tr class="igst-subsection">
-              <td style="vertical-align: top;">
-                <table>
-                  <tr><td><strong>Declaration</strong></td></tr>
-                  <tr><td><strong>Terms & Conditions:</strong></td></tr>
-                  <tr><td>1. All layout services will be carried out from the ULEPUS office.</td></tr>
-                  <tr><td>2. The customer will provide all the software licenses required, accessed through a secure VPN tunnel.</td></tr>
-                  <tr><td>3. The customer will retain responsibility for the circuit design at all times.</td></tr>
-                  <tr><td>4. Rates apply to a 40 hour working week.</td></tr>
+              <td style="width: 50%; vertical-align: top;">
+                <table style="width: 100%; border: none;">
+                  <tr><td style="border: none;"><strong>Declaration</strong></td></tr>
+                  <tr><td style="border: none; padding-top: 8px;"><strong>Terms & Conditions:</strong></td></tr>
+                  <tr><td style="border: none;">1. All layout services will be carried out from the ULEPUS office.</td></tr>
+                  <tr><td style="border: none;">2. The customer will provide all the software licenses required, accessed through a secure VPN tunnel.</td></tr>
+                  <tr><td style="border: none;">3. The customer will retain responsibility for the circuit design at all times.</td></tr>
+                  <tr><td style="border: none;">4. Rates apply to a 40 hour working week.</td></tr>
                 </table>
               </td>
-              <td style="vertical-align: top;">
-                <table>
-                  <tr><td><strong>Company's Bank Details</strong></td></tr>
-                  <tr><td>A/c Holder's Name: {{ invoiceForm.get('bank_holder')?.value || '-' }}</td></tr>
-                  <tr><td>Bank Name: {{ invoiceForm.get('bank_name')?.value || '-' }}</td></tr>
-                  <tr><td>A/c No.: {{ invoiceForm.get('bank_account')?.value || '-' }}</td></tr>
-                  <tr><td>Branch & IFS Code: {{ invoiceForm.get('bank_branch')?.value || '-' }}</td></tr>
-                  <tr><td>SWIFT Code: {{ invoiceForm.get('bank_swift')?.value || '-' }}</td></tr>
+              <td style="width: 50%; vertical-align: top;">
+                <table style="width: 100%; border: none;">
+                  <tr><td style="border: none;"><strong>Company's Bank Details</strong></td></tr>
+                  <tr><td style="border: none; padding-top: 8px;">A/c Holder's Name: {{ invoiceForm.get('bank_holder')?.value || '-' }}</td></tr>
+                  <tr><td style="border: none;">Bank Name: {{ invoiceForm.get('bank_name')?.value || '-' }}</td></tr>
+                  <tr><td style="border: none;">A/c No.: {{ invoiceForm.get('bank_account')?.value || '-' }}</td></tr>
+                  <tr><td style="border: none;">Branch & IFS Code: {{ invoiceForm.get('bank_branch')?.value || '-' }}</td></tr>
+                  <tr><td style="border: none;">SWIFT Code: {{ invoiceForm.get('bank_swift')?.value || '-' }}</td></tr>
                 </table>
               </td>
             </tr>
