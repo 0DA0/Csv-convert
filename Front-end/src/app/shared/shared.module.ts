@@ -14,6 +14,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatExpansionModule } from '@angular/material/expansion';  // YENİ EKLENEN
+import { MatTooltipModule } from '@angular/material/tooltip';      // YENİ EKLENEN
 
 import { HeaderComponent } from './components/header/header.component';
 
@@ -28,7 +30,9 @@ const MATERIAL_MODULES = [
   MatSelectModule,
   MatTableModule,
   MatProgressSpinnerModule,
-  MatSnackBarModule
+  MatSnackBarModule,
+  MatExpansionModule,  // YENİ EKLENEN
+  MatTooltipModule     // YENİ EKLENEN
 ];
 
 @NgModule({
