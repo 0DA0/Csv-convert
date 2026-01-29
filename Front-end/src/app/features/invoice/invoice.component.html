@@ -3,252 +3,456 @@
 
   <div class="content-wrapper">
     <div class="invoice-layout">
-      <!-- Left Panel: Input Form -->
+      
+      <!-- LEFT PANEL: Form -->
       <div class="left-panel">
         <mat-card class="form-card">
+          <div class="card-header">
+            <h2>Create Invoice</h2>
+            <button mat-icon-button (click)="resetForm()" type="button" matTooltip="Reset Form">
+              <mat-icon>refresh</mat-icon>
+            </button>
+          </div>
+
           <form [formGroup]="invoiceForm" (ngSubmit)="onSubmit()">
             
-            <!-- Seller Information Section (Bireysel için) -->
-            <div class="section" *ngIf="userType === 'individual'">
-              <h2>Your Information</h2>
+            <!-- Seller Information (Bireysel için) -->
+            <mat-expansion-panel *ngIf="userType === 'individual'" expanded>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <mat-icon>person</mat-icon>
+                  Your Information
+                </mat-panel-title>
+              </mat-expansion-panel-header>
               
-              <label class="full-width">Your Name: <input type="text" formControlName="seller_name" required></label>
-              <label class="full-width">Your Address: <textarea formControlName="seller_address" rows="2"></textarea></label>
-              <label class="full-width">Phone: <input type="text" formControlName="seller_phone"></label>
-              <label class="full-width">Email: <input type="email" formControlName="seller_email"></label>
-            </div>
+              <div class="form-section">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Your Name</mat-label>
+                  <input matInput formControlName="seller_name" required>
+                  <mat-icon matPrefix>badge</mat-icon>
+                </mat-form-field>
 
-            <!-- Invoice Details Section -->
-            <div class="section">
-              <h2>Invoice Details</h2>
-              
-              <div class="input-group">
-                <label>Invoice No: <input type="text" formControlName="invoice_no" required></label>
-                <label>Date: <input type="date" formControlName="invoice_date" required></label>
-              </div>
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Your Address</mat-label>
+                  <textarea matInput formControlName="seller_address" rows="2"></textarea>
+                  <mat-icon matPrefix>location_on</mat-icon>
+                </mat-form-field>
 
-              <div class="input-group">
-                <label>Delivery Note: <input type="text" formControlName="delivery_note"></label>
-                <label>Payment Terms: <input type="text" formControlName="payment_terms"></label>
-              </div>
+                <div class="form-row">
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>Phone</mat-label>
+                    <input matInput formControlName="seller_phone">
+                    <mat-icon matPrefix>phone</mat-icon>
+                  </mat-form-field>
 
-              <div class="input-group">
-                <label>Ref. & Date: <input type="text" formControlName="ref_date"></label>
-                <label>Other References: <input type="text" formControlName="other_references"></label>
-              </div>
-
-              <div class="input-group">
-                <label>Buyer's Order No: <input type="text" formControlName="buyer_order_no"></label>
-                <label>Dated: <input type="date" formControlName="order_date"></label>
-              </div>
-
-              <div class="input-group">
-                <label>Dispatch Doc No: <input type="text" formControlName="dispatch_doc_no"></label>
-                <label>Delivery Note Date: <input type="date" formControlName="delivery_note_date"></label>
-              </div>
-
-              <div class="input-group">
-                <label>Dispatched Through: <input type="text" formControlName="dispatched_through"></label>
-                <label>Destination: <input type="text" formControlName="destination"></label>
-              </div>
-
-              <div class="input-group">
-                <label>Country: <input type="text" formControlName="country"></label>
-                <label>LUT/Bond No: <input type="text" formControlName="lut_bond_no"></label>
-              </div>
-
-              <div class="input-group">
-                <label>From: <input type="date" formControlName="from"></label>
-                <label>To: <input type="date" formControlName="to"></label>
-              </div>
-
-              <label class="full-width">Terms of Delivery: <input type="text" formControlName="terms_of_delivery"></label>
-            </div>
-
-            <!-- Buyer Information Section -->
-            <div class="section">
-              <h2>Buyer Information</h2>
-
-              <label class="full-width">Name: <input type="text" formControlName="buyer_name" required></label>
-              <label class="full-width">Address: <textarea formControlName="buyer_address" rows="2"></textarea></label>
-              
-              <div class="input-group">
-                <label>State: <input type="text" formControlName="buyer_state"></label>
-                <label>Place of Supply: <input type="text" formControlName="place_of_supply"></label>
-              </div>
-
-              <div class="input-group">
-                <label>Contact Person: <input type="text" formControlName="contact_person"></label>
-                <label>Email: <input type="email" formControlName="buyer_email"></label>
-              </div>
-            </div>
-
-            <!-- Services Section -->
-            <div class="section">
-              <div class="section-header">
-                <h2>Services</h2>
-                <button type="button" class="btn-add" (click)="addService()">Add Service</button>
-              </div>
-
-              <div id="services-input" formArrayName="services">
-                <div class="service-row" *ngFor="let service of services.controls; let i = index" [formGroupName]="i">
-                  <label>Description: <input type="text" class="input-description" formControlName="description" required></label>
-                  <label>HSN/SAC: <input type="text" class="input-hsn" formControlName="hsn"></label>
-                  <label>Quantity: <input type="number" class="input-quantity" formControlName="quantity" step="1" required></label>
-                  <label>Rate: <input type="number" class="input-rate" formControlName="rate" step="0.01" required></label>
-                  <label>Unit: 
-                    <select class="input-per" formControlName="per" required>
-                      <option value="Hour">Hour</option>
-                      <option value="Day">Day</option>
-                      <option value="Unit">Unit</option>
-                    </select>
-                  </label>
-                  <button type="button" class="remove-service" (click)="removeService(i)" *ngIf="services.length > 1">Remove</button>
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>Email</mat-label>
+                    <input matInput type="email" formControlName="seller_email">
+                    <mat-icon matPrefix>email</mat-icon>
+                  </mat-form-field>
                 </div>
               </div>
+            </mat-expansion-panel>
+
+            <!-- Invoice Details -->
+            <mat-expansion-panel expanded>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <mat-icon>receipt</mat-icon>
+                  Invoice Details
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              
+              <div class="form-section">
+                <div class="form-row">
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>Invoice No</mat-label>
+                    <input matInput formControlName="invoice_no" required>
+                    <mat-icon matPrefix>tag</mat-icon>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>Invoice Date</mat-label>
+                    <input matInput type="date" formControlName="invoice_date" required>
+                    <mat-icon matPrefix>calendar_today</mat-icon>
+                  </mat-form-field>
+                </div>
+
+                <div class="form-row">
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>Payment Terms</mat-label>
+                    <input matInput formControlName="payment_terms">
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>Delivery Note</mat-label>
+                    <input matInput formControlName="delivery_note">
+                  </mat-form-field>
+                </div>
+
+                <div class="form-row">
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>Buyer's Order No</mat-label>
+                    <input matInput formControlName="buyer_order_no">
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>Order Date</mat-label>
+                    <input matInput type="date" formControlName="order_date">
+                  </mat-form-field>
+                </div>
+
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Country</mat-label>
+                  <input matInput formControlName="country">
+                  <mat-icon matPrefix>public</mat-icon>
+                </mat-form-field>
+              </div>
+            </mat-expansion-panel>
+
+            <!-- Buyer Information -->
+            <mat-expansion-panel expanded>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <mat-icon>business</mat-icon>
+                  Buyer Information
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              
+              <div class="form-section">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Buyer Name</mat-label>
+                  <input matInput formControlName="buyer_name" required>
+                  <mat-icon matPrefix>business_center</mat-icon>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Buyer Address</mat-label>
+                  <textarea matInput formControlName="buyer_address" rows="2"></textarea>
+                  <mat-icon matPrefix>location_on</mat-icon>
+                </mat-form-field>
+
+                <div class="form-row">
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>State</mat-label>
+                    <input matInput formControlName="buyer_state">
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>Place of Supply</mat-label>
+                    <input matInput formControlName="place_of_supply">
+                  </mat-form-field>
+                </div>
+
+                <div class="form-row">
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>Contact Person</mat-label>
+                    <input matInput formControlName="contact_person">
+                    <mat-icon matPrefix>person</mat-icon>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="half-width">
+                    <mat-label>Email</mat-label>
+                    <input matInput type="email" formControlName="buyer_email">
+                    <mat-icon matPrefix>email</mat-icon>
+                  </mat-form-field>
+                </div>
+              </div>
+            </mat-expansion-panel>
+
+            <!-- Services -->
+            <mat-expansion-panel expanded>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <mat-icon>list_alt</mat-icon>
+                  Services / Goods
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              
+              <div class="form-section">
+                <div formArrayName="services" class="services-list">
+                  <div *ngFor="let service of services.controls; let i = index" [formGroupName]="i" class="service-item">
+                    <div class="service-header">
+                      <span>Item {{ i + 1 }}</span>
+                      <button mat-icon-button type="button" (click)="removeService(i)" *ngIf="services.length > 1" color="warn">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </div>
+
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Description</mat-label>
+                      <input matInput formControlName="description" required>
+                    </mat-form-field>
+
+                    <div class="form-row">
+                      <mat-form-field appearance="outline" class="third-width">
+                        <mat-label>HSN/SAC</mat-label>
+                        <input matInput formControlName="hsn">
+                      </mat-form-field>
+
+                      <mat-form-field appearance="outline" class="third-width">
+                        <mat-label>Quantity</mat-label>
+                        <input matInput type="number" formControlName="quantity" required>
+                      </mat-form-field>
+
+                      <mat-form-field appearance="outline" class="third-width">
+                        <mat-label>Unit</mat-label>
+                        <mat-select formControlName="per" required>
+                          <mat-option value="Hour">Hour</mat-option>
+                          <mat-option value="Day">Day</mat-option>
+                          <mat-option value="Unit">Unit</mat-option>
+                          <mat-option value="Piece">Piece</mat-option>
+                        </mat-select>
+                      </mat-form-field>
+                    </div>
+
+                    <div class="form-row">
+                      <mat-form-field appearance="outline" class="half-width">
+                        <mat-label>Rate</mat-label>
+                        <input matInput type="number" formControlName="rate" step="0.01" required>
+                        <span matPrefix>€&nbsp;</span>
+                      </mat-form-field>
+
+                      <mat-form-field appearance="outline" class="half-width">
+                        <mat-label>Amount</mat-label>
+                        <input matInput [value]="calculateServiceAmount(i).toFixed(2)" readonly>
+                        <span matPrefix>€&nbsp;</span>
+                      </mat-form-field>
+                    </div>
+                  </div>
+                </div>
+
+                <button mat-stroked-button type="button" (click)="addService()" class="add-service-btn">
+                  <mat-icon>add_circle</mat-icon>
+                  Add Another Service
+                </button>
+
+                <div class="total-summary">
+                  <div class="total-row">
+                    <span>Total Quantity:</span>
+                    <strong>{{ calculateTotalQuantity() }}</strong>
+                  </div>
+                  <div class="total-row total-amount">
+                    <span>Total Amount:</span>
+                    <strong>€ {{ calculateTotalAmount().toFixed(2) }}</strong>
+                  </div>
+                </div>
+              </div>
+            </mat-expansion-panel>
+
+            <!-- Bank Details -->
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <mat-icon>account_balance</mat-icon>
+                  Bank Details
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              
+              <div class="form-section">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Account Holder</mat-label>
+                  <input matInput formControlName="bank_holder">
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Bank Name</mat-label>
+                  <input matInput formControlName="bank_name">
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Account Number</mat-label>
+                  <input matInput formControlName="bank_account">
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Branch & IFSC Code</mat-label>
+                  <input matInput formControlName="bank_branch">
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>SWIFT Code</mat-label>
+                  <input matInput formControlName="bank_swift">
+                </mat-form-field>
+              </div>
+            </mat-expansion-panel>
+
+            <!-- Submit Button -->
+            <div class="submit-section">
+              <button mat-raised-button color="primary" type="submit" [disabled]="loading || invoiceForm.invalid" class="submit-btn">
+                <mat-spinner *ngIf="loading" diameter="20"></mat-spinner>
+                <mat-icon *ngIf="!loading">download</mat-icon>
+                <span *ngIf="!loading">Generate Excel Invoice</span>
+              </button>
             </div>
-
-            <!-- Bank Details Section -->
-            <div class="section">
-              <h2>Bank Details</h2>
-
-              <label class="full-width">Account Holder: <input type="text" formControlName="bank_holder"></label>
-              <label class="full-width">Bank Name: <input type="text" formControlName="bank_name"></label>
-              <label class="full-width">Account No: <input type="text" formControlName="bank_account"></label>
-              <label class="full-width">Branch & IFS Code: <input type="text" formControlName="bank_branch"></label>
-              <label class="full-width">SWIFT Code: <input type="text" formControlName="bank_swift"></label>
-            </div>
-
-            <button type="submit" class="btn-submit" [disabled]="loading || invoiceForm.invalid">
-              <span *ngIf="!loading">Export to Excel</span>
-              <mat-spinner *ngIf="loading" diameter="20"></mat-spinner>
-            </button>
           </form>
         </mat-card>
       </div>
 
-      <!-- Right Panel: Live Preview - Compact Layout -->
+      <!-- RIGHT PANEL: Live Preview -->
       <div class="right-panel">
-        <div class="invoice-preview">
-          <p class="certificate">Tax Invoice</p>
-          <p class="note">
-            (SUPPLY MEANT FOR EXPORT/ SUPPLY TO SEZ UNIT OR SEZ DEVELOPER FOR AUTHORISED OPERATIONS UNDER BOND OR LETTER OF UNDERTAKING WITHOUT PAYMENT OF IGST)
-          </p>
+        <mat-card class="preview-card">
+          <div class="preview-header">
+            <h3>Live Preview</h3>
+            <mat-icon>visibility</mat-icon>
+          </div>
 
-          <table border="1" class="main-table">
-            <tr>
-              <td style="width: 60%; vertical-align: top; padding: 8px;">
-                <table style="width: 100%; border: none;">
+          <div class="invoice-preview">
+            <!-- Header -->
+            <div class="preview-title">TAX INVOICE</div>
+            <div class="preview-subtitle">
+              (SUPPLY MEANT FOR EXPORT UNDER BOND OR LETTER OF UNDERTAKING)
+            </div>
+
+            <!-- Top Section -->
+            <div class="preview-grid">
+              <!-- Seller Info -->
+              <div class="preview-section seller-section">
+                <div class="section-header">SELLER INFORMATION</div>
+                <div class="section-content">
+                  <div class="logo-container" *ngIf="logoPreview">
+                    <img [src]="logoPreview" alt="Logo">
+                  </div>
+                  <div class="seller-name">{{ sellerName || 'Your Name/Company' }}</div>
+                  <div class="info-text">{{ sellerAddress || 'Address' }}</div>
+                  <div class="info-line"><strong>GSTIN:</strong> 33AAFCF7868L1Z3</div>
+                  <div class="info-line"><strong>CIN:</strong> U74999TN2019PTC134833</div>
+                  <div class="info-line"><strong>Email:</strong> {{ sellerEmail || 'email@example.com' }}</div>
+                  <div class="info-line"><strong>Phone:</strong> {{ sellerPhone || '+00 000 000 0000' }}</div>
+                </div>
+              </div>
+
+              <!-- Invoice Details -->
+              <div class="preview-section">
+                <div class="section-header">INVOICE DETAILS</div>
+                <div class="section-content">
+                  <div class="detail-row">
+                    <span>Invoice No:</span>
+                    <strong>{{ invoiceForm.get('invoice_no')?.value || '-' }}</strong>
+                  </div>
+                  <div class="detail-row">
+                    <span>Invoice Date:</span>
+                    <strong>{{ invoiceForm.get('invoice_date')?.value || '-' }}</strong>
+                  </div>
+                  <div class="detail-row" *ngIf="invoiceForm.get('payment_terms')?.value">
+                    <span>Payment Terms:</span>
+                    <span>{{ invoiceForm.get('payment_terms')?.value }}</span>
+                  </div>
+                  <div class="detail-row" *ngIf="invoiceForm.get('buyer_order_no')?.value">
+                    <span>Order No:</span>
+                    <span>{{ invoiceForm.get('buyer_order_no')?.value }}</span>
+                  </div>
+                  <div class="detail-row" *ngIf="invoiceForm.get('country')?.value">
+                    <span>Country:</span>
+                    <span>{{ invoiceForm.get('country')?.value }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Buyer Section -->
+            <div class="preview-section buyer-section">
+              <div class="section-header">BUYER INFORMATION</div>
+              <div class="section-content">
+                <div class="buyer-name">{{ invoiceForm.get('buyer_name')?.value || 'Buyer Name' }}</div>
+                <div class="info-text" *ngIf="invoiceForm.get('buyer_address')?.value">
+                  {{ invoiceForm.get('buyer_address')?.value }}
+                </div>
+                <div class="buyer-details">
+                  <div class="detail-row" *ngIf="invoiceForm.get('buyer_email')?.value">
+                    <span>Email:</span>
+                    <span>{{ invoiceForm.get('buyer_email')?.value }}</span>
+                  </div>
+                  <div class="detail-row" *ngIf="invoiceForm.get('contact_person')?.value">
+                    <span>Contact:</span>
+                    <span>{{ invoiceForm.get('contact_person')?.value }}</span>
+                  </div>
+                  <div class="detail-row" *ngIf="invoiceForm.get('buyer_state')?.value">
+                    <span>State:</span>
+                    <span>{{ invoiceForm.get('buyer_state')?.value }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Services Table -->
+            <div class="preview-section">
+              <div class="section-header">SERVICES / GOODS</div>
+              <table class="services-table">
+                <thead>
                   <tr>
-                    <td style="width: 80px; vertical-align: top; border: none;">
-                      <img *ngIf="logoPreview" [src]="logoPreview" alt="Logo" style="max-height: 80px; max-width: 80px;">
-                      <div *ngIf="!logoPreview && userType === 'company'" class="logo-placeholder">
-                        <mat-icon>business</mat-icon>
-                      </div>
-                    </td>
-                    <td style="border: none; padding-left: 8px;">
-                      <div style="margin-bottom: 4px;"><strong style="font-size: 13px;">{{ sellerName }}</strong></div>
-                      <div style="font-size: 10px; line-height: 1.3; margin-bottom: 2px;">{{ sellerAddress || '-' }}</div>
-                      <div style="font-size: 9px;">GSTIN: 33AAFCF7868L1Z3</div>
-                      <div style="font-size: 9px;">CIN: U74999TN2019PTC134833</div>
-                      <div style="font-size: 9px;">{{ sellerEmail }}</div>
-                      <div style="font-size: 9px;">Contact: {{ sellerPhone }}</div>
-                      <div style="border-top: 1px solid #333; margin: 4px 0;"></div>
-                      <div style="font-size: 10px;"><strong>Buyer (Bill To):</strong></div>
-                      <div style="font-size: 10px; margin-top: 2px;"><strong>{{ invoiceForm.get('buyer_name')?.value || '-' }}</strong></div>
-                      <div style="font-size: 9px; line-height: 1.3;">{{ invoiceForm.get('buyer_address')?.value || '-' }}</div>
-                      <div style="font-size: 9px;">State: {{ invoiceForm.get('buyer_state')?.value || '-' }}</div>
-                      <div style="font-size: 9px;">Place of Supply: {{ invoiceForm.get('place_of_supply')?.value || '-' }}</div>
-                      <div style="font-size: 9px;">Contact: {{ invoiceForm.get('contact_person')?.value || '-' }}</div>
-                      <div style="font-size: 9px;">Email: {{ invoiceForm.get('buyer_email')?.value || '-' }}</div>
-                    </td>
+                    <th>No.</th>
+                    <th>Description</th>
+                    <th>HSN</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Unit</th>
+                    <th>Amount</th>
                   </tr>
-                </table>
-              </td>
-              <td style="width: 40%; vertical-align: top; padding: 4px;">
-                <table style="width: 100%; border: none; font-size: 9px;">
-                  <tr><td style="border: none; padding: 2px;"><strong>Invoice No:</strong> {{ invoiceForm.get('invoice_no')?.value || '-' }}</td></tr>
-                  <tr><td style="border: none; padding: 2px;"><strong>Date:</strong> {{ invoiceForm.get('invoice_date')?.value || '-' }}</td></tr>
-                  <tr><td style="border: none; padding: 2px;">Delivery Note: {{ invoiceForm.get('delivery_note')?.value || '-' }}</td></tr>
-                  <tr><td style="border: none; padding: 2px;">Payment: {{ invoiceForm.get('payment_terms')?.value || '-' }}</td></tr>
-                  <tr><td style="border: none; padding: 2px;">Ref: {{ invoiceForm.get('ref_date')?.value || '-' }}</td></tr>
-                  <tr><td style="border: none; padding: 2px;">Order No: {{ invoiceForm.get('buyer_order_no')?.value || '-' }}</td></tr>
-                  <tr><td style="border: none; padding: 2px;">Order Date: {{ invoiceForm.get('order_date')?.value || '-' }}</td></tr>
-                  <tr><td style="border: none; padding: 2px;">Country: {{ invoiceForm.get('country')?.value || '-' }}</td></tr>
-                  <tr><td style="border: none; padding: 2px;">LUT/Bond: {{ invoiceForm.get('lut_bond_no')?.value || '-' }}</td></tr>
-                  <tr><td style="border: none; padding: 2px;">From: {{ invoiceForm.get('from')?.value || '-' }}</td></tr>
-                  <tr><td style="border: none; padding: 2px;">To: {{ invoiceForm.get('to')?.value || '-' }}</td></tr>
-                  <tr><td style="border: none; padding: 2px;">Terms: {{ invoiceForm.get('terms_of_delivery')?.value || '-' }}</td></tr>
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td colspan="2" style="padding: 0;">
-                <table border="1" style="width: 100%; border-collapse: collapse; font-size: 9px;">
-                  <thead>
-                    <tr style="background: #f0f0f0;">
-                      <th style="padding: 4px; width: 5%;">No.</th>
-                      <th style="padding: 4px; width: 40%;">Description</th>
-                      <th style="padding: 4px; width: 10%;">HSN/SAC</th>
-                      <th style="padding: 4px; width: 10%;">Qty</th>
-                      <th style="padding: 4px; width: 12%;">Rate</th>
-                      <th style="padding: 4px; width: 8%;">Unit</th>
-                      <th style="padding: 4px; width: 15%;">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let service of services.controls; let i = index">
-                      <td style="padding: 3px; text-align: center;">{{ i + 1 }}</td>
-                      <td style="padding: 3px;">{{ service.get('description')?.value || '-' }}</td>
-                      <td style="padding: 3px; text-align: center;">{{ service.get('hsn')?.value || '-' }}</td>
-                      <td style="padding: 3px; text-align: center;">{{ service.get('quantity')?.value || 0 }}</td>
-                      <td style="padding: 3px; text-align: right;">{{ service.get('rate')?.value || 0 }}</td>
-                      <td style="padding: 3px; text-align: center;">{{ service.get('per')?.value || '-' }}</td>
-                      <td style="padding: 3px; text-align: right;">{{ calculateServiceAmount(i).toFixed(2) }}</td>
-                    </tr>
-                  </tbody>
-                  <tfoot>
-                    <tr style="background: #f0f0f0; font-weight: bold;">
-                      <td colspan="3" style="padding: 4px; text-align: right;"><strong>Total</strong></td>
-                      <td style="padding: 4px; text-align: center;">{{ calculateTotalQuantity() }}</td>
-                      <td colspan="2"></td>
-                      <td style="padding: 4px; text-align: right;">{{ calculateTotalAmount().toFixed(2) }}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td colspan="2" style="padding: 6px; font-size: 9px;">
-                <strong>Amount Chargeable (in words):</strong> <span>{{ numberToWords(calculateTotalAmount()) }} Euro Only</span><br>
-                <strong>E. & O.E</strong>
-              </td>
-            </tr>
-            <tr>
-              <td style="vertical-align: top; padding: 6px; font-size: 9px;">
-                <div><strong>Declaration</strong></div>
-                <div style="margin-top: 4px;"><strong>Terms & Conditions:</strong></div>
-                <div style="line-height: 1.4; margin-top: 2px;">
-                  1. All services carried out from seller's location.<br>
-                  2. Payment terms as specified above.<br>
-                  3. Services provided as per agreement.<br>
-                  4. Rates apply to agreed working hours.
+                </thead>
+                <tbody>
+                  <tr *ngFor="let service of services.controls; let i = index">
+                    <td>{{ i + 1 }}</td>
+                    <td>{{ service.get('description')?.value || '-' }}</td>
+                    <td>{{ service.get('hsn')?.value || '-' }}</td>
+                    <td>{{ service.get('quantity')?.value || 0 }}</td>
+                    <td>€{{ service.get('rate')?.value || 0 }}</td>
+                    <td>{{ service.get('per')?.value || '-' }}</td>
+                    <td>€{{ calculateServiceAmount(i).toFixed(2) }}</td>
+                  </tr>
+                </tbody>
+                <tfoot>
+                  <tr class="total-row">
+                    <td colspan="3"><strong>TOTAL</strong></td>
+                    <td><strong>{{ calculateTotalQuantity() }}</strong></td>
+                    <td colspan="2"></td>
+                    <td><strong>€{{ calculateTotalAmount().toFixed(2) }}</strong></td>
+                  </tr>
+                </tfoot>
+              </table>
+              <div class="amount-words">
+                <strong>Amount in Words:</strong> {{ numberToWords(calculateTotalAmount()) }} Euro Only
+              </div>
+            </div>
+
+            <!-- Bottom Section -->
+            <div class="preview-grid bottom-grid">
+              <div class="preview-section">
+                <div class="section-header">TERMS & CONDITIONS</div>
+                <div class="section-content terms-content">
+                  <p>1. All services carried out from seller's location.</p>
+                  <p>2. Payment terms as specified above.</p>
+                  <p>3. Services provided as per agreement.</p>
+                  <p>4. Rates apply to agreed working hours.</p>
                 </div>
-              </td>
-              <td style="vertical-align: top; padding: 6px; font-size: 9px;">
-                <div><strong>Bank Details</strong></div>
-                <div style="margin-top: 4px; line-height: 1.4;">
-                  <div>A/c Holder: {{ invoiceForm.get('bank_holder')?.value || '-' }}</div>
-                  <div>Bank: {{ invoiceForm.get('bank_name')?.value || '-' }}</div>
-                  <div>A/c No: {{ invoiceForm.get('bank_account')?.value || '-' }}</div>
-                  <div>Branch: {{ invoiceForm.get('bank_branch')?.value || '-' }}</div>
-                  <div>SWIFT: {{ invoiceForm.get('bank_swift')?.value || '-' }}</div>
+              </div>
+
+              <div class="preview-section">
+                <div class="section-header">BANK DETAILS</div>
+                <div class="section-content">
+                  <div class="detail-row">
+                    <span>Account Holder:</span>
+                    <span>{{ invoiceForm.get('bank_holder')?.value || '-' }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span>Bank Name:</span>
+                    <span>{{ invoiceForm.get('bank_name')?.value || '-' }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span>Account No:</span>
+                    <span>{{ invoiceForm.get('bank_account')?.value || '-' }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span>SWIFT Code:</span>
+                    <span>{{ invoiceForm.get('bank_swift')?.value || '-' }}</span>
+                  </div>
                 </div>
-              </td>
-            </tr>
-          </table>
-        </div>
+              </div>
+            </div>
+          </div>
+        </mat-card>
       </div>
+
     </div>
   </div>
 </div>
