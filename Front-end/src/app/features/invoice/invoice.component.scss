@@ -28,7 +28,8 @@
     }
 
     .left-panel {
-      max-height: calc(100vh - 140px);
+      height: fit-content;
+      min-height: 100%;
       overflow-y: auto;
       
       &::-webkit-scrollbar {
@@ -50,7 +51,7 @@
       }
 
       @media (max-width: 1200px) {
-        max-height: none;
+        min-height: auto;
         overflow-y: visible;
       }
 
@@ -227,16 +228,15 @@
     .right-panel {
       position: sticky;
       top: 20px;
-      max-height: calc(100vh - 140px);
-      overflow: visible;
+      height: fit-content;
       background: white;
       border-radius: 16px;
       padding: 24px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      overflow: visible;
 
       @media (max-width: 1200px) {
         position: static;
-        max-height: none;
         margin-top: 20px;
       }
 
