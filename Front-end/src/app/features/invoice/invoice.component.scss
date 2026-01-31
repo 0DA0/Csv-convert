@@ -13,7 +13,7 @@
     display: grid;
     grid-template-columns: 500px 1fr;
     gap: 20px;
-    align-items: start;
+    min-height: calc(100vh - 140px);
 
     @media (max-width: 1600px) {
       grid-template-columns: 450px 1fr;
@@ -28,16 +28,10 @@
     }
 
     .left-panel {
-      position: sticky;
-      top: 20px;
-      max-height: calc(100vh - 140px);
+      height: fit-content;
+      min-height: 100%;
       overflow-y: auto;
-      overflow-x: hidden;
       
-      // Modern scrollbar styling
-      scrollbar-width: thin;
-      scrollbar-color: rgba(102, 126, 234, 0.5) rgba(255, 255, 255, 0.1);
-
       &::-webkit-scrollbar {
         width: 8px;
       }
@@ -48,17 +42,16 @@
       }
 
       &::-webkit-scrollbar-thumb {
-        background: rgba(102, 126, 234, 0.5);
+        background: rgba(255, 255, 255, 0.3);
         border-radius: 4px;
         
         &:hover {
-          background: rgba(102, 126, 234, 0.7);
+          background: rgba(255, 255, 255, 0.5);
         }
       }
 
       @media (max-width: 1200px) {
-        position: static;
-        max-height: none;
+        min-height: auto;
         overflow-y: visible;
       }
 
@@ -235,18 +228,15 @@
     .right-panel {
       position: sticky;
       top: 20px;
-      height: calc(100vh - 140px);
+      height: fit-content;
       background: white;
       border-radius: 16px;
       padding: 24px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
+      overflow: visible;
 
       @media (max-width: 1200px) {
         position: static;
-        height: auto;
         margin-top: 20px;
       }
 
@@ -255,34 +245,8 @@
       }
 
       .invoice {
-        flex: 1;
-        overflow-y: auto;
-        overflow-x: hidden;
         min-width: 600px;
         width: 100%;
-        padding-right: 8px;
-
-        // Modern scrollbar styling
-        scrollbar-width: thin;
-        scrollbar-color: rgba(102, 126, 234, 0.3) rgba(0, 0, 0, 0.05);
-
-        &::-webkit-scrollbar {
-          width: 8px;
-        }
-
-        &::-webkit-scrollbar-track {
-          background: rgba(0, 0, 0, 0.05);
-          border-radius: 4px;
-        }
-
-        &::-webkit-scrollbar-thumb {
-          background: rgba(102, 126, 234, 0.3);
-          border-radius: 4px;
-          
-          &:hover {
-            background: rgba(102, 126, 234, 0.5);
-          }
-        }
 
         @media (max-width: 768px) {
           min-width: 100%;
