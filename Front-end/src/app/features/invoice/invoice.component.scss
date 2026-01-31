@@ -1,5 +1,5 @@
 .invoice-container {
-  min-height: 100vh;
+  min-height: auto;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 
   .content-wrapper {
@@ -13,7 +13,7 @@
     display: grid;
     grid-template-columns: 500px 1fr;
     gap: 20px;
-    height: calc(100vh - 140px); 
+    height: auto; 
 
     @media (max-width: 1600px) {
       grid-template-columns: 450px 1fr;
