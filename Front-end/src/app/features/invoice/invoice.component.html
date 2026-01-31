@@ -3,12 +3,10 @@
 
   <div class="content-wrapper">
     <div class="invoice-layout">
-      <!-- Left Panel: Input Form -->
       <div class="left-panel">
         <mat-card class="form-card">
           <form [formGroup]="invoiceForm" (ngSubmit)="onSubmit()">
             
-            <!-- Invoice Details Section -->
             <div class="section">
               <h2>Invoice Details</h2>
               
@@ -106,7 +104,6 @@
               </label>
             </div>
 
-            <!-- Buyer Information Section -->
             <div class="section">
               <h2>Buyer Information</h2>
 
@@ -143,7 +140,6 @@
               </div>
             </div>
 
-            <!-- Services Section -->
             <div class="section">
               <div class="section-header">
                 <h2>Services</h2>
@@ -196,7 +192,6 @@
               </div>
             </div>
 
-            <!-- Bank Details Section -->
             <div class="section">
               <h2>Bank Details</h2>
 
@@ -236,7 +231,6 @@
         </mat-card>
       </div>
 
-      <!-- Right Panel: Live Preview -->
       <div class="right-panel">
         <div class="invoice">
           <p class="certificate">Tax Invoice</p>
@@ -346,7 +340,6 @@
               </td>
             </tr>
             
-            <!-- Services Table -->
             <tr>
               <td colspan="2" style="padding: 0;">
                 <table border="1" style="width: 100%; border-collapse: collapse; margin: 0;">
@@ -387,7 +380,6 @@
               </td>
             </tr>
             
-            <!-- Amount in Words -->
             <tr>
               <td colspan="2" style="padding: 10px;">
                 <strong>Amount Chargeable (in words):</strong> 
@@ -397,7 +389,6 @@
               </td>
             </tr>
             
-            <!-- Declaration and Bank Details -->
             <tr class="igst-subsection">
               <td style="width: 50%; vertical-align: top;">
                 <table style="width: 100%; border: none;">

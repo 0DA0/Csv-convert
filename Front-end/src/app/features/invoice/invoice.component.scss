@@ -1,19 +1,27 @@
 .invoice-container {
-  min-height: 100vh;
+  height: 100vh; // Sabit 100vh yaptık, böylece altta boşluk kalmaz
+  display: flex;
+  flex-direction: column;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  overflow: hidden; // Dışarıdaki (sayfa geneli) scroll'u kapattık
 
   .content-wrapper {
+    flex: 1;
     max-width: 100%;
     margin: 0 auto;
     padding: 20px;
-    overflow-x: hidden;
+    display: flex; // Layout'un tam yayılması için flex yaptık
+    overflow: hidden;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .invoice-layout {
     display: grid;
     grid-template-columns: 500px 1fr;
     gap: 20px;
-    height: calc(100vh - 140px); 
+    width: 100%;
+    height: 100%; // İçindeki panellerin tam boy olması için
 
     @media (max-width: 1600px) {
       grid-template-columns: 450px 1fr;
@@ -25,11 +33,13 @@
 
     @media (max-width: 1200px) {
       grid-template-columns: 1fr;
+      overflow-y: auto; // Mobilde dikey akışa izin verir
     }
 
     .left-panel {
       height: 100%;
-      overflow-y: auto;
+      overflow-y: auto; // Sadece bu panel kendi içinde kaysın
+      padding-right: 5px;
       
       &::-webkit-scrollbar {
         width: 8px;
@@ -50,7 +60,7 @@
       }
 
       @media (max-width: 1200px) {
-        min-height: auto;
+        height: auto;
         overflow-y: visible;
       }
 
@@ -59,6 +69,7 @@
         border-radius: 16px;
         padding: 24px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        margin-bottom: 10px;
 
         @media (max-width: 768px) {
           padding: 16px;
@@ -225,17 +236,16 @@
     }
 
     .right-panel {
-      position: sticky;
-      top: 20px;
-      height: fit-content;
+      height: 100%; // Panel boyunu kısıtladık
       background: white;
       border-radius: 16px;
       padding: 24px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-      overflow: visible;
+      overflow-y: auto; // Önizleme çok uzunsa o da kendi içinde kaysın
 
       @media (max-width: 1200px) {
-        position: static;
+        height: auto;
+        overflow-y: visible;
         margin-top: 20px;
       }
 
