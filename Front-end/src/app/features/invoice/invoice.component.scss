@@ -10,22 +10,26 @@
   }
 
   .invoice-layout {
-    display: flex; // Grid yerine flex kullan
+    display: grid;
+    grid-template-columns: 500px 1fr;
     gap: 20px;
-    align-items: stretch; // Üstten başla
+    height: calc(100vh - 140px); 
+
+    @media (max-width: 1600px) {
+      grid-template-columns: 450px 1fr;
+    }
+
+    @media (max-width: 1400px) {
+      grid-template-columns: 420px 1fr;
+    }
 
     @media (max-width: 1200px) {
-      flex-direction: column;
+      grid-template-columns: 1fr;
     }
 
     .left-panel {
-      width: 500px; // Sabit genişlik
-      flex-shrink: 0; // Küçülmesin
-      overflow-y: auto; // Scroll bar
-      overflow-x: hidden;
-      .right-panel {
-        height: 100%;
-      }
+      height: 100%;
+      overflow-y: auto;
       
       &::-webkit-scrollbar {
         width: 8px;
@@ -45,19 +49,9 @@
         }
       }
 
-      @media (max-width: 1600px) {
-        width: 450px;
-      }
-
-      @media (max-width: 1400px) {
-        width: 420px;
-      }
-
       @media (max-width: 1200px) {
-        width: 100%;
-        max-height: none;
+        min-height: auto;
         overflow-y: visible;
-        margin-bottom: 20px;
       }
 
       .form-card {
@@ -65,24 +59,9 @@
         border-radius: 16px;
         padding: 24px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        height: 100%; // Parent'ın tüm yüksekliğini kapla
 
         @media (max-width: 768px) {
           padding: 16px;
-        }
-
-        @media (max-width: 1200px) {
-          height: auto;
-        }
-
-        form {
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-
-          @media (max-width: 1200px) {
-            height: auto;
-          }
         }
 
         .section {
@@ -231,7 +210,6 @@
           align-items: center;
           justify-content: center;
           gap: 8px;
-          margin-top: auto; // En alta yapışsın
 
           &:hover:not(:disabled) {
             transform: translateY(-2px);
@@ -247,16 +225,18 @@
     }
 
     .right-panel {
-      flex: 1; // Kalan alanı kaplasın
+      position: sticky;
+      top: 20px;
+      height: fit-content;
       background: white;
       border-radius: 16px;
       padding: 24px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-      height: fit-content; // İçerik kadar yüksek
-      overflow: visible; // Scroll yok
+      overflow: visible;
 
       @media (max-width: 1200px) {
-        width: 100%;
+        position: static;
+        margin-top: 20px;
       }
 
       @media (max-width: 768px) {
