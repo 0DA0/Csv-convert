@@ -10,29 +10,51 @@
   }
 
   .invoice-layout {
-    display: grid;
-    grid-template-columns: 500px 1fr;
+    display: flex; // Grid yerine flex kullan
     gap: 20px;
-    align-items: start; // Üstten hizala
-
-    @media (max-width: 1600px) {
-      grid-template-columns: 450px 1fr;
-    }
-
-    @media (max-width: 1400px) {
-      grid-template-columns: 420px 1fr;
-    }
+    align-items: flex-start; // Üstten başla
 
     @media (max-width: 1200px) {
-      grid-template-columns: 1fr;
+      flex-direction: column;
     }
 
     .left-panel {
-      height: fit-content; // İçerik kadar yüksek
-      max-height: none; // Maksimum yükseklik yok
-      overflow: visible; // Scroll yok
+      width: 500px; // Sabit genişlik
+      flex-shrink: 0; // Küçülmesin
+      overflow-y: auto; // Scroll bar
+      overflow-x: hidden;
+      max-height: 100%; // Parent'ın yüksekliği kadar
       
+      &::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 4px;
+        
+        &:hover {
+          background: rgba(255, 255, 255, 0.5);
+        }
+      }
+
+      @media (max-width: 1600px) {
+        width: 450px;
+      }
+
+      @media (max-width: 1400px) {
+        width: 420px;
+      }
+
       @media (max-width: 1200px) {
+        width: 100%;
+        max-height: none;
+        overflow-y: visible;
         margin-bottom: 20px;
       }
 
@@ -41,9 +63,24 @@
         border-radius: 16px;
         padding: 24px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        height: 100%; // Parent'ın tüm yüksekliğini kapla
 
         @media (max-width: 768px) {
           padding: 16px;
+        }
+
+        @media (max-width: 1200px) {
+          height: auto;
+        }
+
+        form {
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+
+          @media (max-width: 1200px) {
+            height: auto;
+          }
         }
 
         .section {
@@ -192,6 +229,7 @@
           align-items: center;
           justify-content: center;
           gap: 8px;
+          margin-top: auto; // En alta yapışsın
 
           &:hover:not(:disabled) {
             transform: translateY(-2px);
@@ -207,40 +245,16 @@
     }
 
     .right-panel {
+      flex: 1; // Kalan alanı kaplasın
       background: white;
       border-radius: 16px;
       padding: 24px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
       height: fit-content; // İçerik kadar yüksek
-      position: sticky; // Sticky yapı
-      top: 20px; // Üstten 20px boşluk
-      max-height: calc(100vh - 40px); // Ekran yüksekliğinden taşmayacak
-      overflow-y: auto; // İçerik uzunsa scroll
-      overflow-x: hidden;
-
-      // Scrollbar stilleri
-      &::-webkit-scrollbar {
-        width: 6px;
-      }
-
-      &::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 3px;
-      }
-
-      &::-webkit-scrollbar-thumb {
-        background: #cbd5e0;
-        border-radius: 3px;
-        
-        &:hover {
-          background: #a0aec0;
-        }
-      }
+      overflow: visible; // Scroll yok
 
       @media (max-width: 1200px) {
-        position: static;
-        margin-top: 20px;
-        max-height: none;
+        width: 100%;
       }
 
       @media (max-width: 768px) {
