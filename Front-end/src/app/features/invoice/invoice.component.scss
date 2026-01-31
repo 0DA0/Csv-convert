@@ -7,6 +7,7 @@
     margin: 0 auto;
     padding: 20px;
     overflow-x: hidden;
+    background: #f5f7fa; // YENİ: Mor yerine açık gri arka plan
   }
 
   .invoice-layout {
@@ -36,16 +37,16 @@
       }
 
       &::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.1);
+        background: #e2e8f0; // YENİ: Mor yerine gri
         border-radius: 4px;
       }
 
       &::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.3);
+        background: #cbd5e0; // YENİ: Mor yerine gri
         border-radius: 4px;
         
         &:hover {
-          background: rgba(255, 255, 255, 0.5);
+          background: #a0aec0; // YENİ: Hover'da daha koyu gri
         }
       }
 
