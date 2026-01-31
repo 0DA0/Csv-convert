@@ -13,8 +13,8 @@
     display: grid;
     grid-template-columns: 500px 1fr;
     gap: 20px;
-    min-height: calc(100vh - 140px); 
-    align-items: start;
+    height: calc(100vh - 140px); 
+    align-items: stretch;
 
     @media (max-width: 1600px) {
       grid-template-columns: 450px 1fr;
@@ -26,24 +26,25 @@
 
     @media (max-width: 1200px) {
       grid-template-columns: 1fr;
-      min-height: auto;
+      height: auto;
     }
 
     .left-panel {
       height: 100%;
       overflow-y: auto;
+      overflow-x: hidden;
       
       &::-webkit-scrollbar {
-        width: 8px;
+        width: 6px;
       }
 
       &::-webkit-scrollbar-track {
-        background: #f1f1f1;
+        background: rgba(255, 255, 255, 0.1);
         border-radius: 4px;
       }
 
       &::-webkit-scrollbar-thumb {
-        background: #cbd5e0;
+        background: rgba(255, 255, 255, 0.3);
         border-radius: 4px;
         
         &:hover {
@@ -61,6 +62,7 @@
         border-radius: 16px;
         padding: 24px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        height: fit-content;
 
         @media (max-width: 768px) {
           padding: 16px;
@@ -227,20 +229,18 @@
     }
 
     .right-panel {
-        position: sticky;
-        top: 20px;
-        height: fit-content;
-        max-height: calc(100vh - 40px); // YENİ - Maksimum yükseklik
-        background: white;
-        border-radius: 16px;
-        padding: 24px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        overflow: auto; // DEĞİŞTİ: visible -> auto
+      height: 100%; // Tam yükseklik - sol panel ile aynı
+      overflow: hidden; // Scroll yok
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      display: flex; // Flex kullan
+      flex-direction: column; // Dikey sıralama
 
       @media (max-width: 1200px) {
         position: static;
         margin-top: 20px;
-        max-height: none;
       }
 
       @media (max-width: 768px) {
@@ -250,6 +250,9 @@
       .invoice {
         min-width: 600px;
         width: 100%;
+        height: 100%; // Tam yükseklik
+        overflow-y: auto; // İçeride scroll (gerekirse)
+        overflow-x: hidden; // Yatay scroll yok
 
         @media (max-width: 768px) {
           min-width: 100%;
