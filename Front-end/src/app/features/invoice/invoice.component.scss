@@ -13,7 +13,7 @@
     display: grid;
     grid-template-columns: 500px 1fr;
     gap: 20px;
-    height: calc(100vh - 140px); 
+    height: calc(100vh - 40px); 
 
     @media (max-width: 1600px) {
       grid-template-columns: 450px 1fr;
