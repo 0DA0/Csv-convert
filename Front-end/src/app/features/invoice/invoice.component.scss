@@ -1,19 +1,12 @@
 .invoice-container {
-  height: 100vh; // Sayfayı tam olarak ekran yüksekliğine sabitledik
-  display: flex;
-  flex-direction: column;
+  min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  overflow: hidden;
 
   .content-wrapper {
-    flex: 1; // Header'dan kalan tüm alanı kaplar
     max-width: 100%;
     margin: 0 auto;
     padding: 20px;
-    display: flex;
-    overflow: hidden; // Dışarı taşmayı engeller
-    box-sizing: border-box;
-    width: 100%;
+    overflow-x: hidden;
   }
 
   .invoice-layout {
