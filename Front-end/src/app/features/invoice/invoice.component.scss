@@ -13,7 +13,7 @@
     display: grid;
     grid-template-columns: 500px 1fr;
     gap: 20px;
-    align-items: start; // Üstten başla
+    align-items: start; // Üstten hizala
 
     @media (max-width: 1600px) {
       grid-template-columns: 450px 1fr;
@@ -28,34 +28,12 @@
     }
 
     .left-panel {
-      position: sticky;
-      top: 20px;
-      max-height: calc(100vh - 40px); // Ekran yüksekliğine göre maksimum
-      overflow-y: auto; // Scroll bar
-      overflow-x: hidden;
+      height: fit-content; // İçerik kadar yüksek
+      max-height: none; // Maksimum yükseklik yok
+      overflow: visible; // Scroll yok
       
-      &::-webkit-scrollbar {
-        width: 8px;
-      }
-
-      &::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 4px;
-      }
-
-      &::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.3);
-        border-radius: 4px;
-        
-        &:hover {
-          background: rgba(255, 255, 255, 0.5);
-        }
-      }
-
       @media (max-width: 1200px) {
-        position: static;
-        max-height: none;
-        overflow-y: visible;
+        margin-bottom: 20px;
       }
 
       .form-card {
@@ -234,9 +212,35 @@
       padding: 24px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
       height: fit-content; // İçerik kadar yüksek
+      position: sticky; // Sticky yapı
+      top: 20px; // Üstten 20px boşluk
+      max-height: calc(100vh - 40px); // Ekran yüksekliğinden taşmayacak
+      overflow-y: auto; // İçerik uzunsa scroll
+      overflow-x: hidden;
+
+      // Scrollbar stilleri
+      &::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: #cbd5e0;
+        border-radius: 3px;
+        
+        &:hover {
+          background: #a0aec0;
+        }
+      }
 
       @media (max-width: 1200px) {
+        position: static;
         margin-top: 20px;
+        max-height: none;
       }
 
       @media (max-width: 768px) {
