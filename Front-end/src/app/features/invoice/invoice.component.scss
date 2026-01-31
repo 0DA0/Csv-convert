@@ -13,8 +13,7 @@
     display: grid;
     grid-template-columns: 500px 1fr;
     gap: 20px;
-    height: calc(100vh - 140px); 
-    align-items: stretch;
+    align-items: start; // Üstten başla
 
     @media (max-width: 1600px) {
       grid-template-columns: 450px 1fr;
@@ -26,16 +25,17 @@
 
     @media (max-width: 1200px) {
       grid-template-columns: 1fr;
-      height: auto;
     }
 
     .left-panel {
-      height: 100%;
-      overflow-y: auto;
+      position: sticky;
+      top: 20px;
+      max-height: calc(100vh - 40px); // Ekran yüksekliğine göre maksimum
+      overflow-y: auto; // Scroll bar
       overflow-x: hidden;
       
       &::-webkit-scrollbar {
-        width: 6px;
+        width: 8px;
       }
 
       &::-webkit-scrollbar-track {
@@ -53,7 +53,8 @@
       }
 
       @media (max-width: 1200px) {
-        min-height: auto;
+        position: static;
+        max-height: none;
         overflow-y: visible;
       }
 
@@ -62,7 +63,6 @@
         border-radius: 16px;
         padding: 24px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        height: fit-content;
 
         @media (max-width: 768px) {
           padding: 16px;
@@ -229,17 +229,13 @@
     }
 
     .right-panel {
-      height: 100%; // Tam yükseklik - sol panel ile aynı
-      overflow: hidden; // Scroll yok
       background: white;
       border-radius: 16px;
       padding: 24px;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-      display: flex; // Flex kullan
-      flex-direction: column; // Dikey sıralama
+      height: fit-content; // İçerik kadar yüksek
 
       @media (max-width: 1200px) {
-        position: static;
         margin-top: 20px;
       }
 
@@ -250,9 +246,6 @@
       .invoice {
         min-width: 600px;
         width: 100%;
-        height: 100%; // Tam yükseklik
-        overflow-y: auto; // İçeride scroll (gerekirse)
-        overflow-x: hidden; // Yatay scroll yok
 
         @media (max-width: 768px) {
           min-width: 100%;
