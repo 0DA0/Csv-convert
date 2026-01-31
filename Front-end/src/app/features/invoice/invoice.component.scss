@@ -12,7 +12,7 @@
   .invoice-layout {
     display: flex; // Grid yerine flex kullan
     gap: 20px;
-    align-items: flex-start; // Üstten başla
+    align-items: stretch; // Üstten başla
 
     @media (max-width: 1200px) {
       flex-direction: column;
@@ -23,7 +23,9 @@
       flex-shrink: 0; // Küçülmesin
       overflow-y: auto; // Scroll bar
       overflow-x: hidden;
-      max-height: 100%; // Parent'ın yüksekliği kadar
+      .right-panel {
+        height: 100%;
+      }
       
       &::-webkit-scrollbar {
         width: 8px;
