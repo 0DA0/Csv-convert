@@ -12,7 +12,7 @@
   .invoice-layout {
     display: grid;
     grid-template-columns: 500px 1fr;
-    gap: 45px;
+    gap: 20px;
     height: calc(100vh - 140px); 
 
     @media (max-width: 1600px) {
