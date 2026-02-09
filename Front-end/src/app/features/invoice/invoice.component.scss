@@ -35,6 +35,8 @@
 
     @media (max-width: 768px) {
       flex: 0 0 100%;
+      max-height: none !important;
+      overflow-y: visible !important;
     }
 
     @media (max-width: 600px) {
@@ -44,24 +46,26 @@
 
   .left-panel {
     flex: 0 0 42%;
-    // max-height kaldırıldı - sağ panele göre uzasın
-    overflow-y: visible;
+    // Sağ panel yüksekliği kadar olacak
+    max-height: var(--right-panel-height, auto);
+    overflow-y: auto;
+    overflow-x: hidden;
 
     &::-webkit-scrollbar {
       width: 8px;
     }
 
     &::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.1);
+      background: #f1f1f1;
       border-radius: 4px;
     }
 
     &::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.3);
+      background: #cbd5e0;
       border-radius: 4px;
 
       &:hover {
-        background: rgba(255, 255, 255, 0.5);
+        background: #a0aec0;
       }
     }
   }
@@ -252,10 +256,6 @@
     font-weight: bold;
     margin: 0 0 0.75rem;
     color: #1a202c;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
 
     @media (max-width: 600px) {
       font-size: 1.25rem;
@@ -308,7 +308,7 @@
       }
 
       th {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #2d3748;
         font-weight: 600;
         text-align: center;
         color: #ffffff;
@@ -349,7 +349,7 @@
       }
 
       tfoot tr {
-        background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+        background: #e2e8f0;
         font-weight: bold;
 
         td {
@@ -371,7 +371,7 @@
         transition: all 0.3s;
 
         &:hover {
-          border-color: #667eea;
+          border-color: #a0aec0;
           background: #f7fafc;
         }
 

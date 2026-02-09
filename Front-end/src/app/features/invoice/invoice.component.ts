@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, AfterViewInit, ElementRef } from '@angular/core';
 import { FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
 import { InvoiceService as InvoiceAPIService, InvoiceData } from '../../core/services/invoice.service';
 import { AuthService } from '../../core/services/auth.service';
@@ -10,7 +10,7 @@ import { saveAs } from 'file-saver';
   templateUrl: './invoice.component.html',
   styleUrls: ['./invoice.component.scss']
 })
-export class InvoiceComponent implements OnInit {
+export class InvoiceComponent implements OnInit, AfterViewInit {
   invoiceForm: FormGroup;
   loading = false;
   logoPreview: string | null = null;
@@ -23,14 +23,40 @@ export class InvoiceComponent implements OnInit {
     private fb: FormBuilder,
     private invoiceService: InvoiceAPIService,
     private authService: AuthService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private elementRef: ElementRef
   ) {
     this.invoiceForm = this.createForm();
   }
 
   ngOnInit(): void {
     this.loadUserDefaults();
-    this.addService(); // İlk servis satırını ekle
+    this.addService();
+  }
+
+  ngAfterViewInit(): void {
+    // Sağ panel yüksekliğini al ve sol panele uygula
+    this.syncPanelHeights();
+    
+    // Form değişikliklerinde yüksekliği güncelle
+    this.invoiceForm.valueChanges.subscribe(() => {
+      setTimeout(() => this.syncPanelHeights(), 100);
+    });
+    
+    // Pencere yeniden boyutlandığında güncelle
+    window.addEventListener('resize', () => this.syncPanelHeights());
+  }
+
+  private syncPanelHeights(): void {
+    const rightPanel = this.elementRef.nativeElement.querySelector('.right-panel');
+    const leftPanel = this.elementRef.nativeElement.querySelector('.left-panel');
+    
+    if (rightPanel && leftPanel && window.innerWidth > 768) {
+      const rightPanelHeight = rightPanel.offsetHeight;
+      leftPanel.style.maxHeight = `${rightPanelHeight}px`;
+    } else if (leftPanel) {
+      leftPanel.style.maxHeight = 'none';
+    }
   }
 
   createForm(): FormGroup {
@@ -90,11 +116,13 @@ export class InvoiceComponent implements OnInit {
 
   addService(): void {
     this.services.push(this.createServiceGroup());
+    setTimeout(() => this.syncPanelHeights(), 100);
   }
 
   removeService(index: number): void {
     if (this.services.length > 1) {
       this.services.removeAt(index);
+      setTimeout(() => this.syncPanelHeights(), 100);
     } else {
       this.snackBar.open('At least one service is required', 'Close', { duration: 3000 });
     }
@@ -161,7 +189,6 @@ export class InvoiceComponent implements OnInit {
     if (user && user.user_type === 'company') {
       const profile = user.profile as any;
       
-      // Şirket bilgilerini güncelle
       if (profile.company_name) {
         this.companyName = profile.company_name;
       }
@@ -175,7 +202,6 @@ export class InvoiceComponent implements OnInit {
         this.companyEmail = profile.contact_person;
       }
       
-      // Logo varsa göster
       if (profile.logo_base64) {
         this.logoPreview = profile.logo_base64;
       }
@@ -218,10 +244,11 @@ export class InvoiceComponent implements OnInit {
       other_references: '--'
     });
     
-    // Tüm servisleri temizle ve bir tane ekle
     while (this.services.length > 0) {
       this.services.removeAt(0);
     }
     this.addService();
+    
+    setTimeout(() => this.syncPanelHeights(), 100);
   }
 }
