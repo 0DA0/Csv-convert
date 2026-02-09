@@ -1,6 +1,6 @@
 .invoice-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #f5f7fa; // Changed from gradient to solid light background
 
   .content-wrapper {
     max-width: 100%;
@@ -13,7 +13,7 @@
     display: grid;
     grid-template-columns: 500px 1fr;
     gap: 20px;
-    height: calc(100vh - 140px); 
+    height: calc(100vh - 140px);
 
     @media (max-width: 1600px) {
       grid-template-columns: 450px 1fr;
@@ -36,16 +36,16 @@
       }
 
       &::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.1);
+        background: #e2e8f0;
         border-radius: 4px;
       }
 
       &::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.3);
+        background: #cbd5e0;
         border-radius: 4px;
         
         &:hover {
-          background: rgba(255, 255, 255, 0.5);
+          background: #a0aec0;
         }
       }
 
@@ -58,7 +58,7 @@
         background: white;
         border-radius: 16px;
         padding: 24px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 
         @media (max-width: 768px) {
           padding: 16px;
@@ -198,7 +198,7 @@
         .btn-submit {
           width: 100%;
           padding: 16px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: #667eea;
           color: white;
           border: none;
           border-radius: 12px;
@@ -212,8 +212,9 @@
           gap: 8px;
 
           &:hover:not(:disabled) {
+            background: #5568d3;
             transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
           }
 
           &:disabled {
@@ -231,7 +232,7 @@
       background: white;
       border-radius: 16px;
       padding: 24px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       overflow: visible;
 
       @media (max-width: 1200px) {
