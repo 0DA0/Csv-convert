@@ -1,416 +1,356 @@
-<div class="invoice-container">
-  <app-header></app-header>
+import { Component, OnInit, AfterViewInit, ElementRef } from '@angular/core';
+import { FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
+import { InvoiceService as InvoiceAPIService, InvoiceData } from '../../core/services/invoice.service';
+import { AuthService } from '../../core/services/auth.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { saveAs } from 'file-saver';
 
-  <div class="content-wrapper">
-    <div class="container">
-      <!-- Left Panel: Input Form -->
-      <div class="left-panel">
-        <form [formGroup]="invoiceForm" (ngSubmit)="onSubmit()">
-          
-          <!-- Invoice Details Section -->
-          <div class="section">
-            <h2>Invoice Details</h2>
-            
-            <label>
-              Invoice No: *
-              <input type="text" formControlName="invoice_no" required placeholder="INV-001">
-            </label>
-            
-            <label>
-              Date: *
-              <input type="date" formControlName="invoice_date" required>
-            </label>
+@Component({
+  selector: 'app-invoice',
+  templateUrl: './invoice.component.html',
+  styleUrls: ['./invoice.component.scss']
+})
+export class InvoiceComponent implements OnInit, AfterViewInit {
+  invoiceForm: FormGroup;
+  loading = false;
+  logoPreview: string | null = null;
+  companyName = '';
+  companyAddress = '';
+  companyPhone = '';
+  companyEmail = '';
 
-            <label>
-              Delivery Note:
-              <input type="text" formControlName="delivery_note" placeholder="Optional">
-            </label>
-            
-            <label>
-              Payment Terms:
-              <input type="text" formControlName="payment_terms" placeholder="e.g., Online, Bank Transfer">
-            </label>
+  constructor(
+    private fb: FormBuilder,
+    private invoiceService: InvoiceAPIService,
+    private authService: AuthService,
+    private snackBar: MatSnackBar,
+    private elementRef: ElementRef
+  ) {
+    this.invoiceForm = this.createForm();
+  }
 
-            <label>
-              Ref. & Date:
-              <input type="text" formControlName="ref_date" placeholder="Optional">
-            </label>
-            
-            <label>
-              Other References:
-              <input type="text" formControlName="other_references" placeholder="Optional">
-            </label>
+  ngOnInit(): void {
+    this.loadUserDefaults();
+    // İlk service'i başlangıçta ekle
+    this.addService();
+    
+    // Form değişikliklerini dinle - debug için
+    this.invoiceForm.statusChanges.subscribe(status => {
+      console.log('Form status:', status);
+      if (status === 'INVALID') {
+        this.logInvalidFields();
+      }
+    });
+  }
 
-            <label>
-              Buyer's Order No:
-              <input type="text" formControlName="buyer_order_no" placeholder="Optional">
-            </label>
-            
-            <label>
-              Order Date:
-              <input type="date" formControlName="order_date">
-            </label>
+  ngAfterViewInit(): void {
+    this.syncPanelHeights();
+    
+    this.invoiceForm.valueChanges.subscribe(() => {
+      setTimeout(() => this.syncPanelHeights(), 100);
+    });
+    
+    window.addEventListener('resize', () => this.syncPanelHeights());
+  }
 
-            <label>
-              Dispatch Doc No:
-              <input type="text" formControlName="dispatch_doc_no" placeholder="Optional">
-            </label>
-            
-            <label>
-              Delivery Note Date:
-              <input type="date" formControlName="delivery_note_date">
-            </label>
+  private syncPanelHeights(): void {
+    const rightPanel = this.elementRef.nativeElement.querySelector('.right-panel');
+    const leftPanel = this.elementRef.nativeElement.querySelector('.left-panel');
+    
+    if (rightPanel && leftPanel && window.innerWidth > 768) {
+      const rightPanelHeight = rightPanel.offsetHeight;
+      leftPanel.style.maxHeight = `${rightPanelHeight}px`;
+    } else if (leftPanel) {
+      leftPanel.style.maxHeight = 'none';
+    }
+  }
 
-            <label>
-              Dispatched Through:
-              <input type="text" formControlName="dispatched_through" placeholder="Optional">
-            </label>
-            
-            <label>
-              Destination:
-              <input type="text" formControlName="destination" placeholder="Optional">
-            </label>
+  createForm(): FormGroup {
+    return this.fb.group({
+      // Invoice Details - Sadece zorunlu alanlar required
+      invoice_no: ['', Validators.required],
+      invoice_date: [this.formatDate(new Date()), Validators.required],
+      delivery_note: [''],
+      payment_terms: ['Online'],
+      ref_date: [''],
+      other_references: ['--'],
+      buyer_order_no: [''],
+      order_date: [this.formatDate(new Date())],
+      dispatch_doc_no: [''],
+      delivery_note_date: [''],
+      dispatched_through: [''],
+      destination: [''],
+      country: [''],
+      lut_bond_no: [''],
+      from: [''],
+      to: [''],
+      terms_of_delivery: [''],
+      
+      // Buyer Information - Sadece buyer_name required
+      buyer_name: ['', Validators.required],
+      buyer_address: [''],
+      buyer_state: [''],
+      place_of_supply: [''],
+      contact_person: [''],
+      buyer_email: [''], // Email validation kaldırıldı
+      
+      // Services - En az 1 service gerekli
+      services: this.fb.array([], Validators.required),
+      
+      // Bank Details - Opsiyonel
+      bank_holder: [''],
+      bank_name: [''],
+      bank_account: [''],
+      bank_branch: [''],
+      bank_swift: ['']
+    });
+  }
 
-            <label>
-              Country:
-              <input type="text" formControlName="country" placeholder="e.g., Turkey">
-            </label>
-            
-            <label>
-              LUT/Bond No:
-              <input type="text" formControlName="lut_bond_no" placeholder="Optional">
-            </label>
+  get services(): FormArray {
+    return this.invoiceForm.get('services') as FormArray;
+  }
 
-            <label>
-              From:
-              <input type="date" formControlName="from">
-            </label>
-            
-            <label>
-              To:
-              <input type="date" formControlName="to">
-            </label>
+  createServiceGroup(): FormGroup {
+    return this.fb.group({
+      description: ['', Validators.required],
+      hsn: [''],
+      quantity: [1, [Validators.required, Validators.min(0.01)]],
+      rate: [0, [Validators.required, Validators.min(0)]],
+      per: ['Hour', Validators.required]
+    });
+  }
 
-            <label>
-              Terms of Delivery:
-              <input type="text" formControlName="terms_of_delivery" placeholder="Optional">
-            </label>
-          </div>
+  addService(): void {
+    this.services.push(this.createServiceGroup());
+    setTimeout(() => this.syncPanelHeights(), 100);
+  }
 
-          <!-- Buyer Information Section -->
-          <div class="section">
-            <h2>Buyer Information</h2>
+  removeService(index: number): void {
+    if (this.services.length > 1) {
+      this.services.removeAt(index);
+      setTimeout(() => this.syncPanelHeights(), 100);
+    } else {
+      this.snackBar.open('At least one service is required', 'Close', { duration: 3000 });
+    }
+  }
 
-            <label>
-              Name: *
-              <input type="text" formControlName="buyer_name" required placeholder="Buyer company name">
-            </label>
-            
-            <label>
-              Address:
-              <textarea formControlName="buyer_address" rows="2" placeholder="Full address"></textarea>
-            </label>
-            
-            <label>
-              State:
-              <input type="text" formControlName="buyer_state" placeholder="e.g., California">
-            </label>
-            
-            <label>
-              Place of Supply:
-              <input type="text" formControlName="place_of_supply" placeholder="Optional">
-            </label>
+  calculateServiceAmount(index: number): number {
+    const service = this.services.at(index).value;
+    return (service.quantity || 0) * (service.rate || 0);
+  }
 
-            <label>
-              Contact Person:
-              <input type="text" formControlName="contact_person" placeholder="Optional">
-            </label>
-            
-            <label>
-              Email:
-              <input type="email" formControlName="buyer_email" placeholder="contact@company.com">
-            </label>
-          </div>
+  calculateTotalQuantity(): number {
+    return this.services.controls.reduce((sum, control) => {
+      return sum + (control.get('quantity')?.value || 0);
+    }, 0);
+  }
 
-          <!-- Services Section -->
-          <div class="section">
-            <div class="section-header">
-              <h2>Services</h2>
-              <button type="button" class="btn-add" (click)="addService()">
-                + Add Service
-              </button>
-            </div>
+  calculateTotalAmount(): number {
+    return this.services.controls.reduce((sum, control, index) => {
+      return sum + this.calculateServiceAmount(index);
+    }, 0);
+  }
 
-            <div id="services-input" formArrayName="services">
-              <div class="service-row" *ngFor="let service of services.controls; let i = index" [formGroupName]="i">
-                <button type="button" class="remove-service" (click)="removeService(i)" *ngIf="services.length > 1">
-                  Remove
-                </button>
-                
-                <label>
-                  Description: *
-                  <input type="text" formControlName="description" required placeholder="Service description">
-                </label>
-                
-                <label>
-                  HSN/SAC:
-                  <input type="text" formControlName="hsn" placeholder="Optional">
-                </label>
-                
-                <label>
-                  Quantity: *
-                  <input type="number" formControlName="quantity" step="1" min="0" required placeholder="1">
-                </label>
-                
-                <label>
-                  Rate: *
-                  <input type="number" formControlName="rate" step="0.01" min="0" required placeholder="0.00">
-                </label>
-                
-                <label>
-                  Unit: *
-                  <select class="input-per" formControlName="per" required>
-                    <option value="Hour">Hour</option>
-                    <option value="Day">Day</option>
-                    <option value="Unit">Unit</option>
-                    <option value="Piece">Piece</option>
-                    <option value="Service">Service</option>
-                  </select>
-                </label>
-                
-                <label>
-                  Amount: <strong>{{ calculateServiceAmount(i).toFixed(2) }} €</strong>
-                </label>
-              </div>
-            </div>
-          </div>
+  numberToWords(num: number): string {
+    if (num === 0) return 'Zero';
+    
+    const units = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+    const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const thousands = ['', 'Thousand', 'Million', 'Billion'];
 
-          <!-- Bank Details Section -->
-          <div class="section">
-            <h2>Bank Details</h2>
+    let words = '';
+    let thousandIndex = 0;
+    let n = Math.floor(num);
 
-            <label>
-              Account Holder:
-              <input type="text" formControlName="bank_holder" placeholder="Account holder name">
-            </label>
-            
-            <label>
-              Bank Name:
-              <input type="text" formControlName="bank_name" placeholder="Bank name">
-            </label>
-            
-            <label>
-              Account No:
-              <input type="text" formControlName="bank_account" placeholder="Account number">
-            </label>
-            
-            <label>
-              Branch & IFS Code:
-              <input type="text" formControlName="bank_branch" placeholder="Branch and IFS code">
-            </label>
-            
-            <label>
-              SWIFT Code:
-              <input type="text" formControlName="bank_swift" placeholder="SWIFT code">
-            </label>
-          </div>
+    while (n > 0) {
+      let part = n % 1000;
+      if (part > 0) {
+        let partWords = '';
+        if (part >= 100) {
+          partWords += units[Math.floor(part / 100)] + ' Hundred ';
+          part %= 100;
+        }
+        if (part >= 20) {
+          partWords += tens[Math.floor(part / 10)] + ' ';
+          part %= 10;
+        }
+        if (part >= 10) {
+          partWords += teens[part - 10] + ' ';
+          part = 0;
+        }
+        if (part > 0) {
+          partWords += units[part] + ' ';
+        }
+        words = partWords + thousands[thousandIndex] + ' ' + words;
+      }
+      n = Math.floor(n / 1000);
+      thousandIndex++;
+    }
+    return words.trim();
+  }
 
-          <button type="submit" class="btn-submit" [disabled]="loading || invoiceForm.invalid">
-            <mat-icon *ngIf="!loading">download</mat-icon>
-            <span *ngIf="!loading">Export to Excel</span>
-            <mat-spinner *ngIf="loading" diameter="20"></mat-spinner>
-            <span *ngIf="loading">Generating...</span>
-          </button>
-        </form>
-      </div>
+  loadUserDefaults(): void {
+    const user = this.authService.getCurrentUser();
+    if (user && user.user_type === 'company') {
+      const profile = user.profile as any;
+      
+      if (profile.company_name) {
+        this.companyName = profile.company_name;
+      }
+      if (profile.address) {
+        this.companyAddress = profile.address;
+      }
+      if (profile.phone) {
+        this.companyPhone = profile.phone;
+      }
+      if (profile.contact_person) {
+        this.companyEmail = profile.contact_person;
+      }
+      
+      if (profile.logo_base64) {
+        this.logoPreview = profile.logo_base64;
+      }
+    }
+  }
 
-      <!-- Right Panel: Live Preview -->
-      <div class="right-panel">
-        <div class="invoice">
-          <p class="certificate">Tax Invoice</p>
-          <p class="note">
-            (SUPPLY MEANT FOR EXPORT/ SUPPLY TO SEZ UNIT OR SEZ DEVELOPER FOR AUTHORISED OPERATIONS UNDER BOND OR LETTER OF UNDERTAKING WITHOUT PAYMENT OF IGST)
-          </p>
+  formatDate(date: Date): string {
+    return date.toISOString().split('T')[0];
+  }
 
-          <table border="1" cellspacing="0" cellpadding="0">
-            <tr>
-              <td style="width: 65%; vertical-align: top;">
-                <table style="width: 100%; border: none;">
-                  <tr>
-                    <td style="width: 120px; vertical-align: top; border: none; padding-right: 10px;">
-                      <img *ngIf="logoPreview" [src]="logoPreview" alt="Logo" style="max-height: 120px; max-width: 100%; display: block;">
-                      <div *ngIf="!logoPreview" class="logo-placeholder">
-                        <mat-icon>business</mat-icon>
-                        <span>Company Logo</span>
-                      </div>
-                    </td>
-                    <td style="border: none;">
-                      <table style="width: 100%; border: none;">
-                        <tr><td style="border: none;"><strong>{{ companyName }}</strong></td></tr>
-                        <tr *ngIf="companyAddress"><td style="border: none; font-size: 10px;">{{ companyAddress }}</td></tr>
-                        <tr *ngIf="companyEmail"><td style="border: none;">{{ companyEmail }}</td></tr>
-                        <tr *ngIf="companyPhone"><td style="border: none;">Contact: {{ companyPhone }}</td></tr>
-                        <tr><td style="border-top: 2px solid #2d3748; padding-top: 8px; margin-top: 8px;"></td></tr>
-                        <tr><td style="border: none; padding-top: 8px;"><strong>Buyer (Bill To):</strong></td></tr>
-                        <tr><td style="border: none;"><strong id="buyer-name">{{ invoiceForm.get('buyer_name')?.value || 'Buyer Name' }}</strong></td></tr>
-                        <tr><td style="border: none; font-size: 10px;" id="buyer-address">{{ invoiceForm.get('buyer_address')?.value || 'Buyer address' }}</td></tr>
-                        <tr><td style="border: none;">State Name: <span id="buyer-state">{{ invoiceForm.get('buyer_state')?.value || '-' }}</span></td></tr>
-                        <tr><td style="border: none;">Place of Supply: <span id="place-of-supply">{{ invoiceForm.get('place_of_supply')?.value || '-' }}</span></td></tr>
-                        <tr><td style="border: none;">Contact Person: <span id="contact-person">{{ invoiceForm.get('contact_person')?.value || '-' }}</span></td></tr>
-                        <tr><td style="border: none;">E-Mail: <span id="buyer-email">{{ invoiceForm.get('buyer_email')?.value || '-' }}</span></td></tr>
-                      </table>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-              <td style="width: 35%; vertical-align: top;">
-                <table style="width: 100%; border: none;">
-                  <tr>
-                    <td style="border: none; padding: 4px;"><strong>Invoice No.:</strong></td>
-                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('invoice_no')?.value || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td style="border: none; padding: 4px;"><strong>Dated:</strong></td>
-                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('invoice_date')?.value || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td style="border: none; padding: 4px;"><strong>Delivery Note:</strong></td>
-                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('delivery_note')?.value || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td style="border: none; padding: 4px;"><strong>Payment Terms:</strong></td>
-                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('payment_terms')?.value || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td style="border: none; padding: 4px;"><strong>Ref. & Date:</strong></td>
-                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('ref_date')?.value || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td style="border: none; padding: 4px;"><strong>Other References:</strong></td>
-                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('other_references')?.value || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td style="border: none; padding: 4px;"><strong>Buyer's Order No:</strong></td>
-                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('buyer_order_no')?.value || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td style="border: none; padding: 4px;"><strong>Order Date:</strong></td>
-                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('order_date')?.value || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td style="border: none; padding: 4px;"><strong>Dispatch Doc No:</strong></td>
-                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('dispatch_doc_no')?.value || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td style="border: none; padding: 4px;"><strong>Delivery Note Date:</strong></td>
-                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('delivery_note_date')?.value || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td style="border: none; padding: 4px;"><strong>Dispatched Through:</strong></td>
-                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('dispatched_through')?.value || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td style="border: none; padding: 4px;"><strong>Destination:</strong></td>
-                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('destination')?.value || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td colspan="2" style="border: none; padding: 4px;"><strong>Country:</strong> {{ invoiceForm.get('country')?.value || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td colspan="2" style="border: none; padding: 4px;"><strong>LUT/Bond No.:</strong> {{ invoiceForm.get('lut_bond_no')?.value || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td style="border: none; padding: 4px;"><strong>From:</strong></td>
-                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('from')?.value || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td style="border: none; padding: 4px;"><strong>To:</strong></td>
-                    <td style="border: none; padding: 4px;">{{ invoiceForm.get('to')?.value || '-' }}</td>
-                  </tr>
-                  <tr>
-                    <td colspan="2" style="border: none; padding: 4px;"><strong>Terms of Delivery:</strong> {{ invoiceForm.get('terms_of_delivery')?.value || '-' }}</td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-            
-            <!-- Services Table -->
-            <tr>
-              <td colspan="2" style="padding: 0;">
-                <table border="1" style="width: 100%; border-collapse: collapse; margin: 0;">
-                  <thead>
-                    <tr>
-                      <th style="width: 5%;">Sl No.</th>
-                      <th style="width: 40%;">Description of Goods</th>
-                      <th style="width: 10%;">HSN/SAC</th>
-                      <th style="width: 10%;">Quantity</th>
-                      <th style="width: 12%;">Rate</th>
-                      <th style="width: 8%;">Per</th>
-                      <th style="width: 15%;">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody id="services-tbody">
-                    <tr *ngFor="let service of services.controls; let i = index">
-                      <td>{{ i + 1 }}</td>
-                      <td>{{ service.get('description')?.value || 'Service description' }}</td>
-                      <td>{{ service.get('hsn')?.value || '-' }}</td>
-                      <td>{{ service.get('quantity')?.value || 0 }}</td>
-                      <td>{{ (service.get('rate')?.value || 0).toFixed(2) }}</td>
-                      <td>{{ service.get('per')?.value || 'Hour' }}</td>
-                      <td>{{ calculateServiceAmount(i).toFixed(2) }}</td>
-                    </tr>
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <td></td>
-                      <td><strong>Total</strong></td>
-                      <td></td>
-                      <td><strong>{{ calculateTotalQuantity() }}</strong></td>
-                      <td></td>
-                      <td></td>
-                      <td><strong>{{ calculateTotalAmount().toFixed(2) }}</strong></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </td>
-            </tr>
-            
-            <!-- Amount in Words -->
-            <tr>
-              <td colspan="2" style="padding: 10px;">
-                <strong>Amount Chargeable (in words):</strong> 
-                <span id="amount-in-words">{{ numberToWords(calculateTotalAmount()) }} Euro Only</span>
-                <br><br>
-                <strong>E. & O.E</strong>
-              </td>
-            </tr>
-            
-            <!-- Declaration and Bank Details -->
-            <tr class="igst-subsection">
-              <td style="width: 50%; vertical-align: top;">
-                <table style="width: 100%; border: none;">
-                  <tr><td style="border: none;"><strong>Declaration</strong></td></tr>
-                  <tr><td style="border: none; padding-top: 8px;"><strong>Terms & Conditions:</strong></td></tr>
-                  <tr><td style="border: none;">1. All layout services will be carried out from the ULEPUS office.</td></tr>
-                  <tr><td style="border: none;">2. The customer will provide all the software licenses required, accessed through a secure VPN tunnel.</td></tr>
-                  <tr><td style="border: none;">3. The customer will retain responsibility for the circuit design at all times.</td></tr>
-                  <tr><td style="border: none;">4. Rates apply to a 40 hour working week.</td></tr>
-                </table>
-              </td>
-              <td style="width: 50%; vertical-align: top;">
-                <table style="width: 100%; border: none;">
-                  <tr><td style="border: none;"><strong>Company's Bank Details</strong></td></tr>
-                  <tr><td style="border: none; padding-top: 8px;">A/c Holder's Name: {{ invoiceForm.get('bank_holder')?.value || '-' }}</td></tr>
-                  <tr><td style="border: none;">Bank Name: {{ invoiceForm.get('bank_name')?.value || '-' }}</td></tr>
-                  <tr><td style="border: none;">A/c No.: {{ invoiceForm.get('bank_account')?.value || '-' }}</td></tr>
-                  <tr><td style="border: none;">Branch & IFS Code: {{ invoiceForm.get('bank_branch')?.value || '-' }}</td></tr>
-                  <tr><td style="border: none;">SWIFT Code: {{ invoiceForm.get('bank_swift')?.value || '-' }}</td></tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+  // Hangi alanların invalid olduğunu göster
+  logInvalidFields(): void {
+    const invalidFields: string[] = [];
+    
+    Object.keys(this.invoiceForm.controls).forEach(key => {
+      const control = this.invoiceForm.get(key);
+      if (control && control.invalid) {
+        if (key === 'services') {
+          const servicesArray = control as FormArray;
+          servicesArray.controls.forEach((serviceControl, index) => {
+            Object.keys((serviceControl as FormGroup).controls).forEach(serviceKey => {
+              const serviceField = serviceControl.get(serviceKey);
+              if (serviceField && serviceField.invalid) {
+                invalidFields.push(`Service ${index + 1} - ${serviceKey}`);
+              }
+            });
+          });
+        } else {
+          invalidFields.push(key);
+        }
+      }
+    });
+    
+    if (invalidFields.length > 0) {
+      console.log('Invalid fields:', invalidFields);
+    }
+  }
+
+  // Eksik alanları kullanıcıya göster
+  showMissingFields(): void {
+    const invalidFields: string[] = [];
+    
+    // Invoice details
+    if (this.invoiceForm.get('invoice_no')?.invalid) {
+      invalidFields.push('Invoice No');
+    }
+    if (this.invoiceForm.get('invoice_date')?.invalid) {
+      invalidFields.push('Invoice Date');
+    }
+    
+    // Buyer info
+    if (this.invoiceForm.get('buyer_name')?.invalid) {
+      invalidFields.push('Buyer Name');
+    }
+    
+    // Services
+    if (this.services.length === 0) {
+      invalidFields.push('At least one service');
+    } else {
+      this.services.controls.forEach((service, index) => {
+        const serviceGroup = service as FormGroup;
+        if (serviceGroup.get('description')?.invalid) {
+          invalidFields.push(`Service ${index + 1} - Description`);
+        }
+        if (serviceGroup.get('quantity')?.invalid) {
+          invalidFields.push(`Service ${index + 1} - Quantity`);
+        }
+        if (serviceGroup.get('rate')?.invalid) {
+          invalidFields.push(`Service ${index + 1} - Rate`);
+        }
+        if (serviceGroup.get('per')?.invalid) {
+          invalidFields.push(`Service ${index + 1} - Unit`);
+        }
+      });
+    }
+    
+    if (invalidFields.length > 0) {
+      const message = `Please fill required fields:\n${invalidFields.join('\n')}`;
+      this.snackBar.open(message, 'Close', { 
+        duration: 5000,
+        verticalPosition: 'top'
+      });
+    }
+  }
+
+  onSubmit(): void {
+    if (this.invoiceForm.invalid) {
+      this.showMissingFields();
+      
+      // Tüm alanları "touched" yap ki validation mesajları görünsün
+      Object.keys(this.invoiceForm.controls).forEach(key => {
+        const control = this.invoiceForm.get(key);
+        control?.markAsTouched();
+        
+        if (key === 'services') {
+          const servicesArray = control as FormArray;
+          servicesArray.controls.forEach(serviceControl => {
+            Object.keys((serviceControl as FormGroup).controls).forEach(serviceKey => {
+              serviceControl.get(serviceKey)?.markAsTouched();
+            });
+          });
+        }
+      });
+      
+      return;
+    }
+
+    this.loading = true;
+    const formData: InvoiceData = this.invoiceForm.value;
+
+    this.invoiceService.generateInvoice(formData).subscribe({
+      next: (blob) => {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const filename = `Invoice_${formData.invoice_no || timestamp}.xlsx`;
+        saveAs(blob, filename);
+        this.snackBar.open('Invoice generated successfully!', 'Close', { duration: 3000 });
+        this.loading = false;
+      },
+      error: (error) => {
+        this.snackBar.open(error.error?.error || 'Error generating invoice', 'Close', { duration: 5000 });
+        this.loading = false;
+      }
+    });
+  }
+
+  // Form validation durumunu kontrol et
+  isFormValid(): boolean {
+    return this.invoiceForm.valid;
+  }
+
+  resetForm(): void {
+    this.invoiceForm.reset({
+      invoice_date: this.formatDate(new Date()),
+      order_date: this.formatDate(new Date()),
+      payment_terms: 'Online',
+      other_references: '--'
+    });
+    
+    while (this.services.length > 0) {
+      this.services.removeAt(0);
+    }
+    this.addService();
+    
+    setTimeout(() => this.syncPanelHeights(), 100);
+  }
+}

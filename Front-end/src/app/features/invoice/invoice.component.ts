@@ -31,19 +31,25 @@ export class InvoiceComponent implements OnInit, AfterViewInit {
 
   ngOnInit(): void {
     this.loadUserDefaults();
+    // İlk service'i başlangıçta ekle
     this.addService();
+    
+    // Form değişikliklerini dinle - debug için
+    this.invoiceForm.statusChanges.subscribe(status => {
+      console.log('Form status:', status);
+      if (status === 'INVALID') {
+        this.logInvalidFields();
+      }
+    });
   }
 
   ngAfterViewInit(): void {
-    // Sağ panel yüksekliğini al ve sol panele uygula
     this.syncPanelHeights();
     
-    // Form değişikliklerinde yüksekliği güncelle
     this.invoiceForm.valueChanges.subscribe(() => {
       setTimeout(() => this.syncPanelHeights(), 100);
     });
     
-    // Pencere yeniden boyutlandığında güncelle
     window.addEventListener('resize', () => this.syncPanelHeights());
   }
 
@@ -61,7 +67,7 @@ export class InvoiceComponent implements OnInit, AfterViewInit {
 
   createForm(): FormGroup {
     return this.fb.group({
-      // Invoice Details
+      // Invoice Details - Sadece zorunlu alanlar required
       invoice_no: ['', Validators.required],
       invoice_date: [this.formatDate(new Date()), Validators.required],
       delivery_note: [''],
@@ -80,18 +86,18 @@ export class InvoiceComponent implements OnInit, AfterViewInit {
       to: [''],
       terms_of_delivery: [''],
       
-      // Buyer Information
+      // Buyer Information - Sadece buyer_name required
       buyer_name: ['', Validators.required],
       buyer_address: [''],
       buyer_state: [''],
       place_of_supply: [''],
       contact_person: [''],
-      buyer_email: ['', Validators.email],
+      buyer_email: [''], // Email validation kaldırıldı
       
-      // Services
-      services: this.fb.array([]),
+      // Services - En az 1 service gerekli
+      services: this.fb.array([], Validators.required),
       
-      // Bank Details
+      // Bank Details - Opsiyonel
       bank_holder: [''],
       bank_name: [''],
       bank_account: [''],
@@ -108,7 +114,7 @@ export class InvoiceComponent implements OnInit, AfterViewInit {
     return this.fb.group({
       description: ['', Validators.required],
       hsn: [''],
-      quantity: [1, [Validators.required, Validators.min(0)]],
+      quantity: [1, [Validators.required, Validators.min(0.01)]],
       rate: [0, [Validators.required, Validators.min(0)]],
       per: ['Hour', Validators.required]
     });
@@ -212,9 +218,100 @@ export class InvoiceComponent implements OnInit, AfterViewInit {
     return date.toISOString().split('T')[0];
   }
 
+  // Hangi alanların invalid olduğunu göster
+  logInvalidFields(): void {
+    const invalidFields: string[] = [];
+    
+    Object.keys(this.invoiceForm.controls).forEach(key => {
+      const control = this.invoiceForm.get(key);
+      if (control && control.invalid) {
+        if (key === 'services') {
+          const servicesArray = control as FormArray;
+          servicesArray.controls.forEach((serviceControl, index) => {
+            Object.keys((serviceControl as FormGroup).controls).forEach(serviceKey => {
+              const serviceField = serviceControl.get(serviceKey);
+              if (serviceField && serviceField.invalid) {
+                invalidFields.push(`Service ${index + 1} - ${serviceKey}`);
+              }
+            });
+          });
+        } else {
+          invalidFields.push(key);
+        }
+      }
+    });
+    
+    if (invalidFields.length > 0) {
+      console.log('Invalid fields:', invalidFields);
+    }
+  }
+
+  // Eksik alanları kullanıcıya göster
+  showMissingFields(): void {
+    const invalidFields: string[] = [];
+    
+    // Invoice details
+    if (this.invoiceForm.get('invoice_no')?.invalid) {
+      invalidFields.push('Invoice No');
+    }
+    if (this.invoiceForm.get('invoice_date')?.invalid) {
+      invalidFields.push('Invoice Date');
+    }
+    
+    // Buyer info
+    if (this.invoiceForm.get('buyer_name')?.invalid) {
+      invalidFields.push('Buyer Name');
+    }
+    
+    // Services
+    if (this.services.length === 0) {
+      invalidFields.push('At least one service');
+    } else {
+      this.services.controls.forEach((service, index) => {
+        const serviceGroup = service as FormGroup;
+        if (serviceGroup.get('description')?.invalid) {
+          invalidFields.push(`Service ${index + 1} - Description`);
+        }
+        if (serviceGroup.get('quantity')?.invalid) {
+          invalidFields.push(`Service ${index + 1} - Quantity`);
+        }
+        if (serviceGroup.get('rate')?.invalid) {
+          invalidFields.push(`Service ${index + 1} - Rate`);
+        }
+        if (serviceGroup.get('per')?.invalid) {
+          invalidFields.push(`Service ${index + 1} - Unit`);
+        }
+      });
+    }
+    
+    if (invalidFields.length > 0) {
+      const message = `Please fill required fields:\n${invalidFields.join('\n')}`;
+      this.snackBar.open(message, 'Close', { 
+        duration: 5000,
+        verticalPosition: 'top'
+      });
+    }
+  }
+
   onSubmit(): void {
     if (this.invoiceForm.invalid) {
-      this.snackBar.open('Please fill all required fields', 'Close', { duration: 3000 });
+      this.showMissingFields();
+      
+      // Tüm alanları "touched" yap ki validation mesajları görünsün
+      Object.keys(this.invoiceForm.controls).forEach(key => {
+        const control = this.invoiceForm.get(key);
+        control?.markAsTouched();
+        
+        if (key === 'services') {
+          const servicesArray = control as FormArray;
+          servicesArray.controls.forEach(serviceControl => {
+            Object.keys((serviceControl as FormGroup).controls).forEach(serviceKey => {
+              serviceControl.get(serviceKey)?.markAsTouched();
+            });
+          });
+        }
+      });
+      
       return;
     }
 
@@ -234,6 +331,11 @@ export class InvoiceComponent implements OnInit, AfterViewInit {
         this.loading = false;
       }
     });
+  }
+
+  // Form validation durumunu kontrol et
+  isFormValid(): boolean {
+    return this.invoiceForm.valid;
   }
 
   resetForm(): void {
