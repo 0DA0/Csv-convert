@@ -45,14 +45,16 @@ except Exception as e:
     raise ValueError(f"Invalid ENCRYPTION_KEY format: {str(e)}")
 
 # CORS Yapılandırması - Wildcard kaldırıldı
-ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:4200').split(',')
+ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:4200,https://csv-convert-front.onrender.com')
+ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS.split(',')]
 
 CORS(app, resources={
     r"/api/*": {
         "origins": ALLOWED_ORIGINS,
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization", "X-Clockify-Api-Key"],
-        "supports_credentials": True
+        "supports_credentials": True,
+        "expose_headers": ["Content-Type", "Authorization"]
     }
 })
 
@@ -80,9 +82,18 @@ VALID_EMAIL_RE = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
 PASSWORD_REGEX = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$')
 
 # ============== Security Headers Middleware ==============
+
 @app.after_request
 def set_security_headers(response):
     """Güvenlik header'larını tüm response'lara ekle"""
+    # CORS headers'ları manuel olarak da ekle
+    origin = request.headers.get('Origin')
+    if origin in ALLOWED_ORIGINS:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Clockify-Api-Key'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+    
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-XSS-Protection'] = '1; mode=block'
@@ -94,6 +105,18 @@ def set_security_headers(response):
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     
     return response
+
+@app.route('/api/<path:path>', methods=['OPTIONS'])
+def handle_options(path):
+    """Handle preflight OPTIONS requests"""
+    response = jsonify({'status': 'ok'})
+    origin = request.headers.get('Origin')
+    if origin in ALLOWED_ORIGINS:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Clockify-Api-Key'
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+    return response, 200
 
 # ============== Yardımcı Fonksiyonlar ==============
 
@@ -1081,7 +1104,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
 # ============== AUTH ENDPOINTS ==============
 
 @app.route('/api/auth/register', methods=['POST'])
-@limiter.limit("3 per minute")
+@limiter.limit("5 per minute")  # 3'ten 5'e çıkarıldı
 def register():
     """Kullanıcı kaydı - Güvenlik kontrolleri eklenmiş"""
     try:
