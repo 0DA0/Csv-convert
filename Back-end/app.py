@@ -11,45 +11,606 @@ from cryptography.fernet import Fernet
 import re
 import base64
 from datetime import datetime, timedelta
-import calendar
 import traceback
 import requests
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+# ============== Environment & Security Configuration ==============
+from dotenv import load_dotenv
+load_dotenv()
+
+
+# Kritik environment variable kontrolü
+def get_required_env(key):
+    value = os.environ.get(key)
+    if not value:
+        raise ValueError(f"{key} environment variable must be set")
+    return value
 
 # ============== Flask Yapılandırması ==============
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-app.config['MONGO_URI'] = os.environ.get('MONGO_URI')
-app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key-change-in-production')
+app.config['SECRET_KEY'] = get_required_env('SECRET_KEY')
+app.config['MONGO_URI'] = get_required_env('MONGO_URI')
+app.config['JWT_SECRET_KEY'] = get_required_env('JWT_SECRET_KEY')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=7)
-app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB
+app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH', 10 * 1024 * 1024))
 
-# CORS - Angular için (Render URL'ini ekle)
+# Encryption key kontrolü ve yapılandırması
+ENCRYPTION_KEY = get_required_env('ENCRYPTION_KEY')
+try:
+    ENCRYPTION_KEY = ENCRYPTION_KEY.encode()
+    cipher_suite = Fernet(ENCRYPTION_KEY)
+except Exception as e:
+    raise ValueError(f"Invalid ENCRYPTION_KEY format: {str(e)}")
+
+# CORS Yapılandırması - Wildcard kaldırıldı
+ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:4200').split(',')
+
 CORS(app, resources={
     r"/api/*": {
-        "origins": [
-            "http://localhost:4200",  # Local development
-            "https://csv-convert-front.onrender.com",  # Render production
-            "https://*.onrender.com"  # Tüm Render subdomain'leri
-        ],
+        "origins": ALLOWED_ORIGINS,
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization", "X-Clockify-Api-Key"],  # BU SATIRI GÜNCELLEDİK
+        "allow_headers": ["Content-Type", "Authorization", "X-Clockify-Api-Key"],
         "supports_credentials": True
     }
 })
+
+# Rate Limiting Yapılandırması - Memory-based (Redis yok)
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=[os.environ.get('DEFAULT_RATE_LIMIT', '200 per day,50 per hour,10 per minute')],
+    storage_uri='memory://'  # Memory-based storage
+)
+
+# MongoDB & JWT
 mongo = PyMongo(app)
 jwt = JWTManager(app)
 
-# Encryption key - Environment variable'dan al veya generate et
-ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY')
-if not ENCRYPTION_KEY:
-    ENCRYPTION_KEY = Fernet.generate_key()
-    print(f"WARNING: Generated new encryption key. Add this to your environment: ENCRYPTION_KEY={ENCRYPTION_KEY.decode()}")
-else:
-    ENCRYPTION_KEY = ENCRYPTION_KEY.encode()
+# File upload güvenliği
+ALLOWED_EXTENSIONS = {'csv'}
+ALLOWED_MIME_TYPES = {'text/csv', 'text/plain', 'application/vnd.ms-excel'}
 
-cipher_suite = Fernet(ENCRYPTION_KEY)
+# Input validation regex
+VALID_NAME_RE = re.compile(r'^[\w\s\-\.@]+$')
+VALID_EMAIL_RE = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
+
+# Password validation regex (min 8 karakter, büyük, küçük, rakam, özel karakter)
+PASSWORD_REGEX = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$')
+
+# ============== Security Headers Middleware ==============
+@app.after_request
+def set_security_headers(response):
+    """Güvenlik header'larını tüm response'lara ekle"""
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+    
+    # HSTS header (HTTPS zorunlu)
+    if os.environ.get('FORCE_HTTPS', 'True') == 'True':
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    
+    return response
 
 # ============== Yardımcı Fonksiyonlar ==============
+
+def validate_password(password):
+    """Şifre güvenlik kontrolü"""
+    if not password or len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    
+    if not PASSWORD_REGEX.match(password):
+        return False, "Password must contain uppercase, lowercase, number and special character"
+    
+    return True, "Valid"
+
+def validate_email(email):
+    """Email format kontrolü"""
+    if not email or not VALID_EMAIL_RE.match(email):
+        return False, "Invalid email format"
+    return True, "Valid"
+
+def sanitize_input(text, max_length=255):
+    """Input sanitization - XSS ve injection koruması"""
+    if not text:
+        return ""
+    
+    text = str(text)
+    
+    if len(text) > max_length:
+        text = text[:max_length]
+    
+    text = text.replace('<', '&lt;').replace('>', '&gt;')
+    text = text.replace('"', '&quot;').replace("'", '&#x27;')
+    
+    return text.strip()
+
+def sanitize_mongodb_query(query_dict):
+    """MongoDB injection koruması"""
+    if not isinstance(query_dict, dict):
+        return {}
+    
+    safe_query = {}
+    for key, value in query_dict.items():
+        if not key.startswith('$'):
+            if isinstance(value, dict):
+                safe_query[key] = sanitize_mongodb_query(value)
+            else:
+                safe_query[key] = value
+    
+    return safe_query
+
+def validate_file(file):
+    """Dosya güvenlik kontrolü"""
+    if not file or file.filename == '':
+        return False, "No file selected"
+    
+    if '.' not in file.filename:
+        return False, "Invalid file format"
+    
+    extension = file.filename.rsplit('.', 1)[1].lower()
+    if extension not in ALLOWED_EXTENSIONS:
+        return False, f"File type not allowed. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+    
+    file.seek(0, 2)
+    size = file.tell()
+    file.seek(0)
+    
+    if size > app.config['MAX_CONTENT_LENGTH']:
+        return False, f"File too large. Max size: {app.config['MAX_CONTENT_LENGTH'] / (1024*1024)}MB"
+    
+    return True, "Valid"
+
+def encrypt_api_key(api_key):
+    """API key'i şifrele"""
+    if not api_key:
+        return None
+    return cipher_suite.encrypt(api_key.encode()).decode()
+
+def decrypt_api_key(encrypted_key):
+    """API key'i çöz"""
+    if not encrypted_key:
+        return None
+    try:
+        return cipher_suite.decrypt(encrypted_key.encode()).decode()
+    except:
+        return None
+
+def safe_error_response(error, status_code=500):
+    """Güvenli hata mesajı döndür - internal detay verme"""
+    app.logger.error(f"Error: {str(error)}\n{traceback.format_exc()}")
+    
+    error_messages = {
+        400: "Bad request. Please check your input.",
+        401: "Authentication required.",
+        403: "Access denied.",
+        404: "Resource not found.",
+        500: "An internal error occurred. Please try again later."
+    }
+    
+    return jsonify({
+        'error': error_messages.get(status_code, "An error occurred"),
+        'status': status_code
+    }), status_code
+
+# ============== Excel Generation Functions ==============
+def parse_duration_to_seconds(d_str):
+    try:
+        h, m, s = map(int, d_str.split(":"))
+        return h * 3600 + m * 60 + s
+    except:
+        return 0
+
+def round_to_nearest_minute(seconds):
+    minutes = seconds / 60
+    rounded_minutes = round(minutes)
+    return rounded_minutes * 60
+
+def sanitize_excel_cell(value):
+    if pd.isna(value) or value is None:
+        return ""
+    value = str(value)
+    if value and value[0] in ('=', '+', '-', '@'):
+        return "'" + value
+    return value
+
+def generate_excel_report(df, format_choice, report_period, projects, customers, logo_data=None, company_info=None):
+    """Excel raporu oluşturur - Summary ve Detailed Report ile"""
+    output = BytesIO()
+    
+    # Süreleri hesapla
+    df["raw_seconds"] = df["Duration (h)"].apply(parse_duration_to_seconds)
+    df["rounded_seconds"] = df["raw_seconds"].apply(round_to_nearest_minute)
+    
+    if format_choice == "hours":
+        df["formatted_duration"] = df["rounded_seconds"] / 86400
+    else:
+        df["formatted_duration"] = (df["rounded_seconds"] / 3600).round(2)
+    
+    # Tarihleri parse et
+    df['Start Date'] = df['Start Date'].astype(str)
+    df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
+    df["Day"] = df["ParsedDate"].apply(lambda d: d.strftime("%d (%A)") if pd.notnull(d) else "Unknown")
+    df["DayFull"] = df["ParsedDate"].apply(lambda d: d.strftime("%d %B %Y (%A)") if pd.notnull(d) else "Unknown")
+    
+    # Start Time ve End Time kolonlarını ekle (yoksa)
+    if "Start Time" not in df.columns:
+        df["Start Time"] = ""
+    if "End Time" not in df.columns:
+        df["End Time"] = ""
+    
+    all_days = pd.date_range(start=df['ParsedDate'].min(), end=df['ParsedDate'].max(), freq='D') if not df['ParsedDate'].dropna().empty else pd.date_range(start="2025-01-01", periods=1)
+    all_days_str = [d.strftime("%d (%A)") for d in all_days]
+    
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        workbook = writer.book
+        
+        # ============== FORMAT TANIMLARI ==============
+        header_format = workbook.add_format({
+            'bold': True, 'border': 1, 'bg_color': '#4472C4', 
+            'font_color': 'white', 'align': 'center', 'valign': 'vcenter'
+        })
+        
+        info_label_format = workbook.add_format({
+            'bold': True, 'border': 1, 'bg_color': '#4472C4',
+            'font_color': 'white', 'align': 'left', 'valign': 'vcenter'
+        })
+        
+        info_value_format = workbook.add_format({
+            'border': 1, 'align': 'left', 'valign': 'vcenter', 'text_wrap': True
+        })
+        
+        cell_format = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter'})
+        cell_wrap_format = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'top', 'text_wrap': True})
+        cell_center_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
+        
+        number_format = workbook.add_format({'num_format': '0.00', 'border': 1, 'align': 'right', 'valign': 'vcenter'})
+        time_format = workbook.add_format({'num_format': '[h]:mm', 'border': 1, 'align': 'right', 'valign': 'vcenter'})
+        
+        yellow_format = workbook.add_format({'bg_color': '#FFEB9C', 'border': 1, 'bold': True, 'align': 'center', 'valign': 'vcenter'})
+        yellow_number_format = workbook.add_format({'bg_color': '#FFEB9C', 'border': 1, 'bold': True, 'num_format': '0.00', 'align': 'right', 'valign': 'vcenter'})
+        yellow_time_format = workbook.add_format({'bg_color': '#FFEB9C', 'border': 1, 'bold': True, 'num_format': '[h]:mm', 'align': 'right', 'valign': 'vcenter'})
+        
+        green_format = workbook.add_format({'bg_color': '#C6EFCE', 'border': 1, 'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_color': '#006100'})
+        green_number_format = workbook.add_format({'bg_color': '#C6EFCE', 'border': 1, 'bold': True, 'num_format': '0.00', 'align': 'right', 'valign': 'vcenter', 'font_color': '#006100'})
+        green_time_format = workbook.add_format({'bg_color': '#C6EFCE', 'border': 1, 'bold': True, 'num_format': '[h]:mm', 'align': 'right', 'valign': 'vcenter', 'font_color': '#006100'})
+        
+        red_format = workbook.add_format({'bg_color': '#FFC7CE', 'border': 1, 'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_color': '#9C0006'})
+        red_number_format = workbook.add_format({'bg_color': '#FFC7CE', 'border': 1, 'bold': True, 'num_format': '0.00', 'align': 'right', 'valign': 'vcenter', 'font_color': '#9C0006'})
+        red_time_format = workbook.add_format({'bg_color': '#FFC7CE', 'border': 1, 'bold': True, 'num_format': '[h]:mm', 'align': 'right', 'valign': 'vcenter', 'font_color': '#9C0006'})
+        
+        user_header_format = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#4472C4', 'font_color': 'white', 'align': 'left', 'valign': 'vcenter', 'font_size': 12})
+        
+        # Detailed Report için formatlar
+        detail_header_format = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#667eea', 'font_color': 'white', 'align': 'center', 'valign': 'vcenter', 'font_size': 11})
+        detail_date_header_format = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#4472C4', 'font_color': 'white', 'align': 'left', 'font_size': 12, 'valign': 'vcenter'})
+        detail_cell_format = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter', 'font_size': 10})
+        detail_cell_wrap = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'top', 'font_size': 10, 'text_wrap': True})
+        detail_cell_center = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'font_size': 10})
+        detail_number_format = workbook.add_format({'num_format': '0.00', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'font_size': 10})
+        detail_time_format = workbook.add_format({'num_format': '[h]:mm', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'font_size': 10})
+        
+        # ============== SAYFA 1: ÖZET RAPOR ==============
+        summary_sheet = workbook.add_worksheet("Summary Report")
+        summary_sheet.fit_to_pages(1, 0)
+        summary_sheet.set_landscape()
+        summary_sheet.set_paper(9)
+        
+        row = 0
+        
+        # Logo ve Şirket Bilgileri
+        if company_info or logo_data:
+            table_start_row = row
+            
+            if company_info:
+                summary_sheet.write(row, 0, "Company:", info_label_format)
+                summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(company_info.get('company_name', '')), info_value_format)
+                summary_sheet.set_row(row, 18)
+                row += 1
+                
+                if company_info.get('contact_person'):
+                    summary_sheet.write(row, 0, "Contact:", info_label_format)
+                    summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(company_info.get('contact_person', '')), info_value_format)
+                    summary_sheet.set_row(row, 18)
+                    row += 1
+                
+                if company_info.get('phone'):
+                    summary_sheet.write(row, 0, "Phone:", info_label_format)
+                    summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(company_info.get('phone', '')), info_value_format)
+                    summary_sheet.set_row(row, 18)
+                    row += 1
+                
+                if company_info.get('address'):
+                    summary_sheet.write(row, 0, "Address:", info_label_format)
+                    summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(company_info.get('address', '')), info_value_format)
+                    summary_sheet.set_row(row, 18)
+                    row += 1
+            
+            if logo_data is not None:
+                try:
+                    temp_logo = BytesIO(logo_data['data'])
+                    summary_sheet.insert_image(table_start_row, 5, "logo", {
+                        'image_data': temp_logo,
+                        'x_scale': 0.25, 'y_scale': 0.25,
+                        'x_offset': 10, 'y_offset': 5,
+                        'positioning': 1
+                    })
+                    for i in range(table_start_row, row):
+                        summary_sheet.write(i, 5, "", info_value_format)
+                except:
+                    pass
+            
+            row += 1
+        
+        # Rapor Bilgileri
+        summary_sheet.write(row, 0, "Period:", info_label_format)
+        summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(report_period), info_value_format)
+        if logo_data:
+            summary_sheet.write(row, 5, "", info_value_format)
+        summary_sheet.set_row(row, 18)
+        row += 1
+        
+        summary_sheet.write(row, 0, "Projects:", info_label_format)
+        summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(projects), info_value_format)
+        if logo_data:
+            summary_sheet.write(row, 5, "", info_value_format)
+        summary_sheet.set_row(row, 18)
+        row += 1
+        
+        summary_sheet.write(row, 0, "Customers:", info_label_format)
+        summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(customers), info_value_format)
+        if logo_data:
+            summary_sheet.write(row, 5, "", info_value_format)
+        summary_sheet.set_row(row, 18)
+        row += 2
+        
+        # Kullanıcı bazında özet
+        for user in sorted(df["User"].dropna().unique()):
+            user_df = df[df["User"] == user].copy()
+            
+            summary_sheet.merge_range(row, 0, row, 4, sanitize_excel_cell(f"User: {user}"), user_header_format)
+            summary_sheet.set_row(row, 20)
+            row += 1
+            
+            # YENİ: Başlık satırı - Billable ve Free Duration olarak ayrıldı
+            summary_sheet.write(row, 0, "Day", header_format)
+            summary_sheet.write(row, 1, "Description", header_format)
+            summary_sheet.write(row, 2, "Billable Duration", header_format)
+            summary_sheet.write(row, 3, "Free Duration", header_format)
+            summary_sheet.write(row, 4, "Total Duration", header_format)
+            summary_sheet.set_row(row, 18)
+            row += 1
+            
+            for day in all_days_str:
+                day_df = user_df[user_df["Day"] == day]
+                if day_df.empty:
+                    continue
+                
+                unique_descriptions = []
+                for desc in day_df["Description"].tolist():
+                    desc_str = str(desc).strip()
+                    if desc_str and desc_str not in unique_descriptions and desc_str != 'nan':
+                        unique_descriptions.append(desc_str)
+                
+                combined_description = " | ".join(unique_descriptions) if unique_descriptions else ""
+                
+                # YENİ: Billable ve Non-billable süreleri ayrı hesapla
+                billable_duration = day_df[day_df["Billable"] == "Yes"]["formatted_duration"].sum()
+                free_duration = day_df[day_df["Billable"] == "No"]["formatted_duration"].sum()
+                total_duration = day_df["formatted_duration"].sum()
+                
+                summary_sheet.write(row, 0, sanitize_excel_cell(day), cell_format)
+                summary_sheet.write(row, 1, sanitize_excel_cell(combined_description), cell_wrap_format)
+                
+                # Billable Duration
+                if format_choice == "hours":
+                    summary_sheet.write_number(row, 2, billable_duration, time_format)
+                else:
+                    summary_sheet.write_number(row, 2, billable_duration, number_format)
+                
+                # Free Duration
+                if format_choice == "hours":
+                    summary_sheet.write_number(row, 3, free_duration, time_format)
+                else:
+                    summary_sheet.write_number(row, 3, free_duration, number_format)
+                
+                # Total Duration
+                if format_choice == "hours":
+                    summary_sheet.write_number(row, 4, total_duration, time_format)
+                else:
+                    summary_sheet.write_number(row, 4, total_duration, number_format)
+                
+                desc_length = len(combined_description)
+                lines_needed = max(1, (desc_length // 120) + 1)
+                row_height = 18 * lines_needed
+                summary_sheet.set_row(row, row_height)
+                row += 1
+            
+            row += 1
+            
+            billable_df = user_df[user_df["Billable"] == "Yes"]
+            non_billable_df = user_df[user_df["Billable"] == "No"]
+            
+            total_billable = billable_df["formatted_duration"].sum()
+            total_non_billable = non_billable_df["formatted_duration"].sum()
+            total_overall = user_df["formatted_duration"].sum()
+            
+            summary_sheet.merge_range(row, 0, row, 1, "BILLABLE TOTAL", green_format)
+            if format_choice == "hours":
+                summary_sheet.write_number(row, 2, total_billable, green_time_format)
+            else:
+                summary_sheet.write_number(row, 2, total_billable, green_number_format)
+            summary_sheet.write(row, 3, "", green_format)
+            summary_sheet.write(row, 4, "", green_format)
+            summary_sheet.set_row(row, 20)
+            row += 1
+            
+            summary_sheet.merge_range(row, 0, row, 1, "FREE TOTAL", red_format)
+            summary_sheet.write(row, 2, "", red_format)
+            if format_choice == "hours":
+                summary_sheet.write_number(row, 3, total_non_billable, red_time_format)
+            else:
+                summary_sheet.write_number(row, 3, total_non_billable, red_number_format)
+            summary_sheet.write(row, 4, "", red_format)
+            summary_sheet.set_row(row, 20)
+            row += 1
+            
+            summary_sheet.merge_range(row, 0, row, 1, "GRAND TOTAL", yellow_format)
+            summary_sheet.write(row, 2, "", yellow_format)
+            summary_sheet.write(row, 3, "", yellow_format)
+            if format_choice == "hours":
+                summary_sheet.write_number(row, 4, total_overall, yellow_time_format)
+            else:
+                summary_sheet.write_number(row, 4, total_overall, yellow_number_format)
+            summary_sheet.set_row(row, 20)
+            row += 3
+        
+        # YENİ: Kolon genişlikleri - landscape A4'e sığacak şekilde optimize edildi
+        summary_sheet.set_column(0, 0, 14)   # Day
+        summary_sheet.set_column(1, 1, 90)   # Description
+        summary_sheet.set_column(2, 2, 15)   # Billable Duration
+        summary_sheet.set_column(3, 3, 15)   # Free Duration
+        summary_sheet.set_column(4, 4, 15)   # Total Duration
+        summary_sheet.set_column(5, 5, 15)   # Logo column
+        
+        # ============== SAYFA 2: DETAYLI RAPOR ==============
+        detail_sheet = workbook.add_worksheet("Detailed Report")
+        detail_sheet.fit_to_pages(1, 0)
+        detail_sheet.set_landscape()
+        detail_sheet.set_paper(9)
+        
+        detail_row = 0
+        
+        # Başlık
+        detail_sheet.merge_range(detail_row, 0, detail_row, 4, "Detailed Time Report", header_format)
+        detail_sheet.set_row(detail_row, 22)
+        detail_row += 1
+        
+        # Logo ve Şirket Bilgileri
+        if company_info:
+            table_start_row = detail_row
+            
+            detail_sheet.write(detail_row, 0, "Company:", info_label_format)
+            detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(company_info.get('company_name', '')), info_value_format)
+            detail_sheet.set_row(detail_row, 18)
+            detail_row += 1
+            
+            if company_info.get('contact_person'):
+                detail_sheet.write(detail_row, 0, "Contact:", info_label_format)
+                detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(company_info.get('contact_person', '')), info_value_format)
+                detail_sheet.set_row(detail_row, 18)
+                detail_row += 1
+            
+            if company_info.get('phone'):
+                detail_sheet.write(detail_row, 0, "Phone:", info_label_format)
+                detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(company_info.get('phone', '')), info_value_format)
+                detail_sheet.set_row(detail_row, 18)
+                detail_row += 1
+            
+            if company_info.get('address'):
+                detail_sheet.write(detail_row, 0, "Address:", info_label_format)
+                detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(company_info.get('address', '')), info_value_format)
+                detail_sheet.set_row(detail_row, 18)
+                detail_row += 1
+            
+            if logo_data is not None:
+                try:
+                    temp_logo = BytesIO(logo_data['data'])
+                    detail_sheet.insert_image(table_start_row, 5, "logo", {
+                        'image_data': temp_logo,
+                        'x_scale': 0.25, 'y_scale': 0.25,
+                        'x_offset': 10, 'y_offset': 5,
+                        'positioning': 1
+                    })
+                    for i in range(table_start_row, detail_row):
+                        detail_sheet.write(i, 5, "", info_value_format)
+                except:
+                    pass
+            
+            detail_row += 1
+        
+        # Rapor Bilgileri
+        detail_sheet.write(detail_row, 0, "Period:", info_label_format)
+        detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(report_period), info_value_format)
+        detail_sheet.set_row(detail_row, 18)
+        detail_row += 1
+        
+        detail_sheet.write(detail_row, 0, "Projects:", info_label_format)
+        detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(projects), info_value_format)
+        detail_sheet.set_row(detail_row, 18)
+        detail_row += 1
+        
+        detail_sheet.write(detail_row, 0, "Clients:", info_label_format)
+        detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(customers), info_value_format)
+        detail_sheet.set_row(detail_row, 18)
+        detail_row += 2
+        
+        # Kullanıcı ve tarih bazında detaylı veriler
+        df_sorted = df.sort_values(['User', 'ParsedDate', 'Start Time'])
+        
+        for user_value in sorted(df_sorted['User'].dropna().unique()):
+            user_df = df_sorted[df_sorted['User'] == user_value]
+            
+            detail_sheet.merge_range(detail_row, 0, detail_row, 4, sanitize_excel_cell(f"User: {user_value}"), user_header_format)
+            detail_sheet.set_row(detail_row, 22)
+            detail_row += 1
+            
+            for date_value in user_df['DayFull'].unique():
+                if pd.isna(date_value) or date_value == "Unknown":
+                    continue
+                    
+                date_df = user_df[user_df['DayFull'] == date_value]
+                
+                detail_sheet.merge_range(detail_row, 0, detail_row, 4, sanitize_excel_cell(f"Date: {date_value}"), detail_date_header_format)
+                detail_sheet.set_row(detail_row, 20)
+                detail_row += 1
+                
+                # Başlık satırı
+                headers = ["Start Time", "End Time", "Duration", "Description", "Billable"]
+                for col_idx, header in enumerate(headers):
+                    detail_sheet.write(detail_row, col_idx, header, detail_header_format)
+                detail_sheet.set_row(detail_row, 18)
+                detail_row += 1
+                
+                # Veri satırları
+                for idx, row_data in date_df.iterrows():
+                    detail_sheet.write(detail_row, 0, sanitize_excel_cell(str(row_data.get('Start Time', ''))), detail_cell_center)
+                    detail_sheet.write(detail_row, 1, sanitize_excel_cell(str(row_data.get('End Time', ''))), detail_cell_center)
+                    
+                    if format_choice == "hours":
+                        detail_sheet.write_number(detail_row, 2, row_data['formatted_duration'], detail_time_format)
+                    else:
+                        detail_sheet.write_number(detail_row, 2, row_data['formatted_duration'], detail_number_format)
+                    
+                    desc_text = sanitize_excel_cell(str(row_data.get('Description', '')))
+                    detail_sheet.write(detail_row, 3, desc_text, detail_cell_wrap)
+                    detail_sheet.write(detail_row, 4, sanitize_excel_cell(str(row_data.get('Billable', 'No'))), detail_cell_center)
+                    
+                    # Satır yüksekliği - daha kompakt
+                    desc_length = len(desc_text)
+                    lines_needed = max(1, (desc_length // 60) + 1)
+                    row_height = 16 * lines_needed
+                    detail_sheet.set_row(detail_row, row_height)
+                    
+                    detail_row += 1
+                
+                detail_row += 1
+            
+            detail_row += 1
+        
+        # YENİ: Kolon genişlikleri - landscape A4'e tam sığacak şekilde optimize edildi
+        detail_sheet.set_column(0, 0, 10)   # Start Time
+        detail_sheet.set_column(1, 1, 10)   # End Time
+        detail_sheet.set_column(2, 2, 10)   # Duration
+        detail_sheet.set_column(3, 3, 84)   # Description
+        detail_sheet.set_column(4, 4, 8)    # Billable
+        detail_sheet.set_column(5, 5, 12)   # Logo column
+    
+    output.seek(0)
+    return output
 
 def generate_invoice_excel(data, logo_data=None, company_info=None):
     """Invoice Excel dosyası oluştur - Openpyxl ile"""
@@ -517,479 +1078,92 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     
     return output
 
-def sanitize_excel_cell(value):
-    if pd.isna(value) or value is None:
-        return ""
-    value = str(value)
-    if value and value[0] in ('=', '+', '-', '@'):
-        return "'" + value
-    return value
-
-def parse_duration_to_seconds(d_str):
-    try:
-        h, m, s = map(int, d_str.split(":"))
-        return h * 3600 + m * 60 + s
-    except:
-        return 0
-
-def round_to_nearest_minute(seconds):
-    minutes = seconds / 60
-    rounded_minutes = round(minutes)
-    return rounded_minutes * 60
-
-def generate_excel_report(df, format_choice, report_period, projects, customers, logo_data=None, company_info=None):
-    """Excel raporu oluşturur - Summary ve Detailed Report ile"""
-    output = BytesIO()
-    
-    # Süreleri hesapla
-    df["raw_seconds"] = df["Duration (h)"].apply(parse_duration_to_seconds)
-    df["rounded_seconds"] = df["raw_seconds"].apply(round_to_nearest_minute)
-    
-    if format_choice == "hours":
-        df["formatted_duration"] = df["rounded_seconds"] / 86400
-    else:
-        df["formatted_duration"] = (df["rounded_seconds"] / 3600).round(2)
-    
-    # Tarihleri parse et
-    df['Start Date'] = df['Start Date'].astype(str)
-    df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
-    df["Day"] = df["ParsedDate"].apply(lambda d: d.strftime("%d (%A)") if pd.notnull(d) else "Unknown")
-    df["DayFull"] = df["ParsedDate"].apply(lambda d: d.strftime("%d %B %Y (%A)") if pd.notnull(d) else "Unknown")
-    
-    # Start Time ve End Time kolonlarını ekle (yoksa)
-    if "Start Time" not in df.columns:
-        df["Start Time"] = ""
-    if "End Time" not in df.columns:
-        df["End Time"] = ""
-    
-    all_days = pd.date_range(start=df['ParsedDate'].min(), end=df['ParsedDate'].max(), freq='D') if not df['ParsedDate'].dropna().empty else pd.date_range(start="2025-01-01", periods=1)
-    all_days_str = [d.strftime("%d (%A)") for d in all_days]
-    
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        workbook = writer.book
-        
-        # ============== FORMAT TANIMLARI ==============
-        header_format = workbook.add_format({
-            'bold': True, 'border': 1, 'bg_color': '#4472C4', 
-            'font_color': 'white', 'align': 'center', 'valign': 'vcenter'
-        })
-        
-        info_label_format = workbook.add_format({
-            'bold': True, 'border': 1, 'bg_color': '#4472C4',
-            'font_color': 'white', 'align': 'left', 'valign': 'vcenter'
-        })
-        
-        info_value_format = workbook.add_format({
-            'border': 1, 'align': 'left', 'valign': 'vcenter', 'text_wrap': True
-        })
-        
-        cell_format = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter'})
-        cell_wrap_format = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'top', 'text_wrap': True})
-        cell_center_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
-        
-        number_format = workbook.add_format({'num_format': '0.00', 'border': 1, 'align': 'right', 'valign': 'vcenter'})
-        time_format = workbook.add_format({'num_format': '[h]:mm', 'border': 1, 'align': 'right', 'valign': 'vcenter'})
-        
-        yellow_format = workbook.add_format({'bg_color': '#FFEB9C', 'border': 1, 'bold': True, 'align': 'center', 'valign': 'vcenter'})
-        yellow_number_format = workbook.add_format({'bg_color': '#FFEB9C', 'border': 1, 'bold': True, 'num_format': '0.00', 'align': 'right', 'valign': 'vcenter'})
-        yellow_time_format = workbook.add_format({'bg_color': '#FFEB9C', 'border': 1, 'bold': True, 'num_format': '[h]:mm', 'align': 'right', 'valign': 'vcenter'})
-        
-        green_format = workbook.add_format({'bg_color': '#C6EFCE', 'border': 1, 'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_color': '#006100'})
-        green_number_format = workbook.add_format({'bg_color': '#C6EFCE', 'border': 1, 'bold': True, 'num_format': '0.00', 'align': 'right', 'valign': 'vcenter', 'font_color': '#006100'})
-        green_time_format = workbook.add_format({'bg_color': '#C6EFCE', 'border': 1, 'bold': True, 'num_format': '[h]:mm', 'align': 'right', 'valign': 'vcenter', 'font_color': '#006100'})
-        
-        red_format = workbook.add_format({'bg_color': '#FFC7CE', 'border': 1, 'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_color': '#9C0006'})
-        red_number_format = workbook.add_format({'bg_color': '#FFC7CE', 'border': 1, 'bold': True, 'num_format': '0.00', 'align': 'right', 'valign': 'vcenter', 'font_color': '#9C0006'})
-        red_time_format = workbook.add_format({'bg_color': '#FFC7CE', 'border': 1, 'bold': True, 'num_format': '[h]:mm', 'align': 'right', 'valign': 'vcenter', 'font_color': '#9C0006'})
-        
-        user_header_format = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#4472C4', 'font_color': 'white', 'align': 'left', 'valign': 'vcenter', 'font_size': 12})
-        
-        # Detailed Report için formatlar
-        detail_header_format = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#667eea', 'font_color': 'white', 'align': 'center', 'valign': 'vcenter', 'font_size': 11})
-        detail_date_header_format = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#4472C4', 'font_color': 'white', 'align': 'left', 'font_size': 12, 'valign': 'vcenter'})
-        detail_cell_format = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter', 'font_size': 10})
-        detail_cell_wrap = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'top', 'font_size': 10, 'text_wrap': True})
-        detail_cell_center = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'font_size': 10})
-        detail_number_format = workbook.add_format({'num_format': '0.00', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'font_size': 10})
-        detail_time_format = workbook.add_format({'num_format': '[h]:mm', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'font_size': 10})
-        
-        # ============== SAYFA 1: ÖZET RAPOR ==============
-        summary_sheet = workbook.add_worksheet("Summary Report")
-        summary_sheet.fit_to_pages(1, 0)
-        summary_sheet.set_landscape()
-        summary_sheet.set_paper(9)
-        
-        row = 0
-        
-        # Logo ve Şirket Bilgileri
-        if company_info or logo_data:
-            table_start_row = row
-            
-            if company_info:
-                summary_sheet.write(row, 0, "Company:", info_label_format)
-                summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(company_info.get('company_name', '')), info_value_format)
-                summary_sheet.set_row(row, 18)
-                row += 1
-                
-                if company_info.get('contact_person'):
-                    summary_sheet.write(row, 0, "Contact:", info_label_format)
-                    summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(company_info.get('contact_person', '')), info_value_format)
-                    summary_sheet.set_row(row, 18)
-                    row += 1
-                
-                if company_info.get('phone'):
-                    summary_sheet.write(row, 0, "Phone:", info_label_format)
-                    summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(company_info.get('phone', '')), info_value_format)
-                    summary_sheet.set_row(row, 18)
-                    row += 1
-                
-                if company_info.get('address'):
-                    summary_sheet.write(row, 0, "Address:", info_label_format)
-                    summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(company_info.get('address', '')), info_value_format)
-                    summary_sheet.set_row(row, 18)
-                    row += 1
-            
-            if logo_data is not None:
-                try:
-                    temp_logo = BytesIO(logo_data['data'])
-                    summary_sheet.insert_image(table_start_row, 5, "logo", {
-                        'image_data': temp_logo,
-                        'x_scale': 0.25, 'y_scale': 0.25,
-                        'x_offset': 10, 'y_offset': 5,
-                        'positioning': 1
-                    })
-                    for i in range(table_start_row, row):
-                        summary_sheet.write(i, 5, "", info_value_format)
-                except:
-                    pass
-            
-            row += 1
-        
-        # Rapor Bilgileri
-        summary_sheet.write(row, 0, "Period:", info_label_format)
-        summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(report_period), info_value_format)
-        if logo_data:
-            summary_sheet.write(row, 5, "", info_value_format)
-        summary_sheet.set_row(row, 18)
-        row += 1
-        
-        summary_sheet.write(row, 0, "Projects:", info_label_format)
-        summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(projects), info_value_format)
-        if logo_data:
-            summary_sheet.write(row, 5, "", info_value_format)
-        summary_sheet.set_row(row, 18)
-        row += 1
-        
-        summary_sheet.write(row, 0, "Customers:", info_label_format)
-        summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(customers), info_value_format)
-        if logo_data:
-            summary_sheet.write(row, 5, "", info_value_format)
-        summary_sheet.set_row(row, 18)
-        row += 2
-        
-        # Kullanıcı bazında özet
-        for user in sorted(df["User"].dropna().unique()):
-            user_df = df[df["User"] == user].copy()
-            
-            summary_sheet.merge_range(row, 0, row, 4, sanitize_excel_cell(f"User: {user}"), user_header_format)
-            summary_sheet.set_row(row, 20)
-            row += 1
-            
-            # YENİ: Başlık satırı - Billable ve Free Duration olarak ayrıldı
-            summary_sheet.write(row, 0, "Day", header_format)
-            summary_sheet.write(row, 1, "Description", header_format)
-            summary_sheet.write(row, 2, "Billable Duration", header_format)
-            summary_sheet.write(row, 3, "Free Duration", header_format)
-            summary_sheet.write(row, 4, "Total Duration", header_format)
-            summary_sheet.set_row(row, 18)
-            row += 1
-            
-            for day in all_days_str:
-                day_df = user_df[user_df["Day"] == day]
-                if day_df.empty:
-                    continue
-                
-                unique_descriptions = []
-                for desc in day_df["Description"].tolist():
-                    desc_str = str(desc).strip()
-                    if desc_str and desc_str not in unique_descriptions and desc_str != 'nan':
-                        unique_descriptions.append(desc_str)
-                
-                combined_description = " | ".join(unique_descriptions) if unique_descriptions else ""
-                
-                # YENİ: Billable ve Non-billable süreleri ayrı hesapla
-                billable_duration = day_df[day_df["Billable"] == "Yes"]["formatted_duration"].sum()
-                free_duration = day_df[day_df["Billable"] == "No"]["formatted_duration"].sum()
-                total_duration = day_df["formatted_duration"].sum()
-                
-                summary_sheet.write(row, 0, sanitize_excel_cell(day), cell_format)
-                summary_sheet.write(row, 1, sanitize_excel_cell(combined_description), cell_wrap_format)
-                
-                # Billable Duration
-                if format_choice == "hours":
-                    summary_sheet.write_number(row, 2, billable_duration, time_format)
-                else:
-                    summary_sheet.write_number(row, 2, billable_duration, number_format)
-                
-                # Free Duration
-                if format_choice == "hours":
-                    summary_sheet.write_number(row, 3, free_duration, time_format)
-                else:
-                    summary_sheet.write_number(row, 3, free_duration, number_format)
-                
-                # Total Duration
-                if format_choice == "hours":
-                    summary_sheet.write_number(row, 4, total_duration, time_format)
-                else:
-                    summary_sheet.write_number(row, 4, total_duration, number_format)
-                
-                desc_length = len(combined_description)
-                lines_needed = max(1, (desc_length // 120) + 1)
-                row_height = 18 * lines_needed
-                summary_sheet.set_row(row, row_height)
-                row += 1
-            
-            row += 1
-            
-            billable_df = user_df[user_df["Billable"] == "Yes"]
-            non_billable_df = user_df[user_df["Billable"] == "No"]
-            
-            total_billable = billable_df["formatted_duration"].sum()
-            total_non_billable = non_billable_df["formatted_duration"].sum()
-            total_overall = user_df["formatted_duration"].sum()
-            
-            summary_sheet.merge_range(row, 0, row, 1, "BILLABLE TOTAL", green_format)
-            if format_choice == "hours":
-                summary_sheet.write_number(row, 2, total_billable, green_time_format)
-            else:
-                summary_sheet.write_number(row, 2, total_billable, green_number_format)
-            summary_sheet.write(row, 3, "", green_format)
-            summary_sheet.write(row, 4, "", green_format)
-            summary_sheet.set_row(row, 20)
-            row += 1
-            
-            summary_sheet.merge_range(row, 0, row, 1, "FREE TOTAL", red_format)
-            summary_sheet.write(row, 2, "", red_format)
-            if format_choice == "hours":
-                summary_sheet.write_number(row, 3, total_non_billable, red_time_format)
-            else:
-                summary_sheet.write_number(row, 3, total_non_billable, red_number_format)
-            summary_sheet.write(row, 4, "", red_format)
-            summary_sheet.set_row(row, 20)
-            row += 1
-            
-            summary_sheet.merge_range(row, 0, row, 1, "GRAND TOTAL", yellow_format)
-            summary_sheet.write(row, 2, "", yellow_format)
-            summary_sheet.write(row, 3, "", yellow_format)
-            if format_choice == "hours":
-                summary_sheet.write_number(row, 4, total_overall, yellow_time_format)
-            else:
-                summary_sheet.write_number(row, 4, total_overall, yellow_number_format)
-            summary_sheet.set_row(row, 20)
-            row += 3
-        
-        # YENİ: Kolon genişlikleri - landscape A4'e sığacak şekilde optimize edildi
-        summary_sheet.set_column(0, 0, 14)   # Day
-        summary_sheet.set_column(1, 1, 90)   # Description
-        summary_sheet.set_column(2, 2, 15)   # Billable Duration
-        summary_sheet.set_column(3, 3, 15)   # Free Duration
-        summary_sheet.set_column(4, 4, 15)   # Total Duration
-        summary_sheet.set_column(5, 5, 15)   # Logo column
-        
-        # ============== SAYFA 2: DETAYLI RAPOR ==============
-        detail_sheet = workbook.add_worksheet("Detailed Report")
-        detail_sheet.fit_to_pages(1, 0)
-        detail_sheet.set_landscape()
-        detail_sheet.set_paper(9)
-        
-        detail_row = 0
-        
-        # Başlık
-        detail_sheet.merge_range(detail_row, 0, detail_row, 4, "Detailed Time Report", header_format)
-        detail_sheet.set_row(detail_row, 22)
-        detail_row += 1
-        
-        # Logo ve Şirket Bilgileri
-        if company_info:
-            table_start_row = detail_row
-            
-            detail_sheet.write(detail_row, 0, "Company:", info_label_format)
-            detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(company_info.get('company_name', '')), info_value_format)
-            detail_sheet.set_row(detail_row, 18)
-            detail_row += 1
-            
-            if company_info.get('contact_person'):
-                detail_sheet.write(detail_row, 0, "Contact:", info_label_format)
-                detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(company_info.get('contact_person', '')), info_value_format)
-                detail_sheet.set_row(detail_row, 18)
-                detail_row += 1
-            
-            if company_info.get('phone'):
-                detail_sheet.write(detail_row, 0, "Phone:", info_label_format)
-                detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(company_info.get('phone', '')), info_value_format)
-                detail_sheet.set_row(detail_row, 18)
-                detail_row += 1
-            
-            if company_info.get('address'):
-                detail_sheet.write(detail_row, 0, "Address:", info_label_format)
-                detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(company_info.get('address', '')), info_value_format)
-                detail_sheet.set_row(detail_row, 18)
-                detail_row += 1
-            
-            if logo_data is not None:
-                try:
-                    temp_logo = BytesIO(logo_data['data'])
-                    detail_sheet.insert_image(table_start_row, 5, "logo", {
-                        'image_data': temp_logo,
-                        'x_scale': 0.25, 'y_scale': 0.25,
-                        'x_offset': 10, 'y_offset': 5,
-                        'positioning': 1
-                    })
-                    for i in range(table_start_row, detail_row):
-                        detail_sheet.write(i, 5, "", info_value_format)
-                except:
-                    pass
-            
-            detail_row += 1
-        
-        # Rapor Bilgileri
-        detail_sheet.write(detail_row, 0, "Period:", info_label_format)
-        detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(report_period), info_value_format)
-        detail_sheet.set_row(detail_row, 18)
-        detail_row += 1
-        
-        detail_sheet.write(detail_row, 0, "Projects:", info_label_format)
-        detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(projects), info_value_format)
-        detail_sheet.set_row(detail_row, 18)
-        detail_row += 1
-        
-        detail_sheet.write(detail_row, 0, "Clients:", info_label_format)
-        detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(customers), info_value_format)
-        detail_sheet.set_row(detail_row, 18)
-        detail_row += 2
-        
-        # Kullanıcı ve tarih bazında detaylı veriler
-        df_sorted = df.sort_values(['User', 'ParsedDate', 'Start Time'])
-        
-        for user_value in sorted(df_sorted['User'].dropna().unique()):
-            user_df = df_sorted[df_sorted['User'] == user_value]
-            
-            detail_sheet.merge_range(detail_row, 0, detail_row, 4, sanitize_excel_cell(f"User: {user_value}"), user_header_format)
-            detail_sheet.set_row(detail_row, 22)
-            detail_row += 1
-            
-            for date_value in user_df['DayFull'].unique():
-                if pd.isna(date_value) or date_value == "Unknown":
-                    continue
-                    
-                date_df = user_df[user_df['DayFull'] == date_value]
-                
-                detail_sheet.merge_range(detail_row, 0, detail_row, 4, sanitize_excel_cell(f"Date: {date_value}"), detail_date_header_format)
-                detail_sheet.set_row(detail_row, 20)
-                detail_row += 1
-                
-                # Başlık satırı
-                headers = ["Start Time", "End Time", "Duration", "Description", "Billable"]
-                for col_idx, header in enumerate(headers):
-                    detail_sheet.write(detail_row, col_idx, header, detail_header_format)
-                detail_sheet.set_row(detail_row, 18)
-                detail_row += 1
-                
-                # Veri satırları
-                for idx, row_data in date_df.iterrows():
-                    detail_sheet.write(detail_row, 0, sanitize_excel_cell(str(row_data.get('Start Time', ''))), detail_cell_center)
-                    detail_sheet.write(detail_row, 1, sanitize_excel_cell(str(row_data.get('End Time', ''))), detail_cell_center)
-                    
-                    if format_choice == "hours":
-                        detail_sheet.write_number(detail_row, 2, row_data['formatted_duration'], detail_time_format)
-                    else:
-                        detail_sheet.write_number(detail_row, 2, row_data['formatted_duration'], detail_number_format)
-                    
-                    desc_text = sanitize_excel_cell(str(row_data.get('Description', '')))
-                    detail_sheet.write(detail_row, 3, desc_text, detail_cell_wrap)
-                    detail_sheet.write(detail_row, 4, sanitize_excel_cell(str(row_data.get('Billable', 'No'))), detail_cell_center)
-                    
-                    # Satır yüksekliği - daha kompakt
-                    desc_length = len(desc_text)
-                    lines_needed = max(1, (desc_length // 60) + 1)
-                    row_height = 16 * lines_needed
-                    detail_sheet.set_row(detail_row, row_height)
-                    
-                    detail_row += 1
-                
-                detail_row += 1
-            
-            detail_row += 1
-        
-        # YENİ: Kolon genişlikleri - landscape A4'e tam sığacak şekilde optimize edildi
-        detail_sheet.set_column(0, 0, 10)   # Start Time
-        detail_sheet.set_column(1, 1, 10)   # End Time
-        detail_sheet.set_column(2, 2, 10)   # Duration
-        detail_sheet.set_column(3, 3, 84)   # Description
-        detail_sheet.set_column(4, 4, 8)    # Billable
-        detail_sheet.set_column(5, 5, 12)   # Logo column
-    
-    output.seek(0)
-    return output
-
-def encrypt_api_key(api_key):
-    """API key'i şifrele"""
-    if not api_key:
-        return None
-    return cipher_suite.encrypt(api_key.encode()).decode()
-
-def decrypt_api_key(encrypted_key):
-    """API key'i çöz"""
-    if not encrypted_key:
-        return None
-    try:
-        return cipher_suite.decrypt(encrypted_key.encode()).decode()
-    except:
-        return None
-
 # ============== AUTH ENDPOINTS ==============
 
 @app.route('/api/auth/register', methods=['POST'])
+@limiter.limit("3 per minute")
 def register():
-    """Kullanıcı kaydı - Data Source seçimi ile"""
+    """Kullanıcı kaydı - Güvenlik kontrolleri eklenmiş"""
     try:
         data = request.get_json()
         
-        if mongo.db.users.find_one({'email': data['email']}):
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        email = data.get('email', '').strip().lower()
+        valid, message = validate_email(email)
+        if not valid:
+            return jsonify({'error': message}), 400
+        
+        if mongo.db.users.find_one({'email': email}):
             return jsonify({'error': 'Email already registered'}), 400
         
+        password = data.get('password', '')
+        valid, message = validate_password(password)
+        if not valid:
+            return jsonify({'error': message}), 400
+        
+        user_type = data.get('user_type', 'individual')
+        if user_type not in ['individual', 'company']:
+            return jsonify({'error': 'Invalid user type'}), 400
+        
+        data_source = data.get('data_source', 'csv')
+        if data_source not in ['csv', 'clockify']:
+            return jsonify({'error': 'Invalid data source'}), 400
+        
         user_doc = {
-            'email': data['email'],
-            'password_hash': generate_password_hash(data['password']),
-            'user_type': data['user_type'],
-            'data_source': data.get('data_source', 'csv'),  # YENİ: csv veya clockify
-            'created_at': datetime.utcnow()
+            'email': email,
+            'password_hash': generate_password_hash(password),
+            'user_type': user_type,
+            'data_source': data_source,
+            'created_at': datetime.utcnow(),
+            'last_login': None
         }
         
-        if data['user_type'] == 'individual':
+        if user_type == 'individual':
+            full_name = sanitize_input(data.get('full_name', ''), 100)
+            if not full_name:
+                return jsonify({'error': 'Full name is required'}), 400
+            
             user_doc['individual_profile'] = {
-                'full_name': data['full_name'],
-                'phone': data.get('phone', '')
+                'full_name': full_name,
+                'phone': sanitize_input(data.get('phone', ''), 20)
             }
+        
         else:
+            company_name = sanitize_input(data.get('company_name', ''), 100)
+            if not company_name:
+                return jsonify({'error': 'Company name is required'}), 400
+            
             company_profile = {
-                'company_name': data['company_name'],
-                'contact_person': data.get('contact_person', ''),
-                'phone': data.get('phone', ''),
-                'address': data.get('address', '')
+                'company_name': company_name,
+                'contact_person': sanitize_input(data.get('contact_person', ''), 100),
+                'phone': sanitize_input(data.get('phone', ''), 20),
+                'address': sanitize_input(data.get('address', ''), 500)
             }
             
             if 'logo_base64' in data and data['logo_base64']:
-                logo_data = base64.b64decode(data['logo_base64'].split(',')[1])
-                company_profile['logo_data'] = logo_data
-                company_profile['logo_mimetype'] = data.get('logo_mimetype', 'image/png')
+                try:
+                    logo_data = base64.b64decode(data['logo_base64'].split(',')[1])
+                    
+                    if len(logo_data) > 2 * 1024 * 1024:
+                        return jsonify({'error': 'Logo size must be less than 2MB'}), 400
+                    
+                    company_profile['logo_data'] = logo_data
+                    company_profile['logo_mimetype'] = data.get('logo_mimetype', 'image/png')
+                except Exception as e:
+                    return jsonify({'error': 'Invalid logo data'}), 400
             
             user_doc['company_profile'] = company_profile
         
-        # Eğer Clockify seçilmişse ve API key varsa, şifrele ve kaydet
-        if data.get('data_source') == 'clockify' and data.get('clockify_api_key'):
-            encrypted_key = encrypt_api_key(data['clockify_api_key'])
-            user_doc['clockify_api_key'] = encrypted_key
+        if data_source == 'clockify' and data.get('clockify_api_key'):
+            api_key = data['clockify_api_key'].strip()
+            if api_key:
+                encrypted_key = encrypt_api_key(api_key)
+                if encrypted_key:
+                    user_doc['clockify_api_key'] = encrypted_key
+                else:
+                    return jsonify({'error': 'Failed to encrypt API key'}), 500
         
         result = mongo.db.users.insert_one(user_doc)
         
@@ -999,17 +1173,38 @@ def register():
         }), 201
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return safe_error_response(e, 500)
 
 @app.route('/api/auth/login', methods=['POST'])
+@limiter.limit("5 per minute")
+@limiter.limit("20 per hour")
 def login():
-    """Kullanıcı girişi"""
+    """Kullanıcı girişi - Rate limiting ve güvenlik eklenmiş"""
     try:
         data = request.get_json()
-        user = mongo.db.users.find_one({'email': data['email']})
         
-        if not user or not check_password_hash(user['password_hash'], data['password']):
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        email = data.get('email', '').strip().lower()
+        password = data.get('password', '')
+        
+        if not email or not password:
+            return jsonify({'error': 'Email and password required'}), 400
+        
+        valid, message = validate_email(email)
+        if not valid:
             return jsonify({'error': 'Invalid credentials'}), 401
+        
+        user = mongo.db.users.find_one({'email': email})
+        
+        if not user or not check_password_hash(user['password_hash'], password):
+            return jsonify({'error': 'Invalid credentials'}), 401
+        
+        mongo.db.users.update_one(
+            {'_id': user['_id']},
+            {'$set': {'last_login': datetime.utcnow()}}
+        )
         
         access_token = create_access_token(identity=str(user['_id']))
         
@@ -1017,7 +1212,7 @@ def login():
             'id': str(user['_id']),
             'email': user['email'],
             'user_type': user['user_type'],
-            'data_source': user.get('data_source', 'csv')  # YENİ
+            'data_source': user.get('data_source', 'csv')
         }
         
         if user['user_type'] == 'individual':
@@ -1036,7 +1231,7 @@ def login():
         }), 200
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return safe_error_response(e, 500)
 
 @app.route('/api/auth/me', methods=['GET'])
 @jwt_required()
@@ -1044,7 +1239,13 @@ def get_current_user():
     """Mevcut kullanıcı bilgileri"""
     try:
         user_id = get_jwt_identity()
-        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+        
+        try:
+            user_obj_id = ObjectId(user_id)
+        except:
+            return jsonify({'error': 'Invalid user ID'}), 401
+        
+        user = mongo.db.users.find_one({'_id': user_obj_id})
         
         if not user:
             return jsonify({'error': 'User not found'}), 404
@@ -1053,7 +1254,7 @@ def get_current_user():
             'id': str(user['_id']),
             'email': user['email'],
             'user_type': user['user_type'],
-            'data_source': user.get('data_source', 'csv')  # YENİ
+            'data_source': user.get('data_source', 'csv')
         }
         
         if user['user_type'] == 'individual':
@@ -1069,64 +1270,89 @@ def get_current_user():
         return jsonify(user_info), 200
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return safe_error_response(e, 500)
 
 # ============== PROFILE ENDPOINTS ==============
 
 @app.route('/api/profile', methods=['PUT'])
 @jwt_required()
+@limiter.limit("10 per minute")
 def update_profile():
-    """Profil güncelleme - Data Source değişimi ile"""
+    """Profil güncelleme"""
     try:
         user_id = get_jwt_identity()
         data = request.get_json()
         
-        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+        try:
+            user_obj_id = ObjectId(user_id)
+        except:
+            return jsonify({'error': 'Invalid user ID'}), 401
+        
+        user = mongo.db.users.find_one({'_id': user_obj_id})
         if not user:
             return jsonify({'error': 'User not found'}), 404
         
         update_data = {}
         
-        # Data source güncelleme
         if 'data_source' in data:
-            update_data['data_source'] = data['data_source']
+            data_source = data['data_source']
+            if data_source not in ['csv', 'clockify']:
+                return jsonify({'error': 'Invalid data source'}), 400
             
-            # Eğer Clockify'a geçiş yapılıyorsa ve API key varsa
-            if data['data_source'] == 'clockify' and data.get('clockify_api_key'):
-                # Boş string veya maskelenmiş değer değilse şifrele
-                api_key = data['clockify_api_key']
-                if api_key and not '*' in api_key:
+            update_data['data_source'] = data_source
+            
+            if data_source == 'clockify' and data.get('clockify_api_key'):
+                api_key = data['clockify_api_key'].strip()
+                if api_key and '*' not in api_key:
                     encrypted_key = encrypt_api_key(api_key)
-                    update_data['clockify_api_key'] = encrypted_key
+                    if encrypted_key:
+                        update_data['clockify_api_key'] = encrypted_key
         
-        # Eğer sadece API key güncellemesi yapılıyorsa
-        if data.get('clockify_api_key') and not '*' in data.get('clockify_api_key', ''):
-            encrypted_key = encrypt_api_key(data['clockify_api_key'])
-            update_data['clockify_api_key'] = encrypted_key
+        if data.get('clockify_api_key') and '*' not in data.get('clockify_api_key', ''):
+            api_key = data['clockify_api_key'].strip()
+            encrypted_key = encrypt_api_key(api_key)
+            if encrypted_key:
+                update_data['clockify_api_key'] = encrypted_key
         
         if user['user_type'] == 'individual':
-            update_data['individual_profile.full_name'] = data['full_name']
-            update_data['individual_profile.phone'] = data.get('phone', '')
+            full_name = sanitize_input(data.get('full_name', ''), 100)
+            if full_name:
+                update_data['individual_profile.full_name'] = full_name
+            if 'phone' in data:
+                update_data['individual_profile.phone'] = sanitize_input(data.get('phone', ''), 20)
+        
         else:
-            update_data['company_profile.company_name'] = data['company_name']
-            update_data['company_profile.contact_person'] = data.get('contact_person', '')
-            update_data['company_profile.phone'] = data.get('phone', '')
-            update_data['company_profile.address'] = data.get('address', '')
+            company_name = sanitize_input(data.get('company_name', ''), 100)
+            if company_name:
+                update_data['company_profile.company_name'] = company_name
+            if 'contact_person' in data:
+                update_data['company_profile.contact_person'] = sanitize_input(data.get('contact_person', ''), 100)
+            if 'phone' in data:
+                update_data['company_profile.phone'] = sanitize_input(data.get('phone', ''), 20)
+            if 'address' in data:
+                update_data['company_profile.address'] = sanitize_input(data.get('address', ''), 500)
             
             if 'logo_base64' in data and data['logo_base64']:
-                logo_data = base64.b64decode(data['logo_base64'].split(',')[1])
-                update_data['company_profile.logo_data'] = logo_data
-                update_data['company_profile.logo_mimetype'] = data.get('logo_mimetype', 'image/png')
+                try:
+                    logo_data = base64.b64decode(data['logo_base64'].split(',')[1])
+                    if len(logo_data) > 2 * 1024 * 1024:
+                        return jsonify({'error': 'Logo size must be less than 2MB'}), 400
+                    
+                    update_data['company_profile.logo_data'] = logo_data
+                    update_data['company_profile.logo_mimetype'] = data.get('logo_mimetype', 'image/png')
+                except:
+                    return jsonify({'error': 'Invalid logo data'}), 400
         
-        mongo.db.users.update_one(
-            {'_id': ObjectId(user_id)},
-            {'$set': update_data}
-        )
+        if update_data:
+            mongo.db.users.update_one(
+                {'_id': user_obj_id},
+                {'$set': update_data}
+            )
         
         return jsonify({'message': 'Profile updated successfully'}), 200
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return safe_error_response(e, 500)
 
 # ============== CSV PROCESSING ENDPOINTS ==============
 
@@ -1612,18 +1838,20 @@ def generate_invoice():
 # ============== HEALTH CHECK ==============
 
 @app.route('/api/health', methods=['GET'])
+@limiter.exempt
 def health_check():
     """API sağlık kontrolü"""
     try:
         mongo.db.command('ping')
         return jsonify({
             'status': 'healthy',
-            'database': 'connected'
+            'database': 'connected',
+            'timestamp': datetime.utcnow().isoformat()
         }), 200
     except Exception as e:
         return jsonify({
             'status': 'unhealthy',
-            'error': str(e)
+            'error': 'Database connection failed'
         }), 500
 
 @app.route('/')
@@ -1631,15 +1859,19 @@ def index():
     """Root endpoint"""
     return jsonify({
         'message': 'TimeTracker API',
-        'version': '1.0.0',
+        'version': '2.0.0',
+        'security': 'enhanced',
         'endpoints': {
             'auth': '/api/auth/*',
             'profile': '/api/profile',
             'csv': '/api/csv/*',
+            'clockify': '/api/clockify/*',
+            'invoice': '/api/invoice/*',
             'health': '/api/health'
         }
     })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(debug=False, host='0.0.0.0', port=port)
+    debug_mode = os.environ.get('FLASK_ENV') == 'development'
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)
