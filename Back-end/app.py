@@ -636,7 +636,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
     return output
 
 def generate_invoice_excel(data, logo_data=None, company_info=None):
-    """Invoice Excel dosyası oluştur - Orijinal formata uygun"""
+    """Invoice Excel dosyası oluştur - Logo B3:B6'da"""
     from openpyxl import Workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Side, Border
     from openpyxl.drawing.image import Image as XLImage
@@ -677,7 +677,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     border = Border(left=border_side, right=border_side, top=border_side, bottom=border_side)
     thick_border_side = Side(style='medium', color='000000')
     
-    # Sütun genişlikleri - Orijinal formata göre
+    # Sütun genişlikleri
     ws.column_dimensions['A'].width = 3
     ws.column_dimensions['B'].width = 28
     ws.column_dimensions['C'].width = 9
@@ -719,8 +719,17 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     
     company_start_row = row
     
-    # ============== SOL TARAF: Logo + Şirket Bilgileri ==============
-    # Logo
+    # ============== SOL TARAF: Logo B3:B6'da ==============
+    # A sütunu boş alan
+    ws.merge_cells(f'A{row}:A{row+9}')
+    ws.cell(row=row, column=1).border = border
+    for i in range(10):
+        ws.cell(row=row+i, column=1).border = border
+    
+    # Logo B3:B6 aralığında
+    logo_start_row = row  # B3
+    logo_end_row = row + 3  # B6
+    
     if logo_data:
         try:
             if isinstance(logo_data, dict) and 'data' in logo_data:
@@ -731,34 +740,48 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
             temp_logo_io = BytesIO(logo_bytes)
             pil_image = PILImage.open(temp_logo_io)
             
-            # Logo boyutu: 70x70 piksel maksimum
-            max_size = (70, 70)
-            pil_image.thumbnail(max_size, PILImage.Resampling.LANCZOS)
+            # Logo boyutu: maksimum boyutta
+            max_width = 180  # B sütunu genişliği
+            max_height = 80  # 4 satır yüksekliği
+            
+            # Aspect ratio koruyarak resize
+            pil_image.thumbnail((max_width, max_height), PILImage.Resampling.LANCZOS)
             
             optimized_logo_io = BytesIO()
             pil_image.save(optimized_logo_io, format='PNG')
             optimized_logo_io.seek(0)
             
             logo = XLImage(optimized_logo_io)
-            logo.width = min(pil_image.width, 65)
-            logo.height = min(pil_image.height, 65)
             
-            ws.add_image(logo, f'A{row}')
+            # Logo'yu B3 hücresine ekle ve ortala
+            ws.add_image(logo, f'B{logo_start_row}')
             
         except Exception as e:
             app.logger.warning(f"Logo eklenemedi: {str(e)}")
     
-    # A sütunu logo alanı
-    ws.merge_cells(f'A{row}:A{row+9}')
-    ws.cell(row=row, column=1).border = border
-    for i in range(10):
-        ws.cell(row=row+i, column=1).border = border
+    # B3:B6 aralığını merge et ve border ekle
+    ws.merge_cells(f'B{logo_start_row}:B{logo_end_row}')
+    for i in range(logo_start_row, logo_end_row + 1):
+        ws.cell(row=i, column=2).border = border
+        ws.cell(row=i, column=2).alignment = center_alignment
     
-    # Şirket bilgileri
-    company_name = company_info.get('company_name', 'ULEPUS') if company_info else 'ULEPUS'
-    company_address = company_info.get('address', 'ODTÜ Teknokent Mustafa Kemal Mah. Dumlupınar Blv. No:280/G İç Kapı No:305 Çankaya/Ankara') if company_info else 'ODTÜ Teknokent Mustafa Kemal Mah. Dumlupınar Blv. No:280/G İç Kapı No:305 Çankaya/Ankara'
-    company_phone = company_info.get('phone', '+90-312-486-1158') if company_info else '+90-312-486-1158'
-    company_email = company_info.get('email', 'info@ulepus.com') if company_info else 'info@ulepus.com'
+    # Satır yüksekliklerini ayarla (logo alanı)
+    for i in range(logo_start_row, logo_end_row + 1):
+        ws.row_dimensions[i].height = 20
+    
+    row = logo_end_row + 1  # B7'den başla
+    
+    # Şirket bilgileri B7'den itibaren
+    if company_info:
+        company_name = company_info.get('company_name', 'ULEPUS')
+        company_address = company_info.get('address', 'ODTÜ Teknokent Mustafa Kemal Mah. Dumlupınar Blv. No:280/G İç Kapı No:305 Çankaya/Ankara')
+        company_phone = company_info.get('phone', '+90-312-486-1158')
+        company_email = company_info.get('email', 'info@ulepus.com')
+    else:
+        company_name = 'ULEPUS'
+        company_address = 'ODTÜ Teknokent Mustafa Kemal Mah. Dumlupınar Blv. No:280/G İç Kapı No:305 Çankaya/Ankara'
+        company_phone = '+90-312-486-1158'
+        company_email = 'info@ulepus.com'
     
     # Şirket ismi
     ws.cell(row=row, column=2, value=company_name)
