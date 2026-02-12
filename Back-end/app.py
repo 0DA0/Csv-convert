@@ -635,7 +635,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
     output.seek(0)
     return output
 
-ddef generate_invoice_excel(data, logo_data=None, company_info=None):
+def generate_invoice_excel(data, logo_data=None, company_info=None):
     """Invoice Excel dosyası oluştur - Logo B-C birleşik, maksimum kompakt"""
     from openpyxl import Workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Side, Border
