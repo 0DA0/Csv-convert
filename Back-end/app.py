@@ -651,7 +651,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
     ws.page_setup.fitToPage = True
-    ws.page_setup.fitToHeight = 1
+    ws.page_setup.fitToHeight = 0
     ws.page_setup.fitToWidth = 1
     
     # Kenar boşlukları - minimum
