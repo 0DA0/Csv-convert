@@ -680,14 +680,14 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     border = Border(left=border_side, right=border_side, top=border_side, bottom=border_side)
     thick_border_side = Side(style='medium', color='000000')
     
-    # Sütun genişlikleri - DAHA GENİŞ (toplam ~100 birim)
-    ws.column_dimensions['A'].width = 5
-    ws.column_dimensions['B'].width = 26
-    ws.column_dimensions['C'].width = 26
-    ws.column_dimensions['D'].width = 12.5
-    ws.column_dimensions['E'].width = 12.5
-    ws.column_dimensions['F'].width = 8
-    ws.column_dimensions['G'].width = 11
+    # Sütun genişlikleri - DAHA GENİŞ (toplam ~121 birim, A4 landscape için optimize)
+    ws.column_dimensions['A'].width = 6
+    ws.column_dimensions['B'].width = 30
+    ws.column_dimensions['C'].width = 30
+    ws.column_dimensions['D'].width = 15
+    ws.column_dimensions['E'].width = 15
+    ws.column_dimensions['F'].width = 10
+    ws.column_dimensions['G'].width = 15
     
     row = 1
     
