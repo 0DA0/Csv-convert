@@ -636,7 +636,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
     return output
 
 def generate_invoice_excel(data, logo_data=None, company_info=None):
-    """Invoice Excel dosyası oluştur - A4 Landscape: Genişlik 1 sayfa, Declaration/Bank düzeltilmiş"""
+    """Invoice Excel dosyası oluştur - A4 Landscape: Optimized border management"""
     from openpyxl import Workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Side, Border
     from openpyxl.drawing.image import Image as XLImage
@@ -690,18 +690,6 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.column_dimensions['G'].width = 10
     
     row = 1
-    
-    # Dış border
-    for r in range(1, 50):
-        ws.cell(row=r, column=1).border = Border(left=thick_border_side)
-        ws.cell(row=r, column=7).border = Border(right=thick_border_side)
-    
-    for c in range(1, 8):
-        ws.cell(row=1, column=c).border = Border(
-            top=thick_border_side,
-            left=thick_border_side if c == 1 else border_side,
-            right=thick_border_side if c == 7 else border_side
-        )
     
     # Başlık
     ws.cell(row=row, column=1, value="Tax Invoice")
@@ -1121,7 +1109,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.row_dimensions[row].height = 18
     row += 1
     
-    # ============== DECLARATION & BANK - DÜZELTİLDİ ==============
+    # ============== DECLARATION & BANK ==============
     declaration_start_row = row
     
     # Declaration başlık (Sol)
@@ -1132,7 +1120,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.merge_cells(f'A{row}:C{row}')
     ws.row_dimensions[row].height = 20
     
-    # Bank başlık (Sağ) - aynı satır
+    # Bank başlık (Sağ)
     ws.cell(row=row, column=4, value="Company's Bank Details")
     ws.cell(row=row, column=4).font = bold_font
     ws.cell(row=row, column=4).alignment = left_center_alignment
@@ -1165,7 +1153,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
         f"SWIFT Code: {data.get('bank_swift', '')}"
     ]
     
-    # Sol ve sağ aynı anda doldur - 4 satır (terms)
+    # Sol ve sağ paralel doldur
     bank_row = declaration_start_row + 1
     for i, term in enumerate(terms):
         ws.cell(row=row, column=1, value=term)
@@ -1175,7 +1163,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
         ws.merge_cells(f'A{row}:C{row}')
         ws.row_dimensions[row].height = 20
         
-        # Bank detail ekle (sağ taraf)
+        # Bank detail
         if i < len(bank_details):
             ws.cell(row=bank_row, column=4, value=bank_details[i])
             ws.cell(row=bank_row, column=4).font = tiny_font
@@ -1187,7 +1175,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
         
         row += 1
     
-    # Kalan bank details (5. satır)
+    # 5. bank detail (eğer varsa)
     if len(bank_details) > len(terms):
         ws.cell(row=bank_row, column=4, value=bank_details[4])
         ws.cell(row=bank_row, column=4).font = tiny_font
@@ -1196,28 +1184,58 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
         ws.merge_cells(f'D{bank_row}:G{bank_row}')
         ws.row_dimensions[bank_row].height = 20
         
-        # Sol tarafa boş satır ekle (eşitlemek için)
+        # Sol tarafa boş satır (eşitleme)
         ws.cell(row=row, column=1, value="")
         ws.cell(row=row, column=1).border = border
         ws.merge_cells(f'A{row}:C{row}')
         ws.row_dimensions[row].height = 20
         row += 1
     
-    # Final row = son satır
+    # FINAL ROW hesaplama
     final_row = row - 1
     
-    # Alt thick border
+    # ============== BORDER YÖNETİMİ - OPTİMİZE EDİLDİ ==============
+    
+    # ÜST BORDER (sadece ilk satır)
     for c in range(1, 8):
-        cell = ws.cell(row=final_row, column=c)
-        current_border = cell.border
-        cell.border = Border(
-            left=thick_border_side if c == 1 else (current_border.left if current_border else border_side),
-            right=thick_border_side if c == 7 else (current_border.right if current_border else border_side),
-            top=current_border.top if current_border else border_side,
+        ws.cell(row=1, column=c).border = Border(
+            top=thick_border_side,
+            left=thick_border_side if c == 1 else border_side,
+            right=thick_border_side if c == 7 else border_side,
+            bottom=border_side
+        )
+    
+    # SOL VE SAĞ BORDER (sadece kullanılan satırlar)
+    for r in range(2, final_row):
+        # Sol border
+        current_left = ws.cell(row=r, column=1).border
+        ws.cell(row=r, column=1).border = Border(
+            left=thick_border_side,
+            right=current_left.right if current_left else border_side,
+            top=current_left.top if current_left else border_side,
+            bottom=current_left.bottom if current_left else border_side
+        )
+        
+        # Sağ border
+        current_right = ws.cell(row=r, column=7).border
+        ws.cell(row=r, column=7).border = Border(
+            right=thick_border_side,
+            left=current_right.left if current_right else border_side,
+            top=current_right.top if current_right else border_side,
+            bottom=current_right.bottom if current_right else border_side
+        )
+    
+    # ALT BORDER (sadece son satır)
+    for c in range(1, 8):
+        current_bottom = ws.cell(row=final_row, column=c).border
+        ws.cell(row=final_row, column=c).border = Border(
+            left=thick_border_side if c == 1 else (current_bottom.left if current_bottom else border_side),
+            right=thick_border_side if c == 7 else (current_bottom.right if current_bottom else border_side),
+            top=current_bottom.top if current_bottom else border_side,
             bottom=thick_border_side
         )
     
-    # Tüm hücrelere border
+    # Tüm hücrelere normal border (sadece kullanılan alanda)
     for r in range(1, final_row + 1):
         for c in range(1, 8):
             cell = ws.cell(row=r, column=c)
