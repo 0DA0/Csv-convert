@@ -636,7 +636,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
     return output
 
 def generate_invoice_excel(data, logo_data=None, company_info=None):
-    """Invoice Excel dosyası oluştur - A4 Landscape: scale=100, çakışma yok"""
+    """Invoice Excel dosyası oluştur - A4 Landscape: Kolon toplamı 90, çakışma yok"""
     from openpyxl import Workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Side, Border
     from openpyxl.drawing.image import Image as XLImage
@@ -648,10 +648,10 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws = wb.active
     ws.title = "Tax Invoice"
     
-    # A4 Landscape sayfa ayarları - ÇAKIŞMA YOK
+    # A4 Landscape sayfa ayarları
     ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
-    ws.page_setup.scale = 100  # ✅ Gerçek boyut, çakışma yok
+    ws.page_setup.scale = 100
     
     # Kenar boşlukları
     ws.page_margins.left = 0.5
@@ -678,14 +678,15 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     border = Border(left=border_side, right=border_side, top=border_side, bottom=border_side)
     thick_border_side = Side(style='medium', color='000000')
     
-    # Sütun genişlikleri - A4 landscape için optimize
-    ws.column_dimensions['A'].width = 5
-    ws.column_dimensions['B'].width = 26
-    ws.column_dimensions['C'].width = 26
-    ws.column_dimensions['D'].width = 12.5
-    ws.column_dimensions['E'].width = 12.5
-    ws.column_dimensions['F'].width = 8
-    ws.column_dimensions['G'].width = 11
+    # Sütun genişlikleri - TOPLAM 90 (çakışma önleme)
+    ws.column_dimensions['A'].width = 4.5
+    ws.column_dimensions['B'].width = 24
+    ws.column_dimensions['C'].width = 24
+    ws.column_dimensions['D'].width = 11.5
+    ws.column_dimensions['E'].width = 11.5
+    ws.column_dimensions['F'].width = 7
+    ws.column_dimensions['G'].width = 7.5
+    # TOPLAM: 4.5 + 24 + 24 + 11.5 + 11.5 + 7 + 7.5 = 90
     
     row = 1
     
@@ -728,7 +729,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
             temp_logo_io = BytesIO(logo_bytes)
             pil_image = PILImage.open(temp_logo_io)
             
-            max_width = 350
+            max_width = 320
             max_height = 85
             
             pil_image.thumbnail((max_width, max_height), PILImage.Resampling.LANCZOS)
