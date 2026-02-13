@@ -636,7 +636,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
     return output
 
 def generate_invoice_excel(data, logo_data=None, company_info=None):
-    """Invoice Excel dosyası oluştur - A4 Landscape: Optimized border management"""
+    """Invoice Excel dosyası oluştur - A4 Landscape: Daha geniş, optimize fontlar"""
     from openpyxl import Workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Side, Border
     from openpyxl.drawing.image import Image as XLImage
@@ -655,20 +655,20 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 0
     
-    # Kenar boşlukları
-    ws.page_margins.left = 0.7
-    ws.page_margins.right = 0.7
-    ws.page_margins.top = 0.75
-    ws.page_margins.bottom = 0.75
+    # Kenar boşlukları - daha dar (daha fazla alan)
+    ws.page_margins.left = 0.5
+    ws.page_margins.right = 0.5
+    ws.page_margins.top = 0.6
+    ws.page_margins.bottom = 0.6
     
-    # Formatlar
-    title_font = Font(bold=True, size=16, name='Calibri')
-    bold_font = Font(bold=True, size=11, name='Calibri')
-    regular_font = Font(size=10, name='Calibri')
-    small_font = Font(size=9, name='Calibri')
-    tiny_font = Font(size=8.5, name='Calibri')
-    note_font = Font(size=7.5, color='7F8C8D', name='Calibri')
-    company_name_font = Font(bold=True, size=12, name='Calibri')
+    # Formatlar - DAHA KÜÇÜK VE OKUNAKLI
+    title_font = Font(bold=True, size=14, name='Calibri')
+    bold_font = Font(bold=True, size=9.5, name='Calibri')
+    regular_font = Font(size=9, name='Calibri')
+    small_font = Font(size=8.5, name='Calibri')
+    tiny_font = Font(size=8, name='Calibri')
+    note_font = Font(size=7, color='7F8C8D', name='Calibri')
+    company_name_font = Font(bold=True, size=10.5, name='Calibri')
     
     center_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
     left_center_alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
@@ -680,14 +680,14 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     border = Border(left=border_side, right=border_side, top=border_side, bottom=border_side)
     thick_border_side = Side(style='medium', color='000000')
     
-    # Sütun genişlikleri
-    ws.column_dimensions['A'].width = 4.5
-    ws.column_dimensions['B'].width = 24
-    ws.column_dimensions['C'].width = 24
-    ws.column_dimensions['D'].width = 11.5
-    ws.column_dimensions['E'].width = 11.5
-    ws.column_dimensions['F'].width = 7
-    ws.column_dimensions['G'].width = 10
+    # Sütun genişlikleri - DAHA GENİŞ (toplam ~100 birim)
+    ws.column_dimensions['A'].width = 5
+    ws.column_dimensions['B'].width = 26
+    ws.column_dimensions['C'].width = 26
+    ws.column_dimensions['D'].width = 12.5
+    ws.column_dimensions['E'].width = 12.5
+    ws.column_dimensions['F'].width = 8
+    ws.column_dimensions['G'].width = 11
     
     row = 1
     
@@ -696,7 +696,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.cell(row=row, column=1).font = title_font
     ws.cell(row=row, column=1).alignment = center_alignment
     ws.merge_cells(f'A{row}:G{row}')
-    ws.row_dimensions[row].height = 25
+    ws.row_dimensions[row].height = 23
     row += 1
     
     # Alt başlık
@@ -705,7 +705,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.cell(row=row, column=1).font = note_font
     ws.cell(row=row, column=1).alignment = center_alignment
     ws.merge_cells(f'A{row}:G{row}')
-    ws.row_dimensions[row].height = 24
+    ws.row_dimensions[row].height = 22
     row += 1
     
     company_start_row = row
@@ -730,8 +730,8 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
             temp_logo_io = BytesIO(logo_bytes)
             pil_image = PILImage.open(temp_logo_io)
             
-            max_width = 320
-            max_height = 90
+            max_width = 350
+            max_height = 85
             
             pil_image.thumbnail((max_width, max_height), PILImage.Resampling.LANCZOS)
             
@@ -750,7 +750,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
         ws.cell(row=i, column=2).border = border
         ws.cell(row=i, column=3).border = border
         ws.cell(row=i, column=2).alignment = center_alignment
-        ws.row_dimensions[i].height = 20
+        ws.row_dimensions[i].height = 19
     
     row = logo_end_row + 1
     
@@ -771,7 +771,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.cell(row=row, column=2).alignment = left_center_alignment
     ws.cell(row=row, column=2).border = border
     ws.merge_cells(f'B{row}:C{row}')
-    ws.row_dimensions[row].height = 20
+    ws.row_dimensions[row].height = 19
     row += 1
     
     ws.cell(row=row, column=2, value=company_address)
@@ -783,7 +783,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     for i in range(3):
         for col in ['B', 'C']:
             ws[f'{col}{row+i}'].border = border
-        ws.row_dimensions[row+i].height = 18
+        ws.row_dimensions[row+i].height = 17
     
     row += 3
     
@@ -792,7 +792,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.cell(row=row, column=2).alignment = left_center_alignment
     ws.cell(row=row, column=2).border = border
     ws.merge_cells(f'B{row}:C{row}')
-    ws.row_dimensions[row].height = 18
+    ws.row_dimensions[row].height = 17
     row += 1
     
     ws.cell(row=row, column=2, value=f"Contact: {company_phone}")
@@ -800,7 +800,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.cell(row=row, column=2).alignment = left_center_alignment
     ws.cell(row=row, column=2).border = border
     ws.merge_cells(f'B{row}:C{row}')
-    ws.row_dimensions[row].height = 18
+    ws.row_dimensions[row].height = 17
     row += 1
     
     for c in [2, 3]:
@@ -811,7 +811,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
             top=border_side
         )
     ws.merge_cells(f'B{row}:C{row}')
-    ws.row_dimensions[row].height = 8
+    ws.row_dimensions[row].height = 7
     row += 1
     
     ws.cell(row=row, column=2, value="Buyer (Bill To):")
@@ -819,7 +819,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.cell(row=row, column=2).alignment = left_center_alignment
     ws.cell(row=row, column=2).border = border
     ws.merge_cells(f'B{row}:C{row}')
-    ws.row_dimensions[row].height = 18
+    ws.row_dimensions[row].height = 17
     row += 1
     
     ws.cell(row=row, column=2, value=data.get('buyer_name', ''))
@@ -827,7 +827,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.cell(row=row, column=2).alignment = left_center_alignment
     ws.cell(row=row, column=2).border = border
     ws.merge_cells(f'B{row}:C{row}')
-    ws.row_dimensions[row].height = 18
+    ws.row_dimensions[row].height = 17
     row += 1
     
     buyer_address = data.get('buyer_address', '')
@@ -841,7 +841,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
         for i in range(2):
             for col in ['B', 'C']:
                 ws[f'{col}{row+i}'].border = border
-            ws.row_dimensions[row+i].height = 18
+            ws.row_dimensions[row+i].height = 17
         
         row += 2
     
@@ -852,7 +852,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
         ws.cell(row=row, column=2).alignment = left_center_alignment
         ws.cell(row=row, column=2).border = border
         ws.merge_cells(f'B{row}:C{row}')
-        ws.row_dimensions[row].height = 18
+        ws.row_dimensions[row].height = 17
         row += 1
     
     place_of_supply = data.get('place_of_supply', '')
@@ -862,7 +862,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
         ws.cell(row=row, column=2).alignment = left_center_alignment
         ws.cell(row=row, column=2).border = border
         ws.merge_cells(f'B{row}:C{row}')
-        ws.row_dimensions[row].height = 18
+        ws.row_dimensions[row].height = 17
         row += 1
     
     contact_person = data.get('contact_person', '')
@@ -872,7 +872,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
         ws.cell(row=row, column=2).alignment = left_center_alignment
         ws.cell(row=row, column=2).border = border
         ws.merge_cells(f'B{row}:C{row}')
-        ws.row_dimensions[row].height = 18
+        ws.row_dimensions[row].height = 17
         row += 1
     
     buyer_email = data.get('buyer_email', '')
@@ -882,7 +882,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
         ws.cell(row=row, column=2).alignment = left_center_alignment
         ws.cell(row=row, column=2).border = border
         ws.merge_cells(f'B{row}:C{row}')
-        ws.row_dimensions[row].height = 18
+        ws.row_dimensions[row].height = 17
         row += 1
     
     # ============== SAĞ TARAF ==============
@@ -899,21 +899,21 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     
     for label1, value1, label2, value2 in details:
         ws.cell(row=detail_row, column=4, value=label1)
-        ws.cell(row=detail_row, column=4).font = Font(bold=True, size=9, name='Calibri')
+        ws.cell(row=detail_row, column=4).font = Font(bold=True, size=8.5, name='Calibri')
         ws.cell(row=detail_row, column=4).alignment = center_alignment
         ws.cell(row=detail_row, column=4).border = border
         ws.merge_cells(f'D{detail_row}:E{detail_row}')
-        ws.row_dimensions[detail_row].height = 16
+        ws.row_dimensions[detail_row].height = 15
         
         ws.cell(row=detail_row + 1, column=4, value=value1)
         ws.cell(row=detail_row + 1, column=4).font = tiny_font
         ws.cell(row=detail_row + 1, column=4).alignment = center_alignment
         ws.cell(row=detail_row + 1, column=4).border = border
         ws.merge_cells(f'D{detail_row + 1}:E{detail_row + 1}')
-        ws.row_dimensions[detail_row + 1].height = 16
+        ws.row_dimensions[detail_row + 1].height = 15
         
         ws.cell(row=detail_row, column=6, value=label2)
-        ws.cell(row=detail_row, column=6).font = Font(bold=True, size=9, name='Calibri')
+        ws.cell(row=detail_row, column=6).font = Font(bold=True, size=8.5, name='Calibri')
         ws.cell(row=detail_row, column=6).alignment = center_alignment
         ws.cell(row=detail_row, column=6).border = border
         ws.merge_cells(f'F{detail_row}:G{detail_row}')
@@ -933,37 +933,37 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     
     for label, value in single_details:
         ws.cell(row=detail_row, column=4, value=label)
-        ws.cell(row=detail_row, column=4).font = Font(bold=True, size=9, name='Calibri')
+        ws.cell(row=detail_row, column=4).font = Font(bold=True, size=8.5, name='Calibri')
         ws.cell(row=detail_row, column=4).alignment = center_alignment
         ws.cell(row=detail_row, column=4).border = border
         ws.merge_cells(f'D{detail_row}:G{detail_row}')
-        ws.row_dimensions[detail_row].height = 16
+        ws.row_dimensions[detail_row].height = 15
         
         ws.cell(row=detail_row + 1, column=4, value=value)
         ws.cell(row=detail_row + 1, column=4).font = tiny_font
         ws.cell(row=detail_row + 1, column=4).alignment = center_alignment
         ws.cell(row=detail_row + 1, column=4).border = border
         ws.merge_cells(f'D{detail_row + 1}:G{detail_row + 1}')
-        ws.row_dimensions[detail_row + 1].height = 16
+        ws.row_dimensions[detail_row + 1].height = 15
         
         detail_row += 2
     
     ws.cell(row=detail_row, column=4, value="From:")
-    ws.cell(row=detail_row, column=4).font = Font(bold=True, size=9, name='Calibri')
+    ws.cell(row=detail_row, column=4).font = Font(bold=True, size=8.5, name='Calibri')
     ws.cell(row=detail_row, column=4).alignment = center_alignment
     ws.cell(row=detail_row, column=4).border = border
     ws.merge_cells(f'D{detail_row}:E{detail_row}')
-    ws.row_dimensions[detail_row].height = 16
+    ws.row_dimensions[detail_row].height = 15
     
     ws.cell(row=detail_row + 1, column=4, value=data.get('from', ''))
     ws.cell(row=detail_row + 1, column=4).font = tiny_font
     ws.cell(row=detail_row + 1, column=4).alignment = center_alignment
     ws.cell(row=detail_row + 1, column=4).border = border
     ws.merge_cells(f'D{detail_row + 1}:E{detail_row + 1}')
-    ws.row_dimensions[detail_row + 1].height = 16
+    ws.row_dimensions[detail_row + 1].height = 15
     
     ws.cell(row=detail_row, column=6, value="To:")
-    ws.cell(row=detail_row, column=6).font = Font(bold=True, size=9, name='Calibri')
+    ws.cell(row=detail_row, column=6).font = Font(bold=True, size=8.5, name='Calibri')
     ws.cell(row=detail_row, column=6).alignment = center_alignment
     ws.cell(row=detail_row, column=6).border = border
     ws.merge_cells(f'F{detail_row}:G{detail_row}')
@@ -977,18 +977,18 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     detail_row += 2
     
     ws.cell(row=detail_row, column=4, value="Terms of Delivery:")
-    ws.cell(row=detail_row, column=4).font = Font(bold=True, size=9, name='Calibri')
+    ws.cell(row=detail_row, column=4).font = Font(bold=True, size=8.5, name='Calibri')
     ws.cell(row=detail_row, column=4).alignment = center_alignment
     ws.cell(row=detail_row, column=4).border = border
     ws.merge_cells(f'D{detail_row}:G{detail_row}')
-    ws.row_dimensions[detail_row].height = 16
+    ws.row_dimensions[detail_row].height = 15
     
     ws.cell(row=detail_row + 1, column=4, value=data.get('terms_of_delivery', ''))
     ws.cell(row=detail_row + 1, column=4).font = tiny_font
     ws.cell(row=detail_row + 1, column=4).alignment = center_alignment
     ws.cell(row=detail_row + 1, column=4).border = border
     ws.merge_cells(f'D{detail_row + 1}:G{detail_row + 1}')
-    ws.row_dimensions[detail_row + 1].height = 16
+    ws.row_dimensions[detail_row + 1].height = 15
     
     # ============== HİZMETLER ==============
     row = max(row, detail_row + 2)
@@ -1004,7 +1004,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
         cell.fill = header_fill
         cell.border = border
     
-    ws.row_dimensions[header_row].height = 22
+    ws.row_dimensions[header_row].height = 20
     row += 1
     
     services = data.get('services', [])
@@ -1055,7 +1055,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
         ws.cell(row=row, column=7).border = border
         ws.cell(row=row, column=7).number_format = '#,##0.00'
         
-        ws.row_dimensions[row].height = 20
+        ws.row_dimensions[row].height = 18
         row += 1
     
     ws.cell(row=row, column=1, value="Total")
@@ -1084,7 +1084,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.cell(row=row, column=7).border = border
     ws.cell(row=row, column=7).number_format = '#,##0.00'
     
-    ws.row_dimensions[row].height = 22
+    ws.row_dimensions[row].height = 20
     row += 1
     
     try:
@@ -1098,7 +1098,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.cell(row=row, column=1).alignment = left_center_alignment
     ws.cell(row=row, column=1).border = border
     ws.merge_cells(f'A{row}:G{row}')
-    ws.row_dimensions[row].height = 20
+    ws.row_dimensions[row].height = 18
     row += 1
     
     ws.cell(row=row, column=1, value="E. & O.E")
@@ -1106,21 +1106,19 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws.cell(row=row, column=1).alignment = left_center_alignment
     ws.cell(row=row, column=1).border = border
     ws.merge_cells(f'A{row}:G{row}')
-    ws.row_dimensions[row].height = 18
+    ws.row_dimensions[row].height = 16
     row += 1
     
     # ============== DECLARATION & BANK ==============
     declaration_start_row = row
     
-    # Declaration başlık (Sol)
     ws.cell(row=row, column=1, value="Declaration")
     ws.cell(row=row, column=1).font = bold_font
     ws.cell(row=row, column=1).alignment = left_center_alignment
     ws.cell(row=row, column=1).border = border
     ws.merge_cells(f'A{row}:C{row}')
-    ws.row_dimensions[row].height = 20
+    ws.row_dimensions[row].height = 18
     
-    # Bank başlık (Sağ)
     ws.cell(row=row, column=4, value="Company's Bank Details")
     ws.cell(row=row, column=4).font = bold_font
     ws.cell(row=row, column=4).alignment = left_center_alignment
@@ -1129,13 +1127,12 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     
     row += 1
     
-    # Terms & Conditions başlık
     ws.cell(row=row, column=1, value="Terms & Conditions:")
-    ws.cell(row=row, column=1).font = Font(bold=True, size=9, name='Calibri')
+    ws.cell(row=row, column=1).font = Font(bold=True, size=8.5, name='Calibri')
     ws.cell(row=row, column=1).alignment = left_center_alignment
     ws.cell(row=row, column=1).border = border
     ws.merge_cells(f'A{row}:C{row}')
-    ws.row_dimensions[row].height = 18
+    ws.row_dimensions[row].height = 16
     row += 1
     
     terms = [
@@ -1153,7 +1150,6 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
         f"SWIFT Code: {data.get('bank_swift', '')}"
     ]
     
-    # Sol ve sağ paralel doldur
     bank_row = declaration_start_row + 1
     for i, term in enumerate(terms):
         ws.cell(row=row, column=1, value=term)
@@ -1161,42 +1157,37 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
         ws.cell(row=row, column=1).alignment = left_top_alignment
         ws.cell(row=row, column=1).border = border
         ws.merge_cells(f'A{row}:C{row}')
-        ws.row_dimensions[row].height = 20
+        ws.row_dimensions[row].height = 18
         
-        # Bank detail
         if i < len(bank_details):
             ws.cell(row=bank_row, column=4, value=bank_details[i])
             ws.cell(row=bank_row, column=4).font = tiny_font
             ws.cell(row=bank_row, column=4).alignment = left_center_alignment
             ws.cell(row=bank_row, column=4).border = border
             ws.merge_cells(f'D{bank_row}:G{bank_row}')
-            ws.row_dimensions[bank_row].height = 20
+            ws.row_dimensions[bank_row].height = 18
             bank_row += 1
         
         row += 1
     
-    # 5. bank detail (eğer varsa)
     if len(bank_details) > len(terms):
         ws.cell(row=bank_row, column=4, value=bank_details[4])
         ws.cell(row=bank_row, column=4).font = tiny_font
         ws.cell(row=bank_row, column=4).alignment = left_center_alignment
         ws.cell(row=bank_row, column=4).border = border
         ws.merge_cells(f'D{bank_row}:G{bank_row}')
-        ws.row_dimensions[bank_row].height = 20
+        ws.row_dimensions[bank_row].height = 18
         
-        # Sol tarafa boş satır (eşitleme)
         ws.cell(row=row, column=1, value="")
         ws.cell(row=row, column=1).border = border
         ws.merge_cells(f'A{row}:C{row}')
-        ws.row_dimensions[row].height = 20
+        ws.row_dimensions[row].height = 18
         row += 1
     
-    # FINAL ROW hesaplama
     final_row = row - 1
     
-    # ============== BORDER YÖNETİMİ - OPTİMİZE EDİLDİ ==============
+    # ============== BORDER YÖNETİMİ ==============
     
-    # ÜST BORDER (sadece ilk satır)
     for c in range(1, 8):
         ws.cell(row=1, column=c).border = Border(
             top=thick_border_side,
@@ -1205,9 +1196,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
             bottom=border_side
         )
     
-    # SOL VE SAĞ BORDER (sadece kullanılan satırlar)
     for r in range(2, final_row):
-        # Sol border
         current_left = ws.cell(row=r, column=1).border
         ws.cell(row=r, column=1).border = Border(
             left=thick_border_side,
@@ -1216,7 +1205,6 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
             bottom=current_left.bottom if current_left else border_side
         )
         
-        # Sağ border
         current_right = ws.cell(row=r, column=7).border
         ws.cell(row=r, column=7).border = Border(
             right=thick_border_side,
@@ -1225,7 +1213,6 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
             bottom=current_right.bottom if current_right else border_side
         )
     
-    # ALT BORDER (sadece son satır)
     for c in range(1, 8):
         current_bottom = ws.cell(row=final_row, column=c).border
         ws.cell(row=final_row, column=c).border = Border(
@@ -1235,7 +1222,6 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
             bottom=thick_border_side
         )
     
-    # Tüm hücrelere normal border (sadece kullanılan alanda)
     for r in range(1, final_row + 1):
         for c in range(1, 8):
             cell = ws.cell(row=r, column=c)
