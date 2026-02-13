@@ -651,7 +651,9 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     # A4 Landscape sayfa ayarları
     ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
-    ws.page_setup.scale = 100
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = False
+
     
     # Kenar boşlukları
     ws.page_margins.left = 0.5
