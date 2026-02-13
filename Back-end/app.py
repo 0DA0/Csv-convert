@@ -636,7 +636,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
     return output
 
 def generate_invoice_excel(data, logo_data=None, company_info=None):
-    """Invoice Excel dosyası oluştur - A4 Landscape: Daha geniş, optimize fontlar"""
+    """Invoice Excel dosyası oluştur - A4 Landscape: scale=100, çakışma yok"""
     from openpyxl import Workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Side, Border
     from openpyxl.drawing.image import Image as XLImage
@@ -648,20 +648,18 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     ws = wb.active
     ws.title = "Tax Invoice"
     
-    # A4 Landscape sayfa ayarları
+    # A4 Landscape sayfa ayarları - ÇAKIŞMA YOK
     ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
-    ws.page_setup.fitToPage = True
-    ws.page_setup.fitToWidth = 1
-    ws.page_setup.fitToHeight = 0
+    ws.page_setup.scale = 100  # ✅ Gerçek boyut, çakışma yok
     
-    # Kenar boşlukları - daha dar (daha fazla alan)
+    # Kenar boşlukları
     ws.page_margins.left = 0.5
     ws.page_margins.right = 0.5
     ws.page_margins.top = 0.6
     ws.page_margins.bottom = 0.6
     
-    # Formatlar - DAHA KÜÇÜK VE OKUNAKLI
+    # Formatlar
     title_font = Font(bold=True, size=14, name='Calibri')
     bold_font = Font(bold=True, size=9.5, name='Calibri')
     regular_font = Font(size=9, name='Calibri')
@@ -680,7 +678,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     border = Border(left=border_side, right=border_side, top=border_side, bottom=border_side)
     thick_border_side = Side(style='medium', color='000000')
     
-    # Sütun genişlikleri - DAHA GENİŞ (toplam ~100 birim)
+    # Sütun genişlikleri - A4 landscape için optimize
     ws.column_dimensions['A'].width = 5
     ws.column_dimensions['B'].width = 26
     ws.column_dimensions['C'].width = 26
