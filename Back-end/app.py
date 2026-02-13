@@ -692,7 +692,7 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
     row = 1
     
     # Dış border
-    for r in range(1, 100):
+    for r in range(1, 50):
         ws.cell(row=r, column=1).border = Border(left=thick_border_side)
         ws.cell(row=r, column=7).border = Border(right=thick_border_side)
     
