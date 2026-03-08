@@ -1,0 +1,39 @@
+**2. Çoklu Platform Desteği**
+```
+Clockify  ✅ (var)
+Toggl     → Ekle (çok benzer CSV formatı)
+Harvest   → Ekle
+Jira      → İleride
+```
+Toggl ve Clockify CSV formatları birbirine çok yakın, **2-3 günde** eklenebilir.
+
+
+**Ödeme Sistemi:**
+```
+Stripe  →  En yaygın, Türkiye'den kurulabilir
+İyzico  →  Türk kullanıcılar için alternatif
+```
+
+**Plan Önerisi:**
+| Plan | Fiyat | Limit |
+|---|---|---|
+| Free | 0₺ | Ayda 10 rapor |
+| Pro | 49₺/ay | Sınırsız + öncelikli destek |
+| Team | 149₺/ay | 5 kullanıcı + özel şablonlar |
+
+**Önerim:** Hetzner VPS — Almanya'da, Türkiye'ye yakın, **4€/ay**'a sınırsız proje koyarsın.
+
+Bu kitleye ulaşmak için:
+```
+1. Clockify Facebook/Reddit gruplarında paylaş
+2. Product Hunt'a ekle (ücretsiz, çok görünürlük)
+3. Türk freelancer gruplarında tanıt
+4. "Clockify to Excel" anahtar kelimesiyle SEO yap
+
+**Önerim:** Normal Angular:
+Kullanıcı gelir → Boş HTML → JS çalışır → İçerik dolar
+                              (Google beklemek zorunda)
+
+Angular SSR:
+Kullanıcı gelir → Sunucu HTML'i doldurur → Hazır gelir
+                  (Google direkt okur ✅)

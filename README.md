@@ -56,15 +56,15 @@ pip install -r requirements.txt
 
 ```env
 SECRET_KEY=your-very-secret-key-here
-MONGO_URI=mongodb+srv://Admin:O3oTRp9cyo63ZHy3@cluster0.duwvajs.mongodb.net/Csv?retryWrites=true&w=majority
+MONGO_URI=
 ```
 
 **MONGO_URI Açıklaması:**
 ```
 mongodb+srv://[USERNAME]:[PASSWORD]@[CLUSTER]/[DATABASE]?retryWrites=true&w=majority
 
-Username: Admin
-Password: O3oTRp9cyo63ZHy3
+Username: 
+Password: 
 Cluster: cluster0.duwvajs.mongodb.net
 Database: Csv
 Collection: users (otomatik oluşur)
@@ -122,7 +122,7 @@ Web Service ayarlarından:
 
 ```
 SECRET_KEY = [güçlü random key]
-MONGO_URI = mongodb+srv://Admin:O3oTRp9cyo63ZHy3@cluster0.duwvajs.mongodb.net/Csv?retryWrites=true&w=majority
+MONGO_URI = 
 FLASK_ENV = production
 ```
 
@@ -334,14 +334,14 @@ Render IP adresleri ekle
 
 ### Database User
 ```
-Username: Admin
-Password: O3oTRp9cyo63ZHy3
+Username: 
+Password: 
 Role: readWrite (Csv database)
 ```
 
 ### Connection String
 ```
-mongodb+srv://Admin:O3oTRp9cyo63ZHy3@cluster0.duwvajs.mongodb.net/Csv?retryWrites=true&w=majority
+
 ```
 
 ## 🎯 PostgreSQL vs MongoDB
