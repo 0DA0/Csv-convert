@@ -240,7 +240,7 @@ def sanitize_excel_cell(value):
         return "'" + value
     return value
 
-def generate_excel_report(df, format_choice, report_period, projects, customers, logo_data=None, company_info=None):
+def generate_excel_report(df, format_choice, report_period, projects, customers, logo_data=None, company_info=None, date_range_start=None, date_range_end=None):
     """Excel raporu oluşturur - Summary ve Detailed Report ile"""
     output = BytesIO()
     
@@ -265,15 +265,25 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
     if "End Time" not in df.columns:
         df["End Time"] = ""
     
-    # Tüm gün aralığını hesapla (çalışılmayan günler dahil)
-    if not df['ParsedDate'].dropna().empty:
-        date_min = df['ParsedDate'].min()
-        date_max = df['ParsedDate'].max()
+    # Gün aralığını belirle:
+    # Öncelik: kullanıcının seçtiği tarih aralığı (date_range_start / date_range_end)
+    # Fallback: veri içindeki min/max tarih
+    if date_range_start and date_range_end:
+        try:
+            range_start = pd.to_datetime(date_range_start)
+            range_end = pd.to_datetime(date_range_end)
+        except:
+            range_start = df['ParsedDate'].min() if not df['ParsedDate'].dropna().empty else pd.Timestamp("2025-01-01")
+            range_end = df['ParsedDate'].max() if not df['ParsedDate'].dropna().empty else pd.Timestamp("2025-01-31")
     else:
-        date_min = pd.Timestamp("2025-01-01")
-        date_max = pd.Timestamp("2025-01-31")
+        if not df['ParsedDate'].dropna().empty:
+            range_start = df['ParsedDate'].min()
+            range_end = df['ParsedDate'].max()
+        else:
+            range_start = pd.Timestamp("2025-01-01")
+            range_end = pd.Timestamp("2025-01-31")
 
-    all_days = pd.date_range(start=date_min, end=date_max, freq='D')
+    all_days = pd.date_range(start=range_start, end=range_end, freq='D')
     all_days_str = [d.strftime("%d (%A)") for d in all_days]
     all_days_full = [d.strftime("%d %B %Y (%A)") for d in all_days]
     
@@ -316,22 +326,23 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
         
         user_header_format = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#4472C4', 'font_color': 'white', 'align': 'left', 'valign': 'vcenter', 'font_size': 12})
         
-        # Empty day format (grey background for non-working days)
-        empty_day_format = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter', 'bg_color': '#F5F5F5', 'font_color': '#AAAAAA'})
-        empty_cell_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#F5F5F5', 'font_color': '#AAAAAA'})
-        empty_number_format = workbook.add_format({'num_format': '0.00', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'bg_color': '#F5F5F5', 'font_color': '#AAAAAA'})
-        empty_time_format = workbook.add_format({'num_format': '[h]:mm', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'bg_color': '#F5F5F5', 'font_color': '#AAAAAA'})
+        # Çalışılmayan gün formatları (gri/soluk)
+        empty_day_format = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
+        empty_cell_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
+        empty_number_format = workbook.add_format({'num_format': '0.00', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
+        empty_time_format = workbook.add_format({'num_format': '[h]:mm', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
         
-        # Detailed Report için formatlar
+        # Detailed Report formatları
         detail_header_format = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#667eea', 'font_color': 'white', 'align': 'center', 'valign': 'vcenter', 'font_size': 11})
         detail_date_header_format = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#4472C4', 'font_color': 'white', 'align': 'left', 'font_size': 12, 'valign': 'vcenter'})
-        detail_date_empty_format = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#B0B0B0', 'font_color': '#FFFFFF', 'align': 'left', 'font_size': 12, 'valign': 'vcenter'})
+        detail_date_empty_format = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#AAAAAA', 'font_color': '#FFFFFF', 'align': 'left', 'font_size': 12, 'valign': 'vcenter'})
         detail_cell_format = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter', 'font_size': 10})
         detail_cell_wrap = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'top', 'font_size': 10, 'text_wrap': True})
         detail_cell_center = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'font_size': 10})
         detail_number_format = workbook.add_format({'num_format': '0.00', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'font_size': 10})
         detail_time_format = workbook.add_format({'num_format': '[h]:mm', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'font_size': 10})
-        detail_empty_cell = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'font_size': 10, 'bg_color': '#F5F5F5', 'font_color': '#AAAAAA'})
+        detail_empty_cell = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'font_size': 10, 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
+        detail_empty_wrap = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter', 'font_size': 10, 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
         
         # ============== SAYFA 1: ÖZET RAPOR ==============
         summary_sheet = workbook.add_worksheet("Summary Report")
@@ -429,7 +440,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                 day_df = user_df[user_df["Day"] == day_str]
                 
                 if day_df.empty:
-                    # Çalışılmayan gün - gri satır, 0 değerleri
+                    # Çalışılmayan gün - gri satır
                     summary_sheet.write(row, 0, sanitize_excel_cell(day_str), empty_day_format)
                     summary_sheet.write(row, 1, "-", empty_cell_format)
                     if format_choice == "hours":
@@ -437,9 +448,9 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                         summary_sheet.write_number(row, 3, 0, empty_time_format)
                         summary_sheet.write_number(row, 4, 0, empty_time_format)
                     else:
-                        summary_sheet.write_number(row, 2, 0, empty_number_format)
-                        summary_sheet.write_number(row, 3, 0, empty_number_format)
-                        summary_sheet.write_number(row, 4, 0, empty_number_format)
+                        summary_sheet.write_number(row, 2, 0.0, empty_number_format)
+                        summary_sheet.write_number(row, 3, 0.0, empty_number_format)
+                        summary_sheet.write_number(row, 4, 0.0, empty_number_format)
                     summary_sheet.set_row(row, 18)
                 else:
                     # Çalışılan gün
@@ -533,7 +544,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
         detail_sheet.set_row(detail_row, 22)
         detail_row += 1
         
-        # Logo ve Şirket Bilgileri
+        # Şirket Bilgileri
         if company_info:
             table_start_row = detail_row
             
@@ -607,23 +618,21 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                 day_df = user_df[user_df['DayFull'] == day_full_str]
                 
                 if day_df.empty:
-                    # Çalışılmayan gün - gri başlık, "No activity" satırı
+                    # Çalışılmayan gün - gri başlık
                     detail_sheet.merge_range(detail_row, 0, detail_row, 4, sanitize_excel_cell(f"Date: {day_full_str}"), detail_date_empty_format)
                     detail_sheet.set_row(detail_row, 20)
                     detail_row += 1
                     
-                    # Başlık satırı
                     headers = ["Start Time", "End Time", "Duration", "Description", "Billable"]
                     for col_idx, header in enumerate(headers):
                         detail_sheet.write(detail_row, col_idx, header, detail_header_format)
                     detail_sheet.set_row(detail_row, 18)
                     detail_row += 1
                     
-                    # Boş satır
                     detail_sheet.write(detail_row, 0, "-", detail_empty_cell)
                     detail_sheet.write(detail_row, 1, "-", detail_empty_cell)
                     detail_sheet.write(detail_row, 2, "-", detail_empty_cell)
-                    detail_sheet.write(detail_row, 3, "No activity", detail_empty_cell)
+                    detail_sheet.write(detail_row, 3, "No activity", detail_empty_wrap)
                     detail_sheet.write(detail_row, 4, "-", detail_empty_cell)
                     detail_sheet.set_row(detail_row, 16)
                     detail_row += 2
@@ -633,14 +642,12 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                     detail_sheet.set_row(detail_row, 20)
                     detail_row += 1
                     
-                    # Başlık satırı
                     headers = ["Start Time", "End Time", "Duration", "Description", "Billable"]
                     for col_idx, header in enumerate(headers):
                         detail_sheet.write(detail_row, col_idx, header, detail_header_format)
                     detail_sheet.set_row(detail_row, 18)
                     detail_row += 1
                     
-                    # Veri satırları
                     for idx, row_data in day_df.iterrows():
                         detail_sheet.write(detail_row, 0, sanitize_excel_cell(str(row_data.get('Start Time', ''))), detail_cell_center)
                         detail_sheet.write(detail_row, 1, sanitize_excel_cell(str(row_data.get('End Time', ''))), detail_cell_center)
@@ -657,7 +664,6 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                         desc_length = len(desc_text)
                         lines_needed = max(1, (desc_length // 60) + 1)
                         detail_sheet.set_row(detail_row, 16 * lines_needed)
-                        
                         detail_row += 1
                     
                     detail_row += 1
@@ -674,6 +680,306 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
     
     output.seek(0)
     return output
+
+
+# ============================================================
+# ENDPOINT GÜNCELLEMELERİ - app.py içinde bu iki fonksiyonu
+# aşağıdaki versiyonlarla değiştirin:
+# ============================================================
+
+@app.route('/api/csv/convert', methods=['POST'])
+@jwt_required()
+def convert_csv():
+    """CSV'yi Excel'e dönüştür"""
+    try:
+        user_id = get_jwt_identity()
+        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+        
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        df = pd.read_csv(file)
+        
+        required_columns = ["Project", "Client", "User", "Start Date", "Duration (h)"]
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return jsonify({'error': f'Missing columns: {", ".join(missing_columns)}'}), 400
+        
+        if "Billable" not in df.columns:
+            df["Billable"] = "No"
+        if "Description" not in df.columns:
+            df["Description"] = ""
+        
+        df["Duration (h)"].fillna("00:00:00", inplace=True)
+        df["Billable"].fillna("No", inplace=True)
+        
+        selected_projects = request.form.getlist('projects[]')
+        selected_clients = request.form.getlist('clients[]')
+        selected_users = request.form.getlist('users[]')
+        format_choice = request.form.get('format', 'decimal')
+        
+        # Kullanıcının seçtiği tarih aralığını al (opsiyonel)
+        date_range_start = request.form.get('date_range_start', None)
+        date_range_end = request.form.get('date_range_end', None)
+        
+        if selected_projects and 'all' not in [p.lower() for p in selected_projects]:
+            df = df[df["Project"].isin(selected_projects)]
+        if selected_clients and 'all' not in [c.lower() for c in selected_clients]:
+            df = df[df["Client"].isin(selected_clients)]
+        if selected_users and 'all' not in [u.lower() for u in selected_users]:
+            df = df[df["User"].isin(selected_users)]
+        
+        if df.empty:
+            return jsonify({'error': 'No data matches filters'}), 400
+        
+        overall_projects = ", ".join(df["Project"].dropna().unique())
+        overall_customers = ", ".join(df["Client"].dropna().unique())
+        
+        logo_data = None
+        company_info = None
+        
+        if user['user_type'] == 'company':
+            profile = user.get('company_profile', {})
+            if 'logo_data' in profile:
+                logo_data = {
+                    'data': profile['logo_data'],
+                    'mimetype': profile.get('logo_mimetype', 'image/png')
+                }
+            company_info = {
+                'company_name': profile.get('company_name', ''),
+                'contact_person': profile.get('contact_person', ''),
+                'phone': profile.get('phone', ''),
+                'address': profile.get('address', '')
+            }
+        
+        df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
+        
+        if not df['ParsedDate'].dropna().empty:
+            min_date = df['ParsedDate'].min()
+            max_date = df['ParsedDate'].max()
+            if min_date.month == max_date.month and min_date.year == max_date.year:
+                report_period = min_date.strftime("%B %Y")
+            else:
+                report_period = f"{min_date.strftime('%B %Y')} - {max_date.strftime('%B %Y')}"
+        else:
+            report_period = "All Data"
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output = generate_excel_report(
+            df, format_choice, report_period,
+            overall_projects, overall_customers,
+            logo_data, company_info,
+            date_range_start=date_range_start,
+            date_range_end=date_range_end
+        )
+        filename = f"Report_{timestamp}.xlsx"
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except Exception as e:
+        app.logger.error(f"Error in convert: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/clockify/time-entries', methods=['POST'])
+@jwt_required()
+def get_clockify_time_entries():
+    """Clockify time entries'leri getir ve Excel'e dönüştür"""
+    try:
+        user_id = get_jwt_identity()
+        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+        
+        data = request.get_json()
+        workspace_id = data.get('workspace_id')
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        project_ids = data.get('project_ids', [])
+        
+        api_key = data.get('api_key')
+        if not api_key:
+            encrypted_key = user.get('clockify_api_key', '')
+            api_key = decrypt_api_key(encrypted_key) if encrypted_key else None
+        
+        if not all([api_key, workspace_id, start_date, end_date]):
+            return jsonify({'error': 'Missing required parameters'}), 400
+        
+        headers = {
+            'X-Api-Key': api_key,
+            'Content-Type': 'application/json'
+        }
+        
+        try:
+            user_response = requests.get(
+                'https://api.clockify.me/api/v1/user',
+                headers=headers,
+                timeout=10
+            )
+            
+            if user_response.status_code != 200:
+                return jsonify({'error': 'Invalid Clockify API key'}), 400
+                
+            clockify_user = user_response.json()
+        except Exception as e:
+            app.logger.error(f"Auth error: {str(e)}")
+            return jsonify({'error': 'Failed to authenticate with Clockify'}), 400
+        
+        try:
+            report_url = f'https://reports.api.clockify.me/v1/workspaces/{workspace_id}/reports/detailed'
+            
+            report_payload = {
+                "dateRangeStart": start_date,
+                "dateRangeEnd": end_date,
+                "detailedFilter": {
+                    "page": 1,
+                    "pageSize": 1000
+                }
+            }
+            
+            if project_ids and len(project_ids) > 0:
+                report_payload["detailedFilter"]["projects"] = {
+                    "ids": project_ids,
+                    "contains": "CONTAINS"
+                }
+            
+            report_response = requests.post(
+                report_url,
+                headers=headers,
+                json=report_payload,
+                timeout=30
+            )
+            
+            if report_response.status_code != 200:
+                app.logger.error(f"API Error: {report_response.text}")
+                return jsonify({'error': f'Clockify API error: {report_response.text}'}), 400
+            
+            report_data = report_response.json()
+            time_entries = report_data.get('timeentries', [])
+            
+            if not time_entries:
+                return jsonify({'error': 'No time entries found'}), 400
+            
+        except Exception as e:
+            app.logger.error(f"Fetch error: {str(e)}\n{traceback.format_exc()}")
+            return jsonify({'error': f'Failed to fetch time entries: {str(e)}'}), 400
+        
+        csv_data = []
+        for entry in time_entries:
+            try:
+                project_name = entry.get('projectName', 'No Project') or 'No Project'
+                client_name = entry.get('clientName', 'No Client') or 'No Client'
+                user_name = entry.get('userName', 'Unknown')
+                description = entry.get('description', '')
+                
+                time_interval = entry.get('timeInterval', {})
+                start_str = time_interval.get('start')
+                end_str = time_interval.get('end')
+                duration_seconds = time_interval.get('duration', 0)
+                
+                if not start_str:
+                    continue
+                
+                start_time = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
+                
+                if end_str:
+                    end_time = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
+                else:
+                    end_time = start_time + timedelta(seconds=duration_seconds)
+                
+                total_seconds = duration_seconds if duration_seconds > 0 else (end_time - start_time).total_seconds()
+                
+                hours = int(total_seconds // 3600)
+                minutes = int((total_seconds % 3600) // 60)
+                seconds = int(total_seconds % 60)
+                
+                csv_data.append({
+                    'Project': project_name,
+                    'Client': client_name,
+                    'User': user_name,
+                    'Description': description,
+                    'Start Date': start_time.strftime('%d/%m/%Y'),
+                    'Start Time': start_time.strftime('%H:%M:%S'),
+                    'End Time': end_time.strftime('%H:%M:%S'),
+                    'Duration (h)': f"{hours:02d}:{minutes:02d}:{seconds:02d}",
+                    'Billable': 'Yes' if entry.get('billable', False) else 'No'
+                })
+            except Exception as e:
+                app.logger.warning(f"Error processing entry: {str(e)}")
+                continue
+        
+        if not csv_data:
+            return jsonify({'error': 'No valid time entries found'}), 400
+        
+        df = pd.DataFrame(csv_data)
+        
+        overall_projects = ", ".join(df["Project"].dropna().unique())
+        overall_customers = ", ".join(df["Client"].dropna().unique())
+        
+        logo_data = None
+        company_info = None
+        
+        if user and user.get('user_type') == 'company':
+            profile = user.get('company_profile', {})
+            if 'logo_data' in profile:
+                logo_data = {
+                    'data': profile['logo_data'],
+                    'mimetype': profile.get('logo_mimetype', 'image/png')
+                }
+            company_info = {
+                'company_name': profile.get('company_name', ''),
+                'contact_person': profile.get('contact_person', ''),
+                'phone': profile.get('phone', ''),
+                'address': profile.get('address', '')
+            }
+        
+        df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
+        
+        # report_period: kullanıcının seçtiği start/end aralığına göre
+        try:
+            req_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            req_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            if req_start.month == req_end.month and req_start.year == req_end.year:
+                report_period = req_start.strftime("%B %Y")
+            else:
+                report_period = f"{req_start.strftime('%B %Y')} - {req_end.strftime('%B %Y')}"
+        except:
+            if not df['ParsedDate'].dropna().empty:
+                min_date = df['ParsedDate'].min()
+                max_date = df['ParsedDate'].max()
+                if min_date.month == max_date.month and min_date.year == max_date.year:
+                    report_period = min_date.strftime("%B %Y")
+                else:
+                    report_period = f"{min_date.strftime('%B %Y')} - {max_date.strftime('%B %Y')}"
+            else:
+                report_period = "All Data"
+        
+        format_choice = data.get('format', 'decimal')
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output = generate_excel_report(
+            df, format_choice, report_period,
+            overall_projects, overall_customers,
+            logo_data, company_info,
+            date_range_start=start_date,   # Kullanıcının seçtiği başlangıç tarihi
+            date_range_end=end_date         # Kullanıcının seçtiği bitiş tarihi
+        )
+        filename = f"Clockify_Report_{timestamp}.xlsx"
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+        
+    except Exception as e:
+        app.logger.error(f"Error: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
 
 def generate_invoice_excel(data, logo_data=None, company_info=None):
     """Invoice Excel dosyası oluştur - A4 Landscape: Daha geniş, optimize fontlar"""
