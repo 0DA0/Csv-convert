@@ -242,6 +242,27 @@
         margin-bottom: 24px;
         color: #1a202c;
       }
+
+      // Two fields side by side
+      .filter-row {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 0;
+
+        .half-width {
+          flex: 1;
+          min-width: 0;
+        }
+
+        @media (max-width: 640px) {
+          flex-direction: column;
+          gap: 0;
+
+          .half-width {
+            width: 100%;
+          }
+        }
+      }
       
       button {
         width: 100%;

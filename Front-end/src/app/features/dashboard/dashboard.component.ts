@@ -32,8 +32,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   clockifyProjects: any[] = [];
   selectedWorkspace = '';
   selectedClockifyProjects: string[] = [];
-  clockifyStartDate = '';
-  clockifyEndDate = '';
+  clockifyStartDate: Date | null = null;
+  clockifyEndDate: Date | null = null;
   clockifyLoading = false;
   private hasLoadedWorkspaces = false;
   private userSubscription?: Subscription;
@@ -50,7 +50,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       if (user) {
         this.userDataSource = user.data_source || 'csv';
         
-        // Eğer Clockify kullanıcısıysa VE daha önce yüklenmediyse, otomatik bağlan
         if (this.userDataSource === 'clockify' && !this.hasLoadedWorkspaces) {
           this.loadClockifyWorkspaces();
         }
@@ -68,15 +67,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   setDefaultDates(): void {
     const now = new Date();
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    
-    this.clockifyStartDate = firstDay.toISOString().split('T')[0];
-    this.clockifyEndDate = lastDay.toISOString().split('T')[0];
+    this.clockifyStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    this.clockifyEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   }
 
   loadClockifyWorkspaces(): void {
-    // Eğer zaten yüklenmiş workspace'ler varsa, tekrar yükleme
     if (this.hasLoadedWorkspaces || this.clockifyWorkspaces.length > 0) {
       return;
     }
@@ -88,12 +83,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.clockifyWorkspaces = workspaces;
         this.clockifyLoading = false;
         this.hasLoadedWorkspaces = true;
-        // Bildirim yok - UI'da yeşil durum göstergesi var
       },
       error: (error) => {
         this.clockifyLoading = false;
-        
-        // Sadece gerçek hatalarda bildirim göster
         if (error.status === 401 || error.status === 400) {
           this.snackBar.open('Failed to connect to Clockify. Please update your API key in profile settings.', 'Close', { duration: 5000 });
         }
@@ -115,9 +107,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   generateClockifyReport(): void {
+    if (!this.clockifyStartDate || !this.clockifyEndDate) {
+      this.snackBar.open('Please select start and end dates', 'Close', { duration: 3000 });
+      return;
+    }
+
     this.converting = true;
 
     const startDate = new Date(this.clockifyStartDate);
+    startDate.setHours(0, 0, 0, 0);
+    
     const endDate = new Date(this.clockifyEndDate);
     endDate.setHours(23, 59, 59, 999);
 
