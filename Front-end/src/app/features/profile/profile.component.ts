@@ -48,7 +48,7 @@ export class ProfileComponent implements OnInit {
         this.user = user;
         this.selectedDataSource = user.data_source || 'csv';
         
-        const profile = user.profile;
+        const profile = user.profile as any;
         
         this.profileForm.patchValue({
           data_source: user.data_source || 'csv'
