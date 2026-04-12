@@ -6,21 +6,31 @@
     </div>
 
     <nav class="nav-menu">
-      <button mat-button (click)="navigateToDashboard()">
-        <mat-icon>dashboard</mat-icon>
-        Dashboard
-      </button>
-      <button mat-button (click)="navigateToInvoice()">
-        <mat-icon>receipt</mat-icon>
-        Invoice
-      </button>
+      <!-- Company nav -->
+      <ng-container *ngIf="userType === 'company' || userType === 'individual'">
+        <button mat-button (click)="navigateToDashboard()">
+          <mat-icon>dashboard</mat-icon> Dashboard
+        </button>
+        <button mat-button (click)="navigateToEmployees()" *ngIf="userType === 'company'">
+          <mat-icon>group</mat-icon> Employees
+        </button>
+        <button mat-button (click)="navigateToInvoice()" *ngIf="userType === 'company' || userType === 'individual'">
+          <mat-icon>receipt</mat-icon> Invoice
+        </button>
+      </ng-container>
+
+      <!-- Employee nav -->
+      <ng-container *ngIf="userType === 'employee'">
+        <button mat-button (click)="navigateToDashboard()">
+          <mat-icon>bar_chart</mat-icon> My Reports
+        </button>
+      </ng-container>
+
       <button mat-button (click)="navigateToProfile()">
-        <mat-icon>person</mat-icon>
-        Profile
+        <mat-icon>person</mat-icon> Profile
       </button>
       <button mat-button (click)="logout()">
-        <mat-icon>logout</mat-icon>
-        Logout
+        <mat-icon>logout</mat-icon> Logout
       </button>
     </nav>
   </div>

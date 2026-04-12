@@ -1,0 +1,187 @@
+<div class="employees-container">
+  <app-header></app-header>
+
+  <div class="content">
+    <div class="page-header">
+      <div class="page-title">
+        <h1>Employees</h1>
+        <p>Manage your team members</p>
+      </div>
+      <div class="company-code-widget">
+        <span class="label">Your Company Code</span>
+        <div class="code-row">
+          <span class="code">{{ companyCode || '--------' }}</span>
+          <button mat-icon-button (click)="copyCode()" matTooltip="Copy code" [disabled]="!companyCode">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
+        <span class="code-hint">Share with employees to let them join</span>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading-state" *ngIf="loading">
+      <mat-spinner diameter="48"></mat-spinner>
+      <p>Loading employees...</p>
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state" *ngIf="!loading && employees.length === 0">
+      <mat-icon>group_off</mat-icon>
+      <h3>No employees yet</h3>
+      <p>Share your company code <strong>{{ companyCode }}</strong> with your team members so they can register and join your workspace.</p>
+    </div>
+
+    <!-- Employees table -->
+    <mat-card class="employees-card" *ngIf="!loading && employees.length > 0">
+      <mat-card-content>
+        <div class="table-toolbar">
+          <span class="count">{{ employees.length }} employee{{ employees.length !== 1 ? 's' : '' }}</span>
+          <mat-form-field appearance="outline" class="search-field">
+            <mat-label>Search</mat-label>
+            <input matInput [(ngModel)]="searchQuery" placeholder="Name, email or Clockify username...">
+            <mat-icon matPrefix>search</mat-icon>
+          </mat-form-field>
+        </div>
+
+        <div class="table-wrapper">
+          <table mat-table [dataSource]="filteredEmployees" class="employees-table">
+
+            <!-- Name -->
+            <ng-container matColumnDef="full_name">
+              <th mat-header-cell *matHeaderCellDef>Name</th>
+              <td mat-cell *matCellDef="let emp">
+                <div class="name-cell">
+                  <div class="avatar">{{ getInitials(emp.full_name) }}</div>
+                  <div>
+                    <strong>{{ emp.full_name }}</strong>
+                    <span>{{ emp.email }}</span>
+                  </div>
+                </div>
+              </td>
+            </ng-container>
+
+            <!-- Clockify username -->
+            <ng-container matColumnDef="clockify_username">
+              <th mat-header-cell *matHeaderCellDef>Clockify Username</th>
+              <td mat-cell *matCellDef="let emp">
+                <span class="username-chip" *ngIf="emp.clockify_username">
+                  <mat-icon>manage_accounts</mat-icon>{{ emp.clockify_username }}
+                </span>
+                <span class="no-data" *ngIf="!emp.clockify_username">Not set</span>
+              </td>
+            </ng-container>
+
+            <!-- Phone -->
+            <ng-container matColumnDef="phone">
+              <th mat-header-cell *matHeaderCellDef>Phone</th>
+              <td mat-cell *matCellDef="let emp">
+                <span *ngIf="emp.phone">{{ emp.phone }}</span>
+                <span class="no-data" *ngIf="!emp.phone">-</span>
+              </td>
+            </ng-container>
+
+            <!-- Status -->
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let emp">
+                <span class="status-badge" [class.active]="emp.status === 'active'" [class.inactive]="emp.status === 'inactive'">
+                  {{ emp.status === 'active' ? 'Active' : 'Inactive' }}
+                </span>
+              </td>
+            </ng-container>
+
+            <!-- Joined -->
+            <ng-container matColumnDef="created_at">
+              <th mat-header-cell *matHeaderCellDef>Joined</th>
+              <td mat-cell *matCellDef="let emp">
+                <span class="date">{{ formatDate(emp.created_at) }}</span>
+              </td>
+            </ng-container>
+
+            <!-- Actions -->
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef>Actions</th>
+              <td mat-cell *matCellDef="let emp">
+                <div class="action-buttons">
+                  <button mat-icon-button matTooltip="Edit employee" (click)="openEditDialog(emp)" color="primary">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button [matTooltip]="emp.status === 'active' ? 'Deactivate' : 'Activate'"
+                          (click)="toggleStatus(emp)">
+                    <mat-icon>{{ emp.status === 'active' ? 'person_off' : 'person' }}</mat-icon>
+                  </button>
+                  <button mat-icon-button matTooltip="Remove employee" color="warn" (click)="confirmDelete(emp)">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                </div>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="employee-row"></tr>
+          </table>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>
+
+<!-- Edit Dialog -->
+<div class="dialog-overlay" *ngIf="editingEmployee" (click)="closeEditDialog()">
+  <div class="dialog-card" (click)="$event.stopPropagation()">
+    <div class="dialog-header">
+      <h2>Edit Employee</h2>
+      <button mat-icon-button (click)="closeEditDialog()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="dialog-body">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Full Name</mat-label>
+        <input matInput [(ngModel)]="editForm.full_name">
+        <mat-icon matPrefix>person</mat-icon>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Phone</mat-label>
+        <input matInput [(ngModel)]="editForm.phone">
+        <mat-icon matPrefix>phone</mat-icon>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Clockify Username</mat-label>
+        <input matInput [(ngModel)]="editForm.clockify_username" placeholder="Exact name in Clockify reports">
+        <mat-icon matPrefix>manage_accounts</mat-icon>
+        <mat-hint>Must match exactly the name shown in Clockify time entries</mat-hint>
+      </mat-form-field>
+    </div>
+    <div class="dialog-actions">
+      <button mat-stroked-button (click)="closeEditDialog()">Cancel</button>
+      <button mat-raised-button color="primary" (click)="saveEmployee()" [disabled]="savingEmployee">
+        <mat-spinner *ngIf="savingEmployee" diameter="18"></mat-spinner>
+        <span *ngIf="!savingEmployee">Save Changes</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Dialog -->
+<div class="dialog-overlay" *ngIf="deletingEmployee" (click)="cancelDelete()">
+  <div class="dialog-card confirm-dialog" (click)="$event.stopPropagation()">
+    <div class="dialog-header">
+      <h2>Remove Employee</h2>
+      <button mat-icon-button (click)="cancelDelete()"><mat-icon>close</mat-icon></button>
+    </div>
+    <div class="dialog-body">
+      <div class="confirm-icon">
+        <mat-icon>warning</mat-icon>
+      </div>
+      <p>Are you sure you want to remove <strong>{{ deletingEmployee.full_name }}</strong> from your company?</p>
+      <p class="confirm-sub">This action cannot be undone. The employee will lose access immediately.</p>
+    </div>
+    <div class="dialog-actions">
+      <button mat-stroked-button (click)="cancelDelete()">Cancel</button>
+      <button mat-raised-button color="warn" (click)="deleteEmployee()" [disabled]="savingEmployee">
+        <mat-spinner *ngIf="savingEmployee" diameter="18"></mat-spinner>
+        <span *ngIf="!savingEmployee">Remove</span>
+      </button>
+    </div>
+  </div>
+</div>

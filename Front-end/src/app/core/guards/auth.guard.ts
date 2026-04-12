@@ -1,22 +1,14 @@
 import { Injectable } from '@angular/core';
 import { Router, UrlTree } from '@angular/router';
-import { Observable } from 'rxjs';
 import { AuthService } from '../services/auth.service';
-
-@Injectable({
-  providedIn: 'root'
-})
+ 
+@Injectable({ providedIn: 'root' })
 export class AuthGuard {
   constructor(private authService: AuthService, private router: Router) {}
-
-  canActivate(): boolean | UrlTree | Observable<boolean | UrlTree> | Promise<boolean | UrlTree> {
+ 
+  canActivate(): boolean | UrlTree {
     const token = this.authService.getToken();
-    
-    if (token && this.authService.isAuthenticated()) {
-      return true;
-    }
-    
-    // Token yoksa veya expire olduysa login'e yönlendir
+    if (token && this.authService.isAuthenticated()) return true;
     return this.router.createUrlTree(['/login']);
   }
 }

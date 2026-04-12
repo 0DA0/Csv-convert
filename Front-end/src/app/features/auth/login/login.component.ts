@@ -33,9 +33,13 @@ export class LoginComponent {
     const { email, password } = this.loginForm.value;
 
     this.authService.login(email, password).subscribe({
-      next: () => {
-        this.snackBar.open('Login successful!', 'Close', { duration: 3000 });
-        this.router.navigate(['/dashboard']);
+      next: (res) => {
+        const user = this.authService.getCurrentUser();
+        if (user?.user_type === 'employee') {
+          this.router.navigate(['/employee']);
+        } else {
+          this.router.navigate(['/dashboard']);
+        }
       },
       error: (error) => {
         this.snackBar.open(error.error?.error || 'Login failed', 'Close', { duration: 5000 });

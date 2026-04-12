@@ -12,41 +12,44 @@
 
       <!-- User Type Selection -->
       <div class="type-selector">
-        <button mat-stroked-button 
+        <button mat-stroked-button
                 [class.selected]="selectedUserType === 'individual'"
                 (click)="selectUserType('individual')"
-                type="button"
-                class="type-btn">
+                type="button" class="type-btn">
           <mat-icon>person</mat-icon>
           <span>Individual</span>
         </button>
-        <button mat-stroked-button 
+        <button mat-stroked-button
                 [class.selected]="selectedUserType === 'company'"
                 (click)="selectUserType('company')"
-                type="button"
-                class="type-btn">
+                type="button" class="type-btn">
           <mat-icon>business</mat-icon>
           <span>Company</span>
         </button>
+        <button mat-stroked-button
+                [class.selected]="selectedUserType === 'employee'"
+                (click)="selectUserType('employee')"
+                type="button" class="type-btn">
+          <mat-icon>badge</mat-icon>
+          <span>Employee</span>
+        </button>
       </div>
 
-      <!-- Data Source Selection -->
-      <div class="data-source-selector">
+      <!-- Data Source (individual & company only) -->
+      <div class="data-source-selector" *ngIf="selectedUserType !== 'employee'">
         <h3>Select Data Source</h3>
         <div class="source-options">
-          <button mat-stroked-button 
+          <button mat-stroked-button
                   [class.selected]="selectedDataSource === 'csv'"
                   (click)="selectDataSource('csv')"
-                  type="button"
-                  class="source-btn">
+                  type="button" class="source-btn">
             <mat-icon>insert_drive_file</mat-icon>
             <span>CSV Upload</span>
           </button>
-          <button mat-stroked-button 
+          <button mat-stroked-button
                   [class.selected]="selectedDataSource === 'clockify'"
                   (click)="selectDataSource('clockify')"
-                  type="button"
-                  class="source-btn">
+                  type="button" class="source-btn">
             <mat-icon>cloud</mat-icon>
             <span>Clockify</span>
           </button>
@@ -54,6 +57,7 @@
       </div>
 
       <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="auth-form">
+
         <!-- Common Fields -->
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Email Address</mat-label>
@@ -65,13 +69,13 @@
 
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Password</mat-label>
-          <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" placeholder="Min. 6 characters" required>
+          <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" required>
           <mat-icon matPrefix>lock</mat-icon>
           <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button" tabindex="-1">
             <mat-icon>{{hidePassword ? 'visibility_off' : 'visibility'}}</mat-icon>
           </button>
           <mat-error *ngIf="registerForm.get('password')?.hasError('required')">Password is required</mat-error>
-          <mat-error *ngIf="registerForm.get('password')?.hasError('minlength')">Min. 6 characters required</mat-error>
+          <mat-error *ngIf="registerForm.get('password')?.hasError('minlength')">Min. 8 characters required</mat-error>
         </mat-form-field>
 
         <!-- Individual Fields -->
@@ -82,7 +86,6 @@
             <mat-icon matPrefix>person</mat-icon>
             <mat-error>Full name is required</mat-error>
           </mat-form-field>
-
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Phone (Optional)</mat-label>
             <input matInput formControlName="phone" placeholder="+1 (555) 000-0000">
@@ -98,37 +101,31 @@
             <mat-icon matPrefix>business</mat-icon>
             <mat-error>Company name is required</mat-error>
           </mat-form-field>
-
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Contact Person (Optional)</mat-label>
             <input matInput formControlName="contact_person" placeholder="John Doe">
             <mat-icon matPrefix>person</mat-icon>
           </mat-form-field>
-
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Phone (Optional)</mat-label>
             <input matInput formControlName="phone" placeholder="+1 (555) 000-0000">
             <mat-icon matPrefix>phone</mat-icon>
           </mat-form-field>
-
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Address (Optional)</mat-label>
             <textarea matInput formControlName="address" rows="2" placeholder="Company address"></textarea>
             <mat-icon matPrefix>location_on</mat-icon>
           </mat-form-field>
-
           <!-- Logo Upload -->
           <div class="logo-upload-section">
             <label class="upload-label">Company Logo (Optional)</label>
             <div class="upload-area">
               <input #fileInput type="file" accept="image/*" (change)="onFileSelected($event)" hidden>
-              
               <div *ngIf="!logoPreview" class="upload-placeholder" (click)="fileInput.click()">
                 <mat-icon>cloud_upload</mat-icon>
                 <span>Click to upload logo</span>
-                <small>Max 2MB • PNG, JPG</small>
+                <small>Max 2MB · PNG, JPG</small>
               </div>
-
               <div *ngIf="logoPreview" class="logo-preview-container">
                 <img [src]="logoPreview" alt="Logo Preview" class="logo-preview">
                 <button mat-icon-button (click)="removeLogo()" type="button" class="remove-logo-btn">
@@ -139,11 +136,50 @@
           </div>
         </ng-container>
 
-        <!-- Clockify API Key (sadece Clockify seçildiğinde) -->
-        <ng-container *ngIf="selectedDataSource === 'clockify'">
+        <!-- Employee Fields -->
+        <ng-container *ngIf="selectedUserType === 'employee'">
+          <div class="employee-info-banner">
+            <mat-icon>info</mat-icon>
+            <span>Ask your employer for the company code to join their workspace.</span>
+          </div>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Full Name</mat-label>
+            <input matInput formControlName="full_name" placeholder="John Doe" required>
+            <mat-icon matPrefix>person</mat-icon>
+            <mat-error>Full name is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Company Code</mat-label>
+            <input matInput formControlName="company_code" placeholder="e.g. AB12CD34"
+                   style="text-transform:uppercase" required>
+            <mat-icon matPrefix>vpn_key</mat-icon>
+            <mat-hint>8-character code provided by your employer</mat-hint>
+            <mat-error>Company code is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Clockify Username</mat-label>
+            <input matInput formControlName="clockify_username"
+                   placeholder="Exact name shown in Clockify reports">
+            <mat-icon matPrefix>manage_accounts</mat-icon>
+            <mat-hint>Must match your name in Clockify time entries exactly</mat-hint>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Phone (Optional)</mat-label>
+            <input matInput formControlName="phone" placeholder="+1 (555) 000-0000">
+            <mat-icon matPrefix>phone</mat-icon>
+          </mat-form-field>
+        </ng-container>
+
+        <!-- Clockify API Key (company/individual with clockify) -->
+        <ng-container *ngIf="selectedDataSource === 'clockify' && selectedUserType !== 'employee'">
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Clockify API Key</mat-label>
-            <input matInput [type]="hideApiKey ? 'password' : 'text'" formControlName="clockify_api_key" placeholder="Enter your Clockify API key" required>
+            <input matInput [type]="hideApiKey ? 'password' : 'text'" formControlName="clockify_api_key"
+                   placeholder="Enter your Clockify API key" required>
             <mat-icon matPrefix>vpn_key</mat-icon>
             <button mat-icon-button matSuffix (click)="hideApiKey = !hideApiKey" type="button" tabindex="-1">
               <mat-icon>{{hideApiKey ? 'visibility_off' : 'visibility'}}</mat-icon>
@@ -153,13 +189,30 @@
           </mat-form-field>
         </ng-container>
 
-        <button mat-raised-button color="primary" type="submit" [disabled]="loading || registerForm.invalid" class="submit-btn">
+        <button mat-raised-button color="primary" type="submit"
+                [disabled]="loading || registerForm.invalid" class="submit-btn">
           <mat-spinner *ngIf="loading" diameter="20"></mat-spinner>
           <span *ngIf="!loading">Create Account</span>
         </button>
       </form>
 
-      <div class="auth-footer">
+      <!-- Company code display after registration -->
+      <div class="company-code-display" *ngIf="registeredCompanyCode">
+        <mat-icon>celebration</mat-icon>
+        <h3>Company registered successfully!</h3>
+        <p>Share this code with your employees so they can join:</p>
+        <div class="code-box">
+          <span class="code">{{ registeredCompanyCode }}</span>
+          <button mat-icon-button (click)="copyCode()" matTooltip="Copy code">
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
+        <button mat-raised-button color="primary" [routerLink]="['/login']" class="go-login-btn">
+          Go to Login
+        </button>
+      </div>
+
+      <div class="auth-footer" *ngIf="!registeredCompanyCode">
         <p>Already have an account? <a [routerLink]="['/login']" class="link-primary">Sign In</a></p>
       </div>
     </div>

@@ -1283,36 +1283,34 @@ def generate_invoice_excel(data, logo_data=None, company_info=None):
 # ============== AUTH ENDPOINTS ==============
 
 @app.route('/api/auth/register', methods=['POST'])
-@limiter.limit("5 per minute")  # 3'ten 5'e çıkarıldı
+@limiter.limit("5 per minute")
 def register():
-    """Kullanıcı kaydı - Güvenlik kontrolleri eklenmiş"""
     try:
         data = request.get_json()
-        
         if not data:
             return jsonify({'error': 'No data provided'}), 400
-        
+ 
         email = data.get('email', '').strip().lower()
         valid, message = validate_email(email)
         if not valid:
             return jsonify({'error': message}), 400
-        
+ 
         if mongo.db.users.find_one({'email': email}):
             return jsonify({'error': 'Email already registered'}), 400
-        
+ 
         password = data.get('password', '')
         valid, message = validate_password(password)
         if not valid:
             return jsonify({'error': message}), 400
-        
+ 
         user_type = data.get('user_type', 'individual')
-        if user_type not in ['individual', 'company']:
+        if user_type not in ['individual', 'company', 'employee']:
             return jsonify({'error': 'Invalid user type'}), 400
-        
+ 
         data_source = data.get('data_source', 'csv')
         if data_source not in ['csv', 'clockify']:
             return jsonify({'error': 'Invalid data source'}), 400
-        
+ 
         user_doc = {
             'email': email,
             'password_hash': generate_password_hash(password),
@@ -1321,44 +1319,89 @@ def register():
             'created_at': datetime.utcnow(),
             'last_login': None
         }
-        
-        if user_type == 'individual':
+ 
+        # --- EMPLOYEE kaydı ---
+        if user_type == 'employee':
+            company_code = data.get('company_code', '').strip()
+            if not company_code:
+                return jsonify({'error': 'Company code is required for employee registration'}), 400
+ 
+            # Şirketi bul
+            company = mongo.db.users.find_one({
+                'user_type': 'company',
+                'company_profile.company_code': company_code
+            })
+            if not company:
+                return jsonify({'error': 'Invalid company code. Please check with your employer.'}), 404
+ 
             full_name = sanitize_input(data.get('full_name', ''), 100)
             if not full_name:
                 return jsonify({'error': 'Full name is required'}), 400
-            
+ 
+            clockify_username = sanitize_input(data.get('clockify_username', ''), 100)
+ 
+            user_doc['employee_profile'] = {
+                'full_name': full_name,
+                'phone': sanitize_input(data.get('phone', ''), 20),
+                'clockify_username': clockify_username,
+                'company_id': str(company['_id']),
+                'company_name': company.get('company_profile', {}).get('company_name', ''),
+                'company_code': company_code,
+                'status': 'active'
+            }
+ 
+            # Clockify kullanılıyorsa, şirketin API key'ini kopyala
+            if data_source == 'clockify' and company.get('clockify_api_key'):
+                user_doc['clockify_api_key'] = company['clockify_api_key']
+                user_doc['data_source'] = 'clockify'
+            else:
+                user_doc['data_source'] = company.get('data_source', 'csv')
+ 
+        # --- INDIVIDUAL kaydı ---
+        elif user_type == 'individual':
+            full_name = sanitize_input(data.get('full_name', ''), 100)
+            if not full_name:
+                return jsonify({'error': 'Full name is required'}), 400
             user_doc['individual_profile'] = {
                 'full_name': full_name,
                 'phone': sanitize_input(data.get('phone', ''), 20)
             }
-        
+ 
+        # --- COMPANY kaydı ---
         else:
             company_name = sanitize_input(data.get('company_name', ''), 100)
             if not company_name:
                 return jsonify({'error': 'Company name is required'}), 400
-            
+ 
+            # Benzersiz şirket kodu üret
+            import secrets, string
+            code_chars = string.ascii_uppercase + string.digits
+            company_code = ''.join(secrets.choice(code_chars) for _ in range(8))
+            # Çakışma kontrolü
+            while mongo.db.users.find_one({'company_profile.company_code': company_code}):
+                company_code = ''.join(secrets.choice(code_chars) for _ in range(8))
+ 
             company_profile = {
                 'company_name': company_name,
+                'company_code': company_code,
                 'contact_person': sanitize_input(data.get('contact_person', ''), 100),
                 'phone': sanitize_input(data.get('phone', ''), 20),
                 'address': sanitize_input(data.get('address', ''), 500)
             }
-            
+ 
             if 'logo_base64' in data and data['logo_base64']:
                 try:
                     logo_data = base64.b64decode(data['logo_base64'].split(',')[1])
-                    
                     if len(logo_data) > 2 * 1024 * 1024:
                         return jsonify({'error': 'Logo size must be less than 2MB'}), 400
-                    
                     company_profile['logo_data'] = logo_data
                     company_profile['logo_mimetype'] = data.get('logo_mimetype', 'image/png')
-                except Exception as e:
+                except Exception:
                     return jsonify({'error': 'Invalid logo data'}), 400
-            
+ 
             user_doc['company_profile'] = company_profile
-        
-        if data_source == 'clockify' and data.get('clockify_api_key'):
+ 
+        if data_source == 'clockify' and data.get('clockify_api_key') and user_type != 'employee':
             api_key = data['clockify_api_key'].strip()
             if api_key:
                 encrypted_key = encrypt_api_key(api_key)
@@ -1366,14 +1409,19 @@ def register():
                     user_doc['clockify_api_key'] = encrypted_key
                 else:
                     return jsonify({'error': 'Failed to encrypt API key'}), 500
-        
+ 
         result = mongo.db.users.insert_one(user_doc)
-        
-        return jsonify({
+ 
+        response_data = {
             'message': 'User registered successfully',
             'user_id': str(result.inserted_id)
-        }), 201
-        
+        }
+        # Şirket kaydıysa kodu döndür
+        if user_type == 'company':
+            response_data['company_code'] = company_code
+ 
+        return jsonify(response_data), 201
+ 
     except Exception as e:
         return safe_error_response(e, 500)
 
@@ -1381,98 +1429,401 @@ def register():
 @limiter.limit("5 per minute")
 @limiter.limit("20 per hour")
 def login():
-    """Kullanıcı girişi - Rate limiting ve güvenlik eklenmiş"""
     try:
         data = request.get_json()
-        
         if not data:
             return jsonify({'error': 'No data provided'}), 400
-        
+ 
         email = data.get('email', '').strip().lower()
         password = data.get('password', '')
-        
+ 
         if not email or not password:
             return jsonify({'error': 'Email and password required'}), 400
-        
+ 
         valid, message = validate_email(email)
         if not valid:
             return jsonify({'error': 'Invalid credentials'}), 401
-        
+ 
         user = mongo.db.users.find_one({'email': email})
-        
         if not user or not check_password_hash(user['password_hash'], password):
             return jsonify({'error': 'Invalid credentials'}), 401
-        
+ 
         mongo.db.users.update_one(
             {'_id': user['_id']},
             {'$set': {'last_login': datetime.utcnow()}}
         )
-        
+ 
         access_token = create_access_token(identity=str(user['_id']))
-        
+ 
         user_info = {
             'id': str(user['_id']),
             'email': user['email'],
             'user_type': user['user_type'],
             'data_source': user.get('data_source', 'csv')
         }
-        
+ 
         if user['user_type'] == 'individual':
             user_info['profile'] = user.get('individual_profile', {})
+        elif user['user_type'] == 'employee':
+            user_info['profile'] = user.get('employee_profile', {})
         else:
             profile = user.get('company_profile', {})
             if 'logo_data' in profile:
                 logo_base64 = base64.b64encode(profile['logo_data']).decode('utf-8')
+                profile = dict(profile)
                 profile['logo_base64'] = f"data:{profile.get('logo_mimetype', 'image/png')};base64,{logo_base64}"
                 del profile['logo_data']
             user_info['profile'] = profile
-        
-        return jsonify({
-            'access_token': access_token,
-            'user': user_info
-        }), 200
-        
+ 
+        return jsonify({'access_token': access_token, 'user': user_info}), 200
+ 
     except Exception as e:
         return safe_error_response(e, 500)
 
 @app.route('/api/auth/me', methods=['GET'])
 @jwt_required()
 def get_current_user():
-    """Mevcut kullanıcı bilgileri"""
     try:
         user_id = get_jwt_identity()
-        
         try:
             user_obj_id = ObjectId(user_id)
         except:
             return jsonify({'error': 'Invalid user ID'}), 401
-        
+ 
         user = mongo.db.users.find_one({'_id': user_obj_id})
-        
         if not user:
             return jsonify({'error': 'User not found'}), 404
-        
+ 
         user_info = {
             'id': str(user['_id']),
             'email': user['email'],
             'user_type': user['user_type'],
             'data_source': user.get('data_source', 'csv')
         }
-        
+ 
         if user['user_type'] == 'individual':
             user_info['profile'] = user.get('individual_profile', {})
+        elif user['user_type'] == 'employee':
+            user_info['profile'] = user.get('employee_profile', {})
         else:
             profile = user.get('company_profile', {})
             if 'logo_data' in profile:
                 logo_base64 = base64.b64encode(profile['logo_data']).decode('utf-8')
+                profile = dict(profile)
                 profile['logo_base64'] = f"data:{profile.get('logo_mimetype', 'image/png')};base64,{logo_base64}"
                 del profile['logo_data']
             user_info['profile'] = profile
-        
+ 
         return jsonify(user_info), 200
-        
+ 
     except Exception as e:
         return safe_error_response(e, 500)
+
+
+@app.route('/api/company/info', methods=['GET'])
+@jwt_required()
+def get_company_info():
+    """Çalışanın bağlı olduğu şirket bilgilerini döndür"""
+    try:
+        user_id = get_jwt_identity()
+        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+ 
+        if not user or user.get('user_type') != 'employee':
+            return jsonify({'error': 'Only employees can access this endpoint'}), 403
+ 
+        company_id = user.get('employee_profile', {}).get('company_id')
+        if not company_id:
+            return jsonify({'error': 'No company linked'}), 404
+ 
+        company = mongo.db.users.find_one({'_id': ObjectId(company_id)})
+        if not company:
+            return jsonify({'error': 'Company not found'}), 404
+ 
+        profile = company.get('company_profile', {})
+        company_info = {
+            'company_name': profile.get('company_name', ''),
+            'contact_person': profile.get('contact_person', ''),
+            'phone': profile.get('phone', ''),
+        }
+        if 'logo_data' in profile:
+            logo_b64 = base64.b64encode(profile['logo_data']).decode('utf-8')
+            company_info['logo_base64'] = f"data:{profile.get('logo_mimetype','image/png')};base64,{logo_b64}"
+ 
+        return jsonify(company_info), 200
+ 
+    except Exception as e:
+        return safe_error_response(e, 500)
+
+@app.route('/api/company/employees', methods=['GET'])
+@jwt_required()
+def get_employees():
+    """Şirkete bağlı tüm çalışanları listele (sadece company rolü)"""
+    try:
+        user_id = get_jwt_identity()
+        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+ 
+        if not user or user.get('user_type') != 'company':
+            return jsonify({'error': 'Only company accounts can access this endpoint'}), 403
+ 
+        employees = list(mongo.db.users.find(
+            {'user_type': 'employee', 'employee_profile.company_id': str(user['_id'])},
+            {'password_hash': 0, 'clockify_api_key': 0}
+        ))
+ 
+        result = []
+        for emp in employees:
+            profile = emp.get('employee_profile', {})
+            result.append({
+                'id': str(emp['_id']),
+                'email': emp['email'],
+                'full_name': profile.get('full_name', ''),
+                'phone': profile.get('phone', ''),
+                'clockify_username': profile.get('clockify_username', ''),
+                'status': profile.get('status', 'active'),
+                'created_at': emp.get('created_at', '').isoformat() if emp.get('created_at') else ''
+            })
+ 
+        return jsonify(result), 200
+ 
+    except Exception as e:
+        return safe_error_response(e, 500)
+
+@app.route('/api/company/employees/<employee_id>', methods=['PUT'])
+@jwt_required()
+def update_employee(employee_id):
+    """Çalışan bilgilerini güncelle (sadece company rolü)"""
+    try:
+        user_id = get_jwt_identity()
+        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+ 
+        if not user or user.get('user_type') != 'company':
+            return jsonify({'error': 'Only company accounts can access this endpoint'}), 403
+ 
+        data = request.get_json()
+ 
+        employee = mongo.db.users.find_one({
+            '_id': ObjectId(employee_id),
+            'user_type': 'employee',
+            'employee_profile.company_id': str(user['_id'])
+        })
+        if not employee:
+            return jsonify({'error': 'Employee not found'}), 404
+ 
+        update_data = {}
+        if 'full_name' in data:
+            update_data['employee_profile.full_name'] = sanitize_input(data['full_name'], 100)
+        if 'phone' in data:
+            update_data['employee_profile.phone'] = sanitize_input(data['phone'], 20)
+        if 'clockify_username' in data:
+            update_data['employee_profile.clockify_username'] = sanitize_input(data['clockify_username'], 100)
+        if 'status' in data and data['status'] in ['active', 'inactive']:
+            update_data['employee_profile.status'] = data['status']
+ 
+        if update_data:
+            mongo.db.users.update_one({'_id': ObjectId(employee_id)}, {'$set': update_data})
+ 
+        return jsonify({'message': 'Employee updated successfully'}), 200
+ 
+    except Exception as e:
+        return safe_error_response(e, 500)
+    
+@app.route('/api/company/employees/<employee_id>', methods=['DELETE'])
+@jwt_required()
+def delete_employee(employee_id):
+    """Çalışanı sistemden sil (sadece company rolü)"""
+    try:
+        user_id = get_jwt_identity()
+        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+ 
+        if not user or user.get('user_type') != 'company':
+            return jsonify({'error': 'Only company accounts can access this endpoint'}), 403
+ 
+        result = mongo.db.users.delete_one({
+            '_id': ObjectId(employee_id),
+            'user_type': 'employee',
+            'employee_profile.company_id': str(user['_id'])
+        })
+ 
+        if result.deleted_count == 0:
+            return jsonify({'error': 'Employee not found'}), 404
+ 
+        return jsonify({'message': 'Employee removed successfully'}), 200
+ 
+    except Exception as e:
+        return safe_error_response(e, 500)
+
+@app.route('/api/company/code', methods=['GET'])
+@jwt_required()
+def get_company_code():
+    """Şirket kodunu döndür (sadece company rolü)"""
+    try:
+        user_id = get_jwt_identity()
+        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+ 
+        if not user or user.get('user_type') != 'company':
+            return jsonify({'error': 'Only company accounts can access this endpoint'}), 403
+ 
+        company_code = user.get('company_profile', {}).get('company_code', '')
+        return jsonify({'company_code': company_code}), 200
+ 
+    except Exception as e:
+        return safe_error_response(e, 500)
+
+@app.route('/api/clockify/employee-report', methods=['POST'])
+@jwt_required()
+def get_employee_clockify_report():
+    """
+    Çalışan kendi raporunu çıkarır.
+    Şirketin Clockify API key'ini kullanır,
+    raporu sadece kendi clockify_username'iyle filtreler.
+    """
+    try:
+        user_id = get_jwt_identity()
+        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+ 
+        if not user or user.get('user_type') != 'employee':
+            return jsonify({'error': 'Only employees can access this endpoint'}), 403
+ 
+        profile = user.get('employee_profile', {})
+        clockify_username = profile.get('clockify_username', '')
+        if not clockify_username:
+            return jsonify({'error': 'Your Clockify username is not configured. Please contact your employer.'}), 400
+ 
+        company_id = profile.get('company_id')
+        if not company_id:
+            return jsonify({'error': 'No company linked to your account'}), 400
+ 
+        company = mongo.db.users.find_one({'_id': ObjectId(company_id)})
+        if not company:
+            return jsonify({'error': 'Company not found'}), 404
+ 
+        # Şirketin API key'ini al
+        encrypted_key = company.get('clockify_api_key', '')
+        api_key = decrypt_api_key(encrypted_key) if encrypted_key else None
+        if not api_key:
+            return jsonify({'error': 'Company Clockify API key not configured. Please contact your employer.'}), 400
+ 
+        data = request.get_json()
+        workspace_id = data.get('workspace_id')
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        project_ids = data.get('project_ids', [])
+        format_choice = data.get('format', 'decimal')
+ 
+        if not all([workspace_id, start_date, end_date]):
+            return jsonify({'error': 'Missing required parameters'}), 400
+ 
+        headers = {'X-Api-Key': api_key, 'Content-Type': 'application/json'}
+ 
+        report_url = f'https://reports.api.clockify.me/v1/workspaces/{workspace_id}/reports/detailed'
+        report_payload = {
+            "dateRangeStart": start_date,
+            "dateRangeEnd": end_date,
+            "detailedFilter": {"page": 1, "pageSize": 1000}
+        }
+        if project_ids:
+            report_payload["detailedFilter"]["projects"] = {"ids": project_ids, "contains": "CONTAINS"}
+ 
+        report_response = requests.post(report_url, headers=headers, json=report_payload, timeout=30)
+        if report_response.status_code != 200:
+            return jsonify({'error': f'Clockify API error: {report_response.text}'}), 400
+ 
+        report_data = report_response.json()
+        time_entries = report_data.get('timeentries', [])
+ 
+        # Sadece bu çalışana ait girdileri filtrele
+        filtered_entries = [
+            e for e in time_entries
+            if (e.get('userName', '') or '').lower() == clockify_username.lower()
+        ]
+ 
+        if not filtered_entries:
+            return jsonify({'error': f'No time entries found for user "{clockify_username}" in the selected period.'}), 400
+ 
+        csv_data = []
+        for entry in filtered_entries:
+            try:
+                time_interval = entry.get('timeInterval', {})
+                start_str = time_interval.get('start')
+                end_str = time_interval.get('end')
+                duration_seconds = time_interval.get('duration', 0)
+                if not start_str:
+                    continue
+                start_time = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
+                end_time = datetime.fromisoformat(end_str.replace('Z', '+00:00')) if end_str else start_time + timedelta(seconds=duration_seconds)
+                total_seconds = duration_seconds if duration_seconds > 0 else (end_time - start_time).total_seconds()
+                h = int(total_seconds // 3600)
+                m = int((total_seconds % 3600) // 60)
+                s = int(total_seconds % 60)
+                csv_data.append({
+                    'Project': entry.get('projectName', 'No Project') or 'No Project',
+                    'Client': entry.get('clientName', 'No Client') or 'No Client',
+                    'User': entry.get('userName', ''),
+                    'Description': entry.get('description', ''),
+                    'Start Date': start_time.strftime('%d/%m/%Y'),
+                    'Start Time': start_time.strftime('%H:%M:%S'),
+                    'End Time': end_time.strftime('%H:%M:%S'),
+                    'Duration (h)': f"{h:02d}:{m:02d}:{s:02d}",
+                    'Billable': 'Yes' if entry.get('billable', False) else 'No'
+                })
+            except Exception as ex:
+                app.logger.warning(f"Error processing entry: {str(ex)}")
+                continue
+ 
+        if not csv_data:
+            return jsonify({'error': 'No valid time entries found'}), 400
+ 
+        df = pd.DataFrame(csv_data)
+        df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
+ 
+        overall_projects = ", ".join(df["Project"].dropna().unique())
+        overall_customers = ", ".join(df["Client"].dropna().unique())
+ 
+        # Şirket logo ve bilgileri
+        company_profile = company.get('company_profile', {})
+        logo_data = None
+        company_info = None
+        if 'logo_data' in company_profile:
+            logo_data = {'data': company_profile['logo_data'], 'mimetype': company_profile.get('logo_mimetype', 'image/png')}
+        company_info = {
+            'company_name': company_profile.get('company_name', ''),
+            'contact_person': company_profile.get('contact_person', ''),
+            'phone': company_profile.get('phone', ''),
+            'address': company_profile.get('address', '')
+        }
+ 
+        # Report period
+        try:
+            req_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            req_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            if req_start.month == req_end.month and req_start.year == req_end.year:
+                report_period = req_start.strftime("%B %Y")
+            else:
+                report_period = f"{req_start.strftime('%B %Y')} - {req_end.strftime('%B %Y')}"
+        except:
+            report_period = "All Data"
+ 
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output = generate_excel_report(
+            df, format_choice, report_period,
+            overall_projects, overall_customers,
+            logo_data, company_info,
+            date_range_start=start_date,
+            date_range_end=end_date
+        )
+        filename = f"Report_{clockify_username}_{timestamp}.xlsx"
+ 
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )
+ 
+    except Exception as e:
+        app.logger.error(f"Error: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
 
 # ============== PROFILE ENDPOINTS ==============
 

@@ -1,27 +1,30 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { AuthGuard } from './core/guards/auth.guard';
+import { RoleGuard } from './core/guards/role.guard';
 import { LoginComponent } from './features/auth/login/login.component';
 import { RegisterComponent } from './features/auth/register/register.component';
-
+ 
 const routes: Routes = [
-  { 
-    path: '', 
-    redirectTo: '/dashboard', 
-    pathMatch: 'full' 
-  },
-  { 
-    path: 'login', 
-    component: LoginComponent
-  },
-  { 
-    path: 'register', 
-    component: RegisterComponent
-  },
+  { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
+  { path: 'login',    component: LoginComponent },
+  { path: 'register', component: RegisterComponent },
   {
     path: 'dashboard',
     loadChildren: () => import('./features/dashboard/dashboard.module').then(m => m.DashboardModule),
     canActivate: [AuthGuard]
+  },
+  {
+    path: 'employee',
+    loadChildren: () => import('./features/employee-dashboard/employee-dashboard.module').then(m => m.EmployeeDashboardModule),
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['employee'] }
+  },
+  {
+    path: 'employees',
+    loadChildren: () => import('./features/employees/employees.module').then(m => m.EmployeesModule),
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['company'] }
   },
   {
     path: 'profile',
@@ -29,16 +32,14 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
-    path: 'invoice',  // YENİ
+    path: 'invoice',
     loadChildren: () => import('./features/invoice/invoice.module').then(m => m.InvoiceModule),
-    canActivate: [AuthGuard]
+    canActivate: [AuthGuard, RoleGuard],
+    data: { roles: ['company', 'individual'] }
   },
-  { 
-    path: '**', 
-    redirectTo: '/dashboard' 
-  }
+  { path: '**', redirectTo: '/dashboard' }
 ];
-
+ 
 @NgModule({
   imports: [RouterModule.forRoot(routes)],
   exports: [RouterModule]
