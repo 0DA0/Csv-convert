@@ -37,3 +37,24 @@ Kullanıcı gelir → Boş HTML → JS çalışır → İçerik dolar
 Angular SSR:
 Kullanıcı gelir → Sunucu HTML'i doldurur → Hazır gelir
                   (Google direkt okur ✅)
+
+
+
+
+
+Custom Templates (Özel Şablonlar): Her şirketin Excel rapor düzeni farklıdır. Kullanıcıya kendi Excel şablonunu yükleme ve sütunları eşleştirme şansı verirsen ürünün değeri 10 katına çıkar.
+
+
+Projenin "CSV format çevirici" olduğunu sanmam benim hatamdı, projen aslında bir Business Intelligence (İş Zekası) yan aracı. Clockify ekosisteminde ciddi bir boşluğu doldurabilirsin. Eğer bu raporlama özelliğini Jira veya Toggl gibi diğer araçlara da genişletirsen, tam zamanlı bir işe dönüşebilir.
+
+
+Zaman Takibi Raporlayıcısı Niş alan veya marka ismi olarak kullanılabilir
+
+UI/UX Eksikliği: Bir web sitesi olarak, kullanıcının raporu oluşturmadan önce veriyi "ön izleme" (preview) yapabilmesi gerekir. Sadece "Yükle/Çek ve İndir" akışı kullanıcıda "Acaba doğru mu yaptım?" şüphesi uyandırabilir.
+
+
+🚀 Kritik Tavsiyem (Pivoting)
+Projenin en "kötü" yanı aslında teknik değil, stratejik: Kullanıcıyı her seferinde siteye girip butonlara basmaya zorlaman.
+
+Bunu nasıl "Mükemmel" yaparsın?
+Sistemi bir "Zamanlanmış Görev (Cron Job)" haline getirirsen tadından yenmez. Kullanıcı bir kez ayarlar: "Her ayın 1'inde, geçen ayın raporunu bana ve muhasebecime e-posta at." İşte insanlar buna seve seve aylık abonelik (SaaS) ücreti öderler.
