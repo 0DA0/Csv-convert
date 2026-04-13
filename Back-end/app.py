@@ -400,7 +400,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                         }
                     )
                     for i in range(table_start_row, row):
-                        summary_sheet.write(i, 5, "", info_value_format)
+                        summary_sheet.write(i, 4, "", info_value_format)
                 except:
                     pass
             
@@ -410,21 +410,21 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
         summary_sheet.write(row, 0, "Period:", info_label_format)
         summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(report_period), info_value_format)
         if logo_data:
-            summary_sheet.write(row, 5, "", info_value_format)
+            summary_sheet.write(row, 4, "", info_value_format)
         summary_sheet.set_row(row, 18)
         row += 1
         
         summary_sheet.write(row, 0, "Projects:", info_label_format)
         summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(projects), info_value_format)
         if logo_data:
-            summary_sheet.write(row, 5, "", info_value_format)
+            summary_sheet.write(row, 4, "", info_value_format)
         summary_sheet.set_row(row, 18)
         row += 1
         
         summary_sheet.write(row, 0, "Customers:", info_label_format)
         summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(customers), info_value_format)
         if logo_data:
-            summary_sheet.write(row, 5, "", info_value_format)
+            summary_sheet.write(row, 4, "", info_value_format)
         summary_sheet.set_row(row, 18)
         row += 2
         
@@ -601,7 +601,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                         }
                     )
                     for i in range(table_start_row, detail_row):
-                        detail_sheet.write(i, 5, "", info_value_format)
+                        detail_sheet.write(i, 4, "", info_value_format)
                 except:
                     pass
             
