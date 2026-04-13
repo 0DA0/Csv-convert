@@ -389,7 +389,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                     pil_img.save(opt_io, format='PNG')
                     opt_io.seek(0)
                     summary_sheet.insert_image(
-                        table_start_row, 5, "logo.png",
+                        table_start_row, 4, "logo.png",
                         {
                             'image_data': opt_io,
                             'x_offset': 4,
@@ -590,7 +590,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                     pil_img.save(opt_io, format='PNG')
                     opt_io.seek(0)
                     detail_sheet.insert_image(
-                        table_start_row, 5, "logo.png",
+                        table_start_row, 4, "logo.png",
                         {
                             'image_data': opt_io,
                             'x_offset': 4,
