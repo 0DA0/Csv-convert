@@ -382,13 +382,23 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
             
             if logo_data is not None:
                 try:
-                    temp_logo = BytesIO(logo_data['data'])
-                    summary_sheet.insert_image(table_start_row, 5, "logo", {
-                        'image_data': temp_logo,
-                        'x_scale': 0.25, 'y_scale': 0.25,
-                        'x_offset': 10, 'y_offset': 5,
-                        'positioning': 1
-                    })
+                    from PIL import Image as PILImage
+                    pil_img = PILImage.open(BytesIO(logo_data['data']))
+                    pil_img.thumbnail((150, 75), PILImage.LANCZOS)
+                    opt_io = BytesIO()
+                    pil_img.save(opt_io, format='PNG')
+                    opt_io.seek(0)
+                    summary_sheet.insert_image(
+                        table_start_row, 5, "logo.png",
+                        {
+                            'image_data': opt_io,
+                            'x_offset': 4,
+                            'y_offset': 4,
+                            'x_scale': 1.0,
+                            'y_scale': 1.0,
+                            'positioning': 2,
+                        }
+                    )
                     for i in range(table_start_row, row):
                         summary_sheet.write(i, 5, "", info_value_format)
                 except:
@@ -529,7 +539,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
         summary_sheet.set_column(2, 2, 15)
         summary_sheet.set_column(3, 3, 15)
         summary_sheet.set_column(4, 4, 15)
-        summary_sheet.set_column(5, 5, 15)
+        summary_sheet.set_column(5, 5, 22)
         
         # ============== SAYFA 2: DETAYLI RAPOR ==============
         detail_sheet = workbook.add_worksheet("Detailed Report")
@@ -573,13 +583,23 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
             
             if logo_data is not None:
                 try:
-                    temp_logo = BytesIO(logo_data['data'])
-                    detail_sheet.insert_image(table_start_row, 5, "logo", {
-                        'image_data': temp_logo,
-                        'x_scale': 0.25, 'y_scale': 0.25,
-                        'x_offset': 10, 'y_offset': 5,
-                        'positioning': 1
-                    })
+                    from PIL import Image as PILImage
+                    pil_img = PILImage.open(BytesIO(logo_data['data']))
+                    pil_img.thumbnail((150, 75), PILImage.LANCZOS)
+                    opt_io = BytesIO()
+                    pil_img.save(opt_io, format='PNG')
+                    opt_io.seek(0)
+                    detail_sheet.insert_image(
+                        table_start_row, 5, "logo.png",
+                        {
+                            'image_data': opt_io,
+                            'x_offset': 4,
+                            'y_offset': 4,
+                            'x_scale': 1.0,
+                            'y_scale': 1.0,
+                            'positioning': 2,
+                        }
+                    )
                     for i in range(table_start_row, detail_row):
                         detail_sheet.write(i, 5, "", info_value_format)
                 except:
@@ -676,7 +696,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
         detail_sheet.set_column(2, 2, 10)
         detail_sheet.set_column(3, 3, 84)
         detail_sheet.set_column(4, 4, 8)
-        detail_sheet.set_column(5, 5, 12)
+        detail_sheet.set_column(5, 5, 22)
     
     output.seek(0)
     return output
