@@ -395,11 +395,11 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                         table_start_row, 3, "logo.png",
                         {
                             'image_data': opt_io,
-                            'x_offset': 6,
-                            'y_offset': 6,
+                            'x_offset': 0,
+                            'y_offset': 0,
                             'x_scale': 1.0,
                             'y_scale': 1.0,
-                            'positioning': 2,
+                            'positioning': 1,
                         }
                     )
                 except:
