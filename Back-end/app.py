@@ -397,8 +397,8 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                             'image_data': opt_io,
                             'x_offset': 0,
                             'y_offset': 0,
-                            'x_scale': 1.5,
-                            'y_scale': 1.8,
+                            'x_scale': 1.8,
+                            'y_scale': 1.5,
                             'positioning': 1,
                         }
                     )
