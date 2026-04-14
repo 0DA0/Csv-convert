@@ -390,9 +390,9 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                     opt_io.seek(0)
 
                     logo_end_row = max(table_start_row, row - 1)
-                    summary_sheet.merge_range(table_start_row, 5, logo_end_row, 6, "", info_value_format)
+                    summary_sheet.merge_range(table_start_row, 3, logo_end_row, 4, "", info_value_format)
                     summary_sheet.insert_image(
-                        table_start_row, 5, "logo.png",
+                        table_start_row, 3, "logo.png",
                         {
                             'image_data': opt_io,
                             'x_offset': 6,
