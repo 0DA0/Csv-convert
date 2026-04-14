@@ -384,47 +384,42 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                 try:
                     from PIL import Image as PILImage
                     pil_img = PILImage.open(BytesIO(logo_data['data']))
-                    pil_img.thumbnail((150, 75), PILImage.LANCZOS)
+                    pil_img.thumbnail((180, 80), PILImage.LANCZOS)
                     opt_io = BytesIO()
                     pil_img.save(opt_io, format='PNG')
                     opt_io.seek(0)
+
+                    logo_end_row = max(table_start_row, row - 1)
+                    summary_sheet.merge_range(table_start_row, 5, logo_end_row, 6, "", info_value_format)
                     summary_sheet.insert_image(
-                        table_start_row, 4, "logo.png",
+                        table_start_row, 5, "logo.png",
                         {
                             'image_data': opt_io,
-                            'x_offset': 4,
-                            'y_offset': 4,
+                            'x_offset': 6,
+                            'y_offset': 6,
                             'x_scale': 1.0,
                             'y_scale': 1.0,
                             'positioning': 2,
                         }
                     )
-                    for i in range(table_start_row, row):
-                        summary_sheet.write(i, 4, "", info_value_format)
                 except:
                     pass
             
             row += 1
         
-        # Rapor Bilgileri
+        # Rapor Bilgileri — logo write kısımları olmadan
         summary_sheet.write(row, 0, "Period:", info_label_format)
         summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(report_period), info_value_format)
-        if logo_data:
-            summary_sheet.write(row, 4, "", info_value_format)
         summary_sheet.set_row(row, 18)
         row += 1
-        
+
         summary_sheet.write(row, 0, "Projects:", info_label_format)
         summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(projects), info_value_format)
-        if logo_data:
-            summary_sheet.write(row, 4, "", info_value_format)
         summary_sheet.set_row(row, 18)
         row += 1
-        
+
         summary_sheet.write(row, 0, "Customers:", info_label_format)
         summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(customers), info_value_format)
-        if logo_data:
-            summary_sheet.write(row, 4, "", info_value_format)
         summary_sheet.set_row(row, 18)
         row += 2
         
