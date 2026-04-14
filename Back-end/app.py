@@ -358,25 +358,25 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
             
             if company_info:
                 summary_sheet.write(row, 0, "Company:", info_label_format)
-                summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(company_info.get('company_name', '')), info_value_format)
+                summary_sheet.merge_range(row, 1, row, 2, sanitize_excel_cell(company_info.get('company_name', '')), info_value_format)
                 summary_sheet.set_row(row, 18)
                 row += 1
                 
                 if company_info.get('contact_person'):
                     summary_sheet.write(row, 0, "Contact:", info_label_format)
-                    summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(company_info.get('contact_person', '')), info_value_format)
+                    summary_sheet.merge_range(row, 1, row, 2, sanitize_excel_cell(company_info.get('contact_person', '')), info_value_format)
                     summary_sheet.set_row(row, 18)
                     row += 1
                 
                 if company_info.get('phone'):
                     summary_sheet.write(row, 0, "Phone:", info_label_format)
-                    summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(company_info.get('phone', '')), info_value_format)
+                    summary_sheet.merge_range(row, 1, row, 2, sanitize_excel_cell(company_info.get('phone', '')), info_value_format)
                     summary_sheet.set_row(row, 18)
                     row += 1
                 
                 if company_info.get('address'):
                     summary_sheet.write(row, 0, "Address:", info_label_format)
-                    summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(company_info.get('address', '')), info_value_format)
+                    summary_sheet.merge_range(row, 1, row, 2, sanitize_excel_cell(company_info.get('address', '')), info_value_format)
                     summary_sheet.set_row(row, 18)
                     row += 1
             
@@ -409,17 +409,17 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
         
         # Rapor Bilgileri — logo write kısımları olmadan
         summary_sheet.write(row, 0, "Period:", info_label_format)
-        summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(report_period), info_value_format)
+        summary_sheet.merge_range(row, 1, row, 2, sanitize_excel_cell(report_period), info_value_format)
         summary_sheet.set_row(row, 18)
         row += 1
 
         summary_sheet.write(row, 0, "Projects:", info_label_format)
-        summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(projects), info_value_format)
+        summary_sheet.merge_range(row, 1, row, 2, sanitize_excel_cell(projects), info_value_format)
         summary_sheet.set_row(row, 18)
         row += 1
 
         summary_sheet.write(row, 0, "Customers:", info_label_format)
-        summary_sheet.merge_range(row, 1, row, 4, sanitize_excel_cell(customers), info_value_format)
+        summary_sheet.merge_range(row, 1, row, 2, sanitize_excel_cell(customers), info_value_format)
         summary_sheet.set_row(row, 18)
         row += 2
         
