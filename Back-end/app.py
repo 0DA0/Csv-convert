@@ -581,30 +581,6 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                 detail_sheet.set_row(detail_row, 18)
                 detail_row += 1
             
-            if logo_data is not None:
-                try:
-                    from PIL import Image as PILImage
-                    pil_img = PILImage.open(BytesIO(logo_data['data']))
-                    pil_img.thumbnail((150, 75), PILImage.LANCZOS)
-                    opt_io = BytesIO()
-                    pil_img.save(opt_io, format='PNG')
-                    opt_io.seek(0)
-                    detail_sheet.insert_image(
-                        table_start_row, 4, "logo.png",
-                        {
-                            'image_data': opt_io,
-                            'x_offset': 4,
-                            'y_offset': 4,
-                            'x_scale': 1.0,
-                            'y_scale': 1.0,
-                            'positioning': 2,
-                        }
-                    )
-                    for i in range(table_start_row, detail_row):
-                        detail_sheet.write(i, 4, "", info_value_format)
-                except:
-                    pass
-            
             detail_row += 1
         
         # Rapor Bilgileri
