@@ -2178,8 +2178,8 @@ def get_clockify_time_entries():
         csv_data = []
         for entry in time_entries:
             try:
-                project_name = entry.get('projectName', 'No Project') or 'No Project'
-                client_name = entry.get('clientName', 'No Client') or 'No Client'
+                project_name = entry.get('projectName') or None
+                client_name = entry.get('clientName') or None
                 user_name = entry.get('userName', 'Unknown')
                 description = entry.get('description', '')
                 
@@ -2224,9 +2224,13 @@ def get_clockify_time_entries():
         
         df = pd.DataFrame(csv_data)
         
-        overall_projects = ", ".join(df["Project"].dropna().unique())
-        overall_customers = ", ".join(df["Client"].dropna().unique())
-        
+        real_projects = sorted(set(r for r in df['_raw_project'].tolist() if r))
+        real_clients  = sorted(set(r for r in df['_raw_client'].tolist()  if r))
+        overall_projects  = ", ".join(real_projects)  if real_projects  else "No Project"
+        overall_customers = ", ".join(real_clients)   if real_clients   else "No Client"
+
+        df.drop(columns=['_raw_project', '_raw_client'], inplace=True)
+
         logo_data = None
         company_info = None
         
@@ -2249,12 +2253,15 @@ def get_clockify_time_entries():
         # report_period: kullanıcının seçtiği start/end aralığına göre
         try:
             req_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            req_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-            if req_start.month == req_end.month and req_start.year == req_end.year:
+            req_end   = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            
+            same_month = (req_start.year == req_end.year and req_start.month == req_end.month)
+            if same_month:
                 report_period = req_start.strftime("%B %Y")
             else:
                 report_period = f"{req_start.strftime('%B %Y')} - {req_end.strftime('%B %Y')}"
-        except:
+        except Exception as e:
+            app.logger.warning(f"Period parse error: {e}")
             if not df['ParsedDate'].dropna().empty:
                 min_date = df['ParsedDate'].min()
                 max_date = df['ParsedDate'].max()
@@ -2264,16 +2271,16 @@ def get_clockify_time_entries():
                     report_period = f"{min_date.strftime('%B %Y')} - {max_date.strftime('%B %Y')}"
             else:
                 report_period = "All Data"
-        
+
         format_choice = data.get('format', 'decimal')
-        
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output = generate_excel_report(
             df, format_choice, report_period,
             overall_projects, overall_customers,
             logo_data, company_info,
-            date_range_start=start_date,   # Kullanıcının seçtiği başlangıç tarihi
-            date_range_end=end_date         # Kullanıcının seçtiği bitiş tarihi
+            date_range_start=start_date,
+            date_range_end=end_date
         )
         filename = f"Clockify_Report_{timestamp}.xlsx"
         
