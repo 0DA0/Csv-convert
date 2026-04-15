@@ -1663,154 +1663,177 @@ def get_company_code():
 @app.route('/api/clockify/employee-report', methods=['POST'])
 @jwt_required()
 def get_employee_clockify_report():
-    """
-    Çalışan kendi raporunu çıkarır.
-    Şirketin Clockify API key'ini kullanır,
-    raporu sadece kendi clockify_username'iyle filtreler.
-    """
     try:
         user_id = get_jwt_identity()
-        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
- 
+        user    = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+
         if not user or user.get('user_type') != 'employee':
             return jsonify({'error': 'Only employees can access this endpoint'}), 403
- 
-        profile = user.get('employee_profile', {})
-        clockify_username = profile.get('clockify_username', '')
+
+        profile            = user.get('employee_profile', {})
+        clockify_username  = profile.get('clockify_username', '')
         if not clockify_username:
             return jsonify({'error': 'Your Clockify username is not configured. Please contact your employer.'}), 400
- 
+
         company_id = profile.get('company_id')
         if not company_id:
             return jsonify({'error': 'No company linked to your account'}), 400
- 
+
         company = mongo.db.users.find_one({'_id': ObjectId(company_id)})
         if not company:
             return jsonify({'error': 'Company not found'}), 404
- 
-        # Şirketin API key'ini al
+
         encrypted_key = company.get('clockify_api_key', '')
-        api_key = decrypt_api_key(encrypted_key) if encrypted_key else None
+        api_key       = decrypt_api_key(encrypted_key) if encrypted_key else None
         if not api_key:
             return jsonify({'error': 'Company Clockify API key not configured. Please contact your employer.'}), 400
- 
-        data = request.get_json()
+
+        data         = request.get_json()
         workspace_id = data.get('workspace_id')
-        start_date = data.get('start_date')
-        end_date = data.get('end_date')
-        project_ids = data.get('project_ids', [])
+        start_date   = data.get('start_date')
+        end_date     = data.get('end_date')
+        project_ids  = data.get('project_ids', [])
         format_choice = data.get('format', 'decimal')
- 
+
         if not all([workspace_id, start_date, end_date]):
             return jsonify({'error': 'Missing required parameters'}), 400
- 
+
         headers = {'X-Api-Key': api_key, 'Content-Type': 'application/json'}
- 
-        report_url = f'https://reports.api.clockify.me/v1/workspaces/{workspace_id}/reports/detailed'
+
+        # ── Proje ve Client cache'i ──────────────────────────────────────────
+        project_cache = {}
+        try:
+            proj_resp = requests.get(
+                f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/projects?page-size=500',
+                headers={'X-Api-Key': api_key},
+                timeout=15
+            )
+            if proj_resp.status_code == 200:
+                for p in proj_resp.json():
+                    project_cache[p['id']] = {
+                        'name': p.get('name', 'No Project'),
+                        'clientName': p.get('clientName') or (p.get('client', {}) or {}).get('name', '')
+                    }
+        except Exception as e:
+            app.logger.warning(f"Could not prefetch projects: {str(e)}")
+        # ─────────────────────────────────────────────────────────────────────
+
+        report_url     = f'https://reports.api.clockify.me/v1/workspaces/{workspace_id}/reports/detailed'
         report_payload = {
             "dateRangeStart": start_date,
-            "dateRangeEnd": end_date,
+            "dateRangeEnd":   end_date,
             "detailedFilter": {"page": 1, "pageSize": 1000}
         }
         if project_ids:
             report_payload["detailedFilter"]["projects"] = {"ids": project_ids, "contains": "CONTAINS"}
- 
+
         report_response = requests.post(report_url, headers=headers, json=report_payload, timeout=30)
         if report_response.status_code != 200:
             return jsonify({'error': f'Clockify API error: {report_response.text}'}), 400
- 
-        report_data = report_response.json()
+
+        report_data  = report_response.json()
         time_entries = report_data.get('timeentries', [])
- 
-        # Sadece bu çalışana ait girdileri filtrele
+
         filtered_entries = [
             e for e in time_entries
             if (e.get('userName', '') or '').lower() == clockify_username.lower()
         ]
- 
         if not filtered_entries:
             return jsonify({'error': f'No time entries found for user "{clockify_username}" in the selected period.'}), 400
- 
+
         csv_data = []
         for entry in filtered_entries:
             try:
-                time_interval = entry.get('timeInterval', {})
-                start_str = time_interval.get('start')
-                end_str = time_interval.get('end')
+                # ── Proje adı: önce entry'den, sonra cache'den ──────────────
+                project_id   = entry.get('projectId', '')
+                project_name = entry.get('projectName') or ''
+                client_name  = entry.get('clientName')  or ''
+
+                if not project_name and project_id and project_id in project_cache:
+                    project_name = project_cache[project_id]['name']
+                if not client_name and project_id and project_id in project_cache:
+                    client_name = project_cache[project_id]['clientName']
+
+                project_name = project_name or 'No Project'
+                client_name  = client_name  or 'No Client'
+                # ────────────────────────────────────────────────────────────
+
+                time_interval    = entry.get('timeInterval', {})
+                start_str        = time_interval.get('start')
+                end_str          = time_interval.get('end')
                 duration_seconds = time_interval.get('duration', 0)
                 if not start_str:
                     continue
-                start_time = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
-                end_time = datetime.fromisoformat(end_str.replace('Z', '+00:00')) if end_str else start_time + timedelta(seconds=duration_seconds)
+
+                start_time    = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
+                end_time      = datetime.fromisoformat(end_str.replace('Z', '+00:00')) if end_str else start_time + timedelta(seconds=duration_seconds)
                 total_seconds = duration_seconds if duration_seconds > 0 else (end_time - start_time).total_seconds()
                 h = int(total_seconds // 3600)
                 m = int((total_seconds % 3600) // 60)
                 s = int(total_seconds % 60)
+
                 csv_data.append({
-                    'Project': entry.get('projectName', 'No Project') or 'No Project',
-                    'Client': entry.get('clientName', 'No Client') or 'No Client',
-                    'User': entry.get('userName', ''),
-                    'Description': entry.get('description', ''),
-                    'Start Date': start_time.strftime('%d/%m/%Y'),
-                    'Start Time': start_time.strftime('%H:%M:%S'),
-                    'End Time': end_time.strftime('%H:%M:%S'),
+                    'Project':      project_name,
+                    'Client':       client_name,
+                    'User':         entry.get('userName', ''),
+                    'Description':  entry.get('description', ''),
+                    'Start Date':   start_time.strftime('%d/%m/%Y'),
+                    'Start Time':   start_time.strftime('%H:%M:%S'),
+                    'End Time':     end_time.strftime('%H:%M:%S'),
                     'Duration (h)': f"{h:02d}:{m:02d}:{s:02d}",
-                    'Billable': 'Yes' if entry.get('billable', False) else 'No'
+                    'Billable':     'Yes' if entry.get('billable', False) else 'No'
                 })
             except Exception as ex:
                 app.logger.warning(f"Error processing entry: {str(ex)}")
                 continue
- 
+
         if not csv_data:
             return jsonify({'error': 'No valid time entries found'}), 400
- 
+
         df = pd.DataFrame(csv_data)
         df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
- 
-        overall_projects = ", ".join(df["Project"].dropna().unique())
+
+        overall_projects  = ", ".join(df["Project"].dropna().unique())
         overall_customers = ", ".join(df["Client"].dropna().unique())
- 
-        # Şirket logo ve bilgileri
+
         company_profile = company.get('company_profile', {})
-        logo_data = None
-        company_info = None
+        logo_data       = None
+        company_info    = None
         if 'logo_data' in company_profile:
             logo_data = {'data': company_profile['logo_data'], 'mimetype': company_profile.get('logo_mimetype', 'image/png')}
         company_info = {
-            'company_name': company_profile.get('company_name', ''),
+            'company_name':   company_profile.get('company_name', ''),
             'contact_person': company_profile.get('contact_person', ''),
-            'phone': company_profile.get('phone', ''),
-            'address': company_profile.get('address', '')
+            'phone':          company_profile.get('phone', ''),
+            'address':        company_profile.get('address', '')
         }
- 
-        # Report period
+
         try:
             req_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            req_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            req_end   = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
             if req_start.month == req_end.month and req_start.year == req_end.year:
                 report_period = req_start.strftime("%B %Y")
             else:
                 report_period = f"{req_start.strftime('%B %Y')} - {req_end.strftime('%B %Y')}"
         except:
             report_period = "All Data"
- 
+
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output = generate_excel_report(
+        output    = generate_excel_report(
             df, format_choice, report_period,
             overall_projects, overall_customers,
             logo_data, company_info,
             date_range_start=start_date,
             date_range_end=end_date
         )
-        filename = f"Report_{clockify_username}_{timestamp}.xlsx"
- 
+
         return send_file(
             output,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
-            download_name=filename
+            download_name=f"Report_{clockify_username}_{timestamp}.xlsx"
         )
- 
+
     except Exception as e:
         app.logger.error(f"Error: {str(e)}\n{traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
@@ -2127,27 +2150,37 @@ def get_clockify_time_entries():
                 headers=headers,
                 timeout=10
             )
-            
             if user_response.status_code != 200:
                 return jsonify({'error': 'Invalid Clockify API key'}), 400
-                
-            clockify_user = user_response.json()
         except Exception as e:
             app.logger.error(f"Auth error: {str(e)}")
             return jsonify({'error': 'Failed to authenticate with Clockify'}), 400
-        
+
+        # ── Proje ve Client cache'i ──────────────────────────────────────────
+        project_cache = {}  # project_id -> {name, clientName}
+        try:
+            proj_resp = requests.get(
+                f'https://api.clockify.me/api/v1/workspaces/{workspace_id}/projects?page-size=500',
+                headers={'X-Api-Key': api_key},
+                timeout=15
+            )
+            if proj_resp.status_code == 200:
+                for p in proj_resp.json():
+                    project_cache[p['id']] = {
+                        'name': p.get('name', 'No Project'),
+                        'clientName': p.get('clientName') or p.get('client', {}).get('name', '') if isinstance(p.get('client'), dict) else p.get('clientName', '')
+                    }
+        except Exception as e:
+            app.logger.warning(f"Could not prefetch projects: {str(e)}")
+        # ─────────────────────────────────────────────────────────────────────
+
         try:
             report_url = f'https://reports.api.clockify.me/v1/workspaces/{workspace_id}/reports/detailed'
-            
             report_payload = {
                 "dateRangeStart": start_date,
                 "dateRangeEnd": end_date,
-                "detailedFilter": {
-                    "page": 1,
-                    "pageSize": 1000
-                }
+                "detailedFilter": {"page": 1, "pageSize": 1000}
             }
-            
             if project_ids and len(project_ids) > 0:
                 report_payload["detailedFilter"]["projects"] = {
                     "ids": project_ids,
@@ -2155,22 +2188,16 @@ def get_clockify_time_entries():
                 }
             
             report_response = requests.post(
-                report_url,
-                headers=headers,
-                json=report_payload,
-                timeout=30
+                report_url, headers=headers, json=report_payload, timeout=30
             )
-            
             if report_response.status_code != 200:
                 app.logger.error(f"API Error: {report_response.text}")
                 return jsonify({'error': f'Clockify API error: {report_response.text}'}), 400
             
             report_data = report_response.json()
             time_entries = report_data.get('timeentries', [])
-            
             if not time_entries:
                 return jsonify({'error': 'No time entries found'}), 400
-            
         except Exception as e:
             app.logger.error(f"Fetch error: {str(e)}\n{traceback.format_exc()}")
             return jsonify({'error': f'Failed to fetch time entries: {str(e)}'}), 400
@@ -2178,42 +2205,49 @@ def get_clockify_time_entries():
         csv_data = []
         for entry in time_entries:
             try:
-                project_name = entry.get('projectName', 'No Project') or 'No Project'
-                client_name = entry.get('clientName', 'No Client') or 'No Client'
-                user_name = entry.get('userName', 'Unknown')
+                # ── Proje adı: önce entry'den, sonra cache'den ──────────────
+                project_id = entry.get('projectId', '')
+                project_name = entry.get('projectName') or ''
+                client_name  = entry.get('clientName')  or ''
+
+                if not project_name and project_id and project_id in project_cache:
+                    project_name = project_cache[project_id]['name']
+                if not client_name and project_id and project_id in project_cache:
+                    client_name = project_cache[project_id]['clientName']
+
+                project_name = project_name or 'No Project'
+                client_name  = client_name  or 'No Client'
+                # ────────────────────────────────────────────────────────────
+
+                user_name   = entry.get('userName', 'Unknown')
                 description = entry.get('description', '')
                 
-                time_interval = entry.get('timeInterval', {})
-                start_str = time_interval.get('start')
-                end_str = time_interval.get('end')
+                time_interval    = entry.get('timeInterval', {})
+                start_str        = time_interval.get('start')
+                end_str          = time_interval.get('end')
                 duration_seconds = time_interval.get('duration', 0)
                 
                 if not start_str:
                     continue
                 
                 start_time = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
-                
-                if end_str:
-                    end_time = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
-                else:
-                    end_time = start_time + timedelta(seconds=duration_seconds)
-                
+                end_time   = datetime.fromisoformat(end_str.replace('Z', '+00:00')) if end_str else start_time + timedelta(seconds=duration_seconds)
                 total_seconds = duration_seconds if duration_seconds > 0 else (end_time - start_time).total_seconds()
                 
-                hours = int(total_seconds // 3600)
+                hours   = int(total_seconds // 3600)
                 minutes = int((total_seconds % 3600) // 60)
                 seconds = int(total_seconds % 60)
                 
                 csv_data.append({
-                    'Project': project_name,
-                    'Client': client_name,
-                    'User': user_name,
-                    'Description': description,
-                    'Start Date': start_time.strftime('%d/%m/%Y'),
-                    'Start Time': start_time.strftime('%H:%M:%S'),
-                    'End Time': end_time.strftime('%H:%M:%S'),
+                    'Project':      project_name,
+                    'Client':       client_name,
+                    'User':         user_name,
+                    'Description':  description,
+                    'Start Date':   start_time.strftime('%d/%m/%Y'),
+                    'Start Time':   start_time.strftime('%H:%M:%S'),
+                    'End Time':     end_time.strftime('%H:%M:%S'),
                     'Duration (h)': f"{hours:02d}:{minutes:02d}:{seconds:02d}",
-                    'Billable': 'Yes' if entry.get('billable', False) else 'No'
+                    'Billable':     'Yes' if entry.get('billable', False) else 'No'
                 })
             except Exception as e:
                 app.logger.warning(f"Error processing entry: {str(e)}")
@@ -2223,65 +2257,49 @@ def get_clockify_time_entries():
             return jsonify({'error': 'No valid time entries found'}), 400
         
         df = pd.DataFrame(csv_data)
-        
-        overall_projects = ", ".join(df["Project"].dropna().unique())
+        overall_projects  = ", ".join(df["Project"].dropna().unique())
         overall_customers = ", ".join(df["Client"].dropna().unique())
         
-        logo_data = None
+        logo_data    = None
         company_info = None
-        
         if user and user.get('user_type') == 'company':
             profile = user.get('company_profile', {})
             if 'logo_data' in profile:
-                logo_data = {
-                    'data': profile['logo_data'],
-                    'mimetype': profile.get('logo_mimetype', 'image/png')
-                }
+                logo_data = {'data': profile['logo_data'], 'mimetype': profile.get('logo_mimetype', 'image/png')}
             company_info = {
-                'company_name': profile.get('company_name', ''),
+                'company_name':   profile.get('company_name', ''),
                 'contact_person': profile.get('contact_person', ''),
-                'phone': profile.get('phone', ''),
-                'address': profile.get('address', '')
+                'phone':          profile.get('phone', ''),
+                'address':        profile.get('address', '')
             }
         
         df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
         
-        # report_period: kullanıcının seçtiği start/end aralığına göre
         try:
             req_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            req_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            req_end   = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
             if req_start.month == req_end.month and req_start.year == req_end.year:
                 report_period = req_start.strftime("%B %Y")
             else:
                 report_period = f"{req_start.strftime('%B %Y')} - {req_end.strftime('%B %Y')}"
         except:
-            if not df['ParsedDate'].dropna().empty:
-                min_date = df['ParsedDate'].min()
-                max_date = df['ParsedDate'].max()
-                if min_date.month == max_date.month and min_date.year == max_date.year:
-                    report_period = min_date.strftime("%B %Y")
-                else:
-                    report_period = f"{min_date.strftime('%B %Y')} - {max_date.strftime('%B %Y')}"
-            else:
-                report_period = "All Data"
+            report_period = "All Data"
         
         format_choice = data.get('format', 'decimal')
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output = generate_excel_report(
+        timestamp     = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output        = generate_excel_report(
             df, format_choice, report_period,
             overall_projects, overall_customers,
             logo_data, company_info,
-            date_range_start=start_date,   # Kullanıcının seçtiği başlangıç tarihi
-            date_range_end=end_date         # Kullanıcının seçtiği bitiş tarihi
+            date_range_start=start_date,
+            date_range_end=end_date
         )
-        filename = f"Clockify_Report_{timestamp}.xlsx"
         
         return send_file(
             output,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
-            download_name=filename
+            download_name=f"Clockify_Report_{timestamp}.xlsx"
         )
         
     except Exception as e:
