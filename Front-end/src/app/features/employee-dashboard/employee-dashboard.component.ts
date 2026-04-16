@@ -12,19 +12,19 @@ import { environment } from '../../../environments/environment';
   styleUrls: ['./employee-dashboard.component.scss']
 })
 export class EmployeeDashboardComponent implements OnInit {
-  employeeName = '';
-  companyName = '';
+  employeeName    = '';
+  companyName     = '';
   clockifyUsername = '';
 
-  workspaces: any[] = [];
-  projects: any[] = [];
-  selectedWorkspace = '';
+  workspaces: any[]        = [];
+  projects: any[]          = [];
+  selectedWorkspace        = '';
   selectedProjects: string[] = [];
-  startDate: Date | null = null;
-  endDate: Date | null = null;
+  startDate: Date | null   = null;
+  endDate:   Date | null   = null;
   format = 'hours';
 
-  loading = false;
+  loading    = false;
   generating = false;
   connectionError = '';
 
@@ -39,15 +39,15 @@ export class EmployeeDashboardComponent implements OnInit {
     const user = this.authService.getCurrentUser();
     if (user) {
       const p = user.profile as any;
-      this.employeeName = p?.full_name || user.email;
-      this.companyName = p?.company_name || '';
+      this.employeeName     = p?.full_name        || user.email;
+      this.companyName      = p?.company_name      || '';
       this.clockifyUsername = p?.clockify_username || '';
     }
 
     // Default: current month
     const now = new Date();
     this.startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    this.endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    this.endDate   = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
     this.loadWorkspaces();
   }
@@ -59,13 +59,13 @@ export class EmployeeDashboardComponent implements OnInit {
     this.clockifyService.getWorkspaces('').subscribe({
       next: (ws) => {
         this.workspaces = ws;
-        this.loading = false;
+        this.loading    = false;
         if (ws.length > 0) {
           this.selectedWorkspace = ws[0].id;
           this.onWorkspaceChange();
         }
       },
-      error: (err) => {
+      error: () => {
         this.loading = false;
         this.connectionError = 'Failed to connect to Clockify. Please contact your employer.';
       }
@@ -80,6 +80,16 @@ export class EmployeeDashboardComponent implements OnInit {
     });
   }
 
+  // ── DÜZELTİLMİŞ: timezone-safe tarih formatlama ──
+  private formatDateLocal(date: Date, isEnd: boolean): string {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const y   = date.getFullYear();
+    const mo  = pad(date.getMonth() + 1);
+    const d   = pad(date.getDate());
+    const time = isEnd ? 'T23:59:59.999Z' : 'T00:00:00.000Z';
+    return `${y}-${mo}-${d}${time}`;
+  }
+
   generateReport(): void {
     if (!this.startDate || !this.endDate) {
       this.snackBar.open('Please select start and end dates', 'Close', { duration: 3000 });
@@ -88,15 +98,13 @@ export class EmployeeDashboardComponent implements OnInit {
 
     this.generating = true;
 
-    const sd = new Date(this.startDate); sd.setHours(0, 0, 0, 0);
-    const ed = new Date(this.endDate);   ed.setHours(23, 59, 59, 999);
-
+    // ── DÜZELTİLMİŞ: toISOString() yerine lokal bileşenlerden string üret ──
     const payload = {
       workspace_id: this.selectedWorkspace,
-      start_date: sd.toISOString(),
-      end_date: ed.toISOString(),
-      project_ids: this.selectedProjects,
-      format: this.format
+      start_date:   this.formatDateLocal(this.startDate, false),
+      end_date:     this.formatDateLocal(this.endDate,   true),
+      project_ids:  this.selectedProjects,
+      format:       this.format
     };
 
     this.http.post(`${environment.apiUrl}/clockify/employee-report`, payload, { responseType: 'blob' })
@@ -110,7 +118,7 @@ export class EmployeeDashboardComponent implements OnInit {
         error: async (err) => {
           let msg = 'Error generating report';
           try {
-            const text = await err.error.text();
+            const text   = await err.error.text();
             const parsed = JSON.parse(text);
             msg = parsed.error || msg;
           } catch {}

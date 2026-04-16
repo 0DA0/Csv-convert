@@ -13,7 +13,7 @@ import { Subscription } from 'rxjs';
 })
 export class DashboardComponent implements OnInit, OnDestroy {
   userDataSource: 'csv' | 'clockify' = 'csv';
-  
+
   // CSV
   selectedFile: File | null = null;
   fileName = '';
@@ -49,7 +49,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.userSubscription = this.authService.currentUser$.subscribe(user => {
       if (user) {
         this.userDataSource = user.data_source || 'csv';
-        
+
         if (this.userDataSource === 'clockify' && !this.hasLoadedWorkspaces) {
           this.loadClockifyWorkspaces();
         }
@@ -68,7 +68,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   setDefaultDates(): void {
     const now = new Date();
     this.clockifyStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    this.clockifyEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    this.clockifyEndDate   = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   }
 
   loadClockifyWorkspaces(): void {
@@ -77,7 +77,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     this.clockifyLoading = true;
-    
+
     this.clockifyService.getWorkspaces('').subscribe({
       next: (workspaces) => {
         this.clockifyWorkspaces = workspaces;
@@ -87,7 +87,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
       error: (error) => {
         this.clockifyLoading = false;
         if (error.status === 401 || error.status === 400) {
-          this.snackBar.open('Failed to connect to Clockify. Please update your API key in profile settings.', 'Close', { duration: 5000 });
+          this.snackBar.open(
+            'Failed to connect to Clockify. Please update your API key in profile settings.',
+            'Close',
+            { duration: 5000 }
+          );
         }
       }
     });
@@ -106,6 +110,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ── DÜZELTİLMİŞ: timezone-safe tarih formatlama ──
+  private formatDateLocal(date: Date, isEnd: boolean): string {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const y   = date.getFullYear();
+    const mo  = pad(date.getMonth() + 1);
+    const d   = pad(date.getDate());
+    const time = isEnd ? 'T23:59:59.999Z' : 'T00:00:00.000Z';
+    return `${y}-${mo}-${d}${time}`;
+  }
+
   generateClockifyReport(): void {
     if (!this.clockifyStartDate || !this.clockifyEndDate) {
       this.snackBar.open('Please select start and end dates', 'Close', { duration: 3000 });
@@ -114,18 +128,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.converting = true;
 
-    const startDate = new Date(this.clockifyStartDate);
-    startDate.setHours(0, 0, 0, 0);
-    
-    const endDate = new Date(this.clockifyEndDate);
-    endDate.setHours(23, 59, 59, 999);
-
+    // ── DÜZELTİLMİŞ: toISOString() yerine lokal bileşenlerden string üret ──
     const data = {
       workspace_id: this.selectedWorkspace,
-      start_date: startDate.toISOString(),
-      end_date: endDate.toISOString(),
-      project_ids: this.selectedClockifyProjects.length > 0 ? this.selectedClockifyProjects : [],
-      format: this.format
+      start_date:   this.formatDateLocal(this.clockifyStartDate, false),
+      end_date:     this.formatDateLocal(this.clockifyEndDate,   true),
+      project_ids:  this.selectedClockifyProjects.length > 0 ? this.selectedClockifyProjects : [],
+      format:       this.format
     };
 
     this.clockifyService.getTimeEntries(data).subscribe({
@@ -149,7 +158,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   getUserDisplayName(): string {
     const user = this.authService.getCurrentUser();
     if (!user) return 'Guest';
-    
+
     if (user.user_type === 'company') {
       const profile = user.profile as any;
       return profile.company_name || user.email;
@@ -164,7 +173,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const file: File = event.target.files[0];
     if (file && file.name.endsWith('.csv')) {
       this.selectedFile = file;
-      this.fileName = file.name;
+      this.fileName     = file.name;
       this.loadCsvPreview();
     } else {
       this.snackBar.open('Please select a CSV file', 'Close', { duration: 3000 });
@@ -173,7 +182,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   loadCsvPreview(): void {
     if (!this.selectedFile) return;
-    
+
     this.loading = true;
     this.csvService.previewCsv(this.selectedFile).subscribe({
       next: (data) => {
@@ -198,9 +207,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     const filters = {
       projects: this.selectedProjects.length > 0 ? this.selectedProjects : ['all'],
-      clients: this.selectedClients.length > 0 ? this.selectedClients : ['all'],
-      users: this.selectedUsers.length > 0 ? this.selectedUsers : ['all'],
-      format: this.format
+      clients:  this.selectedClients.length  > 0 ? this.selectedClients  : ['all'],
+      users:    this.selectedUsers.length    > 0 ? this.selectedUsers    : ['all'],
+      format:   this.format
     };
 
     this.csvService.convertToExcel(this.selectedFile, filters).subscribe({
@@ -219,7 +228,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   removeFile(): void {
     this.selectedFile = null;
-    this.fileName = '';
-    this.csvData = null;
+    this.fileName     = '';
+    this.csvData      = null;
   }
 }
