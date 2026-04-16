@@ -1676,10 +1676,10 @@ def get_employee_clockify_report():
             return jsonify({'error': 'Company Clockify API key not configured. Please contact your employer.'}), 400
  
         data = request.get_json()
-        workspace_id = data.get('workspace_id')
-        start_date   = data.get('start_date')
-        end_date     = data.get('end_date')
-        project_ids  = data.get('project_ids', [])
+        workspace_id  = data.get('workspace_id')
+        start_date    = data.get('start_date')
+        end_date      = data.get('end_date')
+        project_ids   = data.get('project_ids', [])
         format_choice = data.get('format', 'decimal')
  
         if not all([workspace_id, start_date, end_date]):
@@ -1731,7 +1731,6 @@ def get_employee_clockify_report():
                 m = int((total_seconds % 3600) // 60)
                 s = int(total_seconds % 60)
  
-                # ── DÜZELTİLMİŞ: _safe_str ile None/boş değer koruması ──
                 csv_data.append({
                     'Project':      _safe_str(entry.get('projectName'), 'No Project'),
                     'Client':       _safe_str(entry.get('clientName'),  'No Client'),
@@ -1752,17 +1751,22 @@ def get_employee_clockify_report():
  
         df = pd.DataFrame(csv_data)
  
-        # ── DÜZELTİLMİŞ: DataFrame sonrası ek sanitization ──
+        # DataFrame sanitization
         df["Project"]      = df["Project"].apply(lambda x: _safe_str(x, "No Project"))
         df["Client"]       = df["Client"].apply(lambda x: _safe_str(x, "No Client"))
         df["Description"]  = df["Description"].fillna("").astype(str)
         df["Billable"]     = df["Billable"].fillna("No").astype(str)
         df["Duration (h)"] = df["Duration (h)"].fillna("00:00:00").astype(str)
  
-        df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
+        # ── DÜZELTİLMİŞ: sanitization SONRASI hesapla,
+        #    "No Project" / "No Client" placeholder'larını filtrele ──
+        real_projects  = [p for p in df["Project"].dropna().unique() if p != "No Project"]
+        real_customers = [c for c in df["Client"].dropna().unique()  if c != "No Client"]
  
-        overall_projects  = ", ".join(df["Project"].dropna().unique())
-        overall_customers = ", ".join(df["Client"].dropna().unique())
+        overall_projects  = ", ".join(real_projects)  if real_projects  else "No Project"
+        overall_customers = ", ".join(real_customers) if real_customers else "No Client"
+ 
+        df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
  
         company_profile = company.get('company_profile', {})
         logo_data    = None
@@ -2096,9 +2100,9 @@ def get_clockify_time_entries():
  
         data = request.get_json()
         workspace_id = data.get('workspace_id')
-        start_date = data.get('start_date')
-        end_date = data.get('end_date')
-        project_ids = data.get('project_ids', [])
+        start_date   = data.get('start_date')
+        end_date     = data.get('end_date')
+        project_ids  = data.get('project_ids', [])
  
         api_key = data.get('api_key')
         if not api_key:
@@ -2129,7 +2133,7 @@ def get_clockify_time_entries():
             report_url = f'https://reports.api.clockify.me/v1/workspaces/{workspace_id}/reports/detailed'
             report_payload = {
                 "dateRangeStart": start_date,
-                "dateRangeEnd": end_date,
+                "dateRangeEnd":   end_date,
                 "detailedFilter": {"page": 1, "pageSize": 1000}
             }
             if project_ids and len(project_ids) > 0:
@@ -2143,7 +2147,7 @@ def get_clockify_time_entries():
                 app.logger.error(f"API Error: {report_response.text}")
                 return jsonify({'error': f'Clockify API error: {report_response.text}'}), 400
  
-            report_data = report_response.json()
+            report_data  = report_response.json()
             time_entries = report_data.get('timeentries', [])
  
             if not time_entries:
@@ -2156,9 +2160,9 @@ def get_clockify_time_entries():
         csv_data = []
         for entry in time_entries:
             try:
-                time_interval = entry.get('timeInterval', {})
-                start_str = time_interval.get('start')
-                end_str = time_interval.get('end')
+                time_interval    = entry.get('timeInterval', {})
+                start_str        = time_interval.get('start')
+                end_str          = time_interval.get('end')
                 duration_seconds = time_interval.get('duration', 0)
  
                 if not start_str:
@@ -2171,11 +2175,10 @@ def get_clockify_time_entries():
                     end_time = start_time + timedelta(seconds=duration_seconds)
  
                 total_seconds = duration_seconds if duration_seconds > 0 else (end_time - start_time).total_seconds()
-                hours = int(total_seconds // 3600)
+                hours   = int(total_seconds // 3600)
                 minutes = int((total_seconds % 3600) // 60)
                 seconds = int(total_seconds % 60)
  
-                # ── DÜZELTİLMİŞ: _safe_str ile None/boş değer koruması ──
                 csv_data.append({
                     'Project':      _safe_str(entry.get('projectName'), 'No Project'),
                     'Client':       _safe_str(entry.get('clientName'),  'No Client'),
@@ -2196,15 +2199,20 @@ def get_clockify_time_entries():
  
         df = pd.DataFrame(csv_data)
  
-        # ── DÜZELTİLMİŞ: DataFrame sonrası ek sanitization ──
+        # DataFrame sanitization
         df["Project"]      = df["Project"].apply(lambda x: _safe_str(x, "No Project"))
         df["Client"]       = df["Client"].apply(lambda x: _safe_str(x, "No Client"))
         df["Description"]  = df["Description"].fillna("").astype(str)
         df["Billable"]     = df["Billable"].fillna("No").astype(str)
         df["Duration (h)"] = df["Duration (h)"].fillna("00:00:00").astype(str)
  
-        overall_projects  = ", ".join(df["Project"].dropna().unique())
-        overall_customers = ", ".join(df["Client"].dropna().unique())
+        # ── DÜZELTİLMİŞ: sanitization SONRASI hesapla,
+        #    "No Project" / "No Client" placeholder'larını filtrele ──
+        real_projects  = [p for p in df["Project"].dropna().unique() if p != "No Project"]
+        real_customers = [c for c in df["Client"].dropna().unique()  if c != "No Client"]
+ 
+        overall_projects  = ", ".join(real_projects)  if real_projects  else "No Project"
+        overall_customers = ", ".join(real_customers) if real_customers else "No Client"
  
         logo_data    = None
         company_info = None
@@ -2233,12 +2241,16 @@ def get_clockify_time_entries():
             if not df['ParsedDate'].dropna().empty:
                 min_date = df['ParsedDate'].min()
                 max_date = df['ParsedDate'].max()
-                report_period = min_date.strftime("%B %Y") if (min_date.month == max_date.month and min_date.year == max_date.year) else f"{min_date.strftime('%B %Y')} - {max_date.strftime('%B %Y')}"
+                report_period = (
+                    min_date.strftime("%B %Y")
+                    if (min_date.month == max_date.month and min_date.year == max_date.year)
+                    else f"{min_date.strftime('%B %Y')} - {max_date.strftime('%B %Y')}"
+                )
             else:
                 report_period = "All Data"
  
         format_choice = data.get('format', 'decimal')
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp     = datetime.now().strftime("%Y%m%d_%H%M%S")
  
         output = generate_excel_report(
             df, format_choice, report_period,
