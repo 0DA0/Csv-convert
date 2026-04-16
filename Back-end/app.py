@@ -219,7 +219,7 @@ def safe_error_response(error, status_code=500):
         'status': status_code
     }), status_code
 
-ef parse_date_range(date_str):
+def parse_date_range(date_str):
     """
     JS .toISOString() UTC'ye çevirince Türkiye (UTC+3) için
     01-05-2025 00:00 lokal → 30-04-2025 21:00 UTC oluyor.
