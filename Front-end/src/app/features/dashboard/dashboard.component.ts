@@ -1,3 +1,4 @@
+// dashboard.component.ts
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { AuthService } from '../../core/services/auth.service';
 import { CsvService } from '../../core/services/csv.service';
@@ -35,8 +36,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   clockifyStartDate: Date | null = null;
   clockifyEndDate: Date | null = null;
   clockifyLoading = false;
-  private hasLoadedWorkspaces = false;
+
   private userSubscription?: Subscription;
+  private workspacesLoaded = false;
 
   constructor(
     public authService: AuthService,
@@ -46,23 +48,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.userSubscription = this.authService.currentUser$.subscribe(user => {
-      if (user) {
-        this.userDataSource = user.data_source || 'csv';
-
-        if (this.userDataSource === 'clockify' && !this.hasLoadedWorkspaces) {
-          this.loadClockifyWorkspaces();
-        }
-      }
-    });
-
     this.setDefaultDates();
+
+    // Read current user once — don't re-trigger side effects on every emission
+    const user = this.authService.getCurrentUser();
+    if (user) {
+      this.userDataSource = user.data_source || 'csv';
+      if (this.userDataSource === 'clockify') {
+        this.loadClockifyWorkspaces();
+      }
+    } else {
+      // Wait for the first non-null emission only
+      this.userSubscription = this.authService.currentUser$.subscribe(u => {
+        if (u && !this.workspacesLoaded) {
+          this.userDataSource = u.data_source || 'csv';
+          if (this.userDataSource === 'clockify') {
+            this.loadClockifyWorkspaces();
+          }
+          // Unsubscribe after first successful load — prevents re-triggering
+          this.userSubscription?.unsubscribe();
+        }
+      });
+    }
   }
 
   ngOnDestroy(): void {
-    if (this.userSubscription) {
-      this.userSubscription.unsubscribe();
-    }
+    this.userSubscription?.unsubscribe();
   }
 
   setDefaultDates(): void {
@@ -72,9 +83,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   loadClockifyWorkspaces(): void {
-    if (this.hasLoadedWorkspaces || this.clockifyWorkspaces.length > 0) {
-      return;
-    }
+    if (this.workspacesLoaded || this.clockifyLoading) return;
 
     this.clockifyLoading = true;
 
@@ -82,7 +91,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       next: (workspaces) => {
         this.clockifyWorkspaces = workspaces;
         this.clockifyLoading = false;
-        this.hasLoadedWorkspaces = true;
+        this.workspacesLoaded = true;
       },
       error: (error) => {
         this.clockifyLoading = false;
@@ -110,14 +119,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  // ── DÜZELTİLMİŞ: timezone-safe tarih formatlama ──
   private formatDateLocal(date: Date, isEnd: boolean): string {
     const pad = (n: number) => n.toString().padStart(2, '0');
-    const y   = date.getFullYear();
-    const mo  = pad(date.getMonth() + 1);
-    const d   = pad(date.getDate());
-    const time = isEnd ? 'T23:59:59.999Z' : 'T00:00:00.000Z';
-    return `${y}-${mo}-${d}${time}`;
+    const y  = date.getFullYear();
+    const mo = pad(date.getMonth() + 1);
+    const d  = pad(date.getDate());
+    return `${y}-${mo}-${d}${isEnd ? 'T23:59:59.999Z' : 'T00:00:00.000Z'}`;
   }
 
   generateClockifyReport(): void {
@@ -128,12 +135,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     this.converting = true;
 
-    // ── DÜZELTİLMİŞ: toISOString() yerine lokal bileşenlerden string üret ──
     const data = {
       workspace_id: this.selectedWorkspace,
       start_date:   this.formatDateLocal(this.clockifyStartDate, false),
-      end_date:     this.formatDateLocal(this.clockifyEndDate,   true),
-      project_ids:  this.selectedClockifyProjects.length > 0 ? this.selectedClockifyProjects : [],
+      end_date:     this.formatDateLocal(this.clockifyEndDate, true),
+      project_ids:  this.selectedClockifyProjects,
       format:       this.format
     };
 
@@ -145,11 +151,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.converting = false;
       },
       error: (error) => {
-        let errorMessage = 'Error generating report';
-        if (error.error && error.error.error) {
-          errorMessage = error.error.error;
-        }
-        this.snackBar.open(errorMessage, 'Close', { duration: 5000 });
+        const msg = error.error?.error || 'Error generating report';
+        this.snackBar.open(msg, 'Close', { duration: 5000 });
         this.converting = false;
       }
     });
@@ -158,22 +161,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
   getUserDisplayName(): string {
     const user = this.authService.getCurrentUser();
     if (!user) return 'Guest';
-
-    if (user.user_type === 'company') {
-      const profile = user.profile as any;
-      return profile.company_name || user.email;
-    } else {
-      const profile = user.profile as any;
-      return profile.full_name || user.email;
-    }
+    const profile = user.profile as any;
+    return user.user_type === 'company'
+      ? profile.company_name || user.email
+      : profile.full_name    || user.email;
   }
 
-  // CSV Methods
   onFileSelected(event: any): void {
     const file: File = event.target.files[0];
     if (file && file.name.endsWith('.csv')) {
       this.selectedFile = file;
       this.fileName     = file.name;
+      this.csvData      = null;
       this.loadCsvPreview();
     } else {
       this.snackBar.open('Please select a CSV file', 'Close', { duration: 3000 });

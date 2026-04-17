@@ -2313,6 +2313,7 @@ def save_clockify_api_key():
 
 @app.route('/api/clockify/get-api-key', methods=['GET'])
 @jwt_required()
+@limiter.exempt
 def get_clockify_api_key():
     """Kayıtlı Clockify API key'i getir - Maskelenmiş"""
     try:
@@ -2322,10 +2323,8 @@ def get_clockify_api_key():
         encrypted_key = user.get('clockify_api_key', '')
         
         if encrypted_key:
-            # API key var ama güvenlik için maskelenmiş göster
             decrypted_key = decrypt_api_key(encrypted_key)
             if decrypted_key and len(decrypted_key) > 8:
-                # İlk 4 ve son 4 karakteri göster, ortası yıldız
                 masked_key = decrypted_key[:4] + '*' * (len(decrypted_key) - 8) + decrypted_key[-4:]
                 return jsonify({
                     'api_key': masked_key,
