@@ -281,7 +281,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
     """Excel raporu oluşturur - Summary ve Detailed Report ile"""
     output = BytesIO()
  
-    df["raw_seconds"] = df["Duration (h)"].apply(parse_duration_to_seconds)
+    df["raw_seconds"]     = df["Duration (h)"].apply(parse_duration_to_seconds)
     df["rounded_seconds"] = df["raw_seconds"].apply(round_to_nearest_minute)
  
     if format_choice == "hours":
@@ -289,26 +289,26 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
     else:
         df["formatted_duration"] = (df["rounded_seconds"] / 3600).round(2)
  
-    df['Start Date'] = df['Start Date'].astype(str)
-    df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
-    df["Day"] = df["ParsedDate"].apply(lambda d: d.strftime("%d (%A)") if pd.notnull(d) else "Unknown")
-    df["DayFull"] = df["ParsedDate"].apply(lambda d: d.strftime("%d %B %Y (%A)") if pd.notnull(d) else "Unknown")
+    df['Start Date']  = df['Start Date'].astype(str)
+    df['ParsedDate']  = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
+    df["Day"]         = df["ParsedDate"].apply(lambda d: d.strftime("%d (%A)")        if pd.notnull(d) else "Unknown")
+    df["DayFull"]     = df["ParsedDate"].apply(lambda d: d.strftime("%d %B %Y (%A)") if pd.notnull(d) else "Unknown")
  
     if "Start Time" not in df.columns:
         df["Start Time"] = ""
     if "End Time" not in df.columns:
         df["End Time"] = ""
  
-    # ── DÜZELTİLMİŞ: timezone-safe tarih aralığı hesabı ──
     range_start, range_end = _get_range(date_range_start, date_range_end, df)
  
-    all_days = pd.date_range(start=range_start, end=range_end, freq='D')
-    all_days_str = [d.strftime("%d (%A)") for d in all_days]
+    all_days      = pd.date_range(start=range_start, end=range_end, freq='D')
+    all_days_str  = [d.strftime("%d (%A)")        for d in all_days]
     all_days_full = [d.strftime("%d %B %Y (%A)") for d in all_days]
  
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         workbook = writer.book
  
+        # ============== FORMAT TANIMLARI ==============
         header_format = workbook.add_format({
             'bold': True, 'border': 1, 'bg_color': '#4472C4',
             'font_color': 'white', 'align': 'center', 'valign': 'vcenter'
@@ -320,44 +320,62 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
         info_value_format = workbook.add_format({
             'border': 1, 'align': 'left', 'valign': 'vcenter', 'text_wrap': True
         })
-        cell_format = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter'})
-        cell_wrap_format = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'top', 'text_wrap': True})
+        cell_format        = workbook.add_format({'border': 1, 'align': 'left',   'valign': 'vcenter'})
+        cell_wrap_format   = workbook.add_format({'border': 1, 'align': 'left',   'valign': 'top',    'text_wrap': True})
         cell_center_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
-        number_format = workbook.add_format({'num_format': '0.00', 'border': 1, 'align': 'right', 'valign': 'vcenter'})
-        time_format = workbook.add_format({'num_format': '[h]:mm', 'border': 1, 'align': 'right', 'valign': 'vcenter'})
-        yellow_format = workbook.add_format({'bg_color': '#FFEB9C', 'border': 1, 'bold': True, 'align': 'center', 'valign': 'vcenter'})
-        yellow_number_format = workbook.add_format({'bg_color': '#FFEB9C', 'border': 1, 'bold': True, 'num_format': '0.00', 'align': 'right', 'valign': 'vcenter'})
-        yellow_time_format = workbook.add_format({'bg_color': '#FFEB9C', 'border': 1, 'bold': True, 'num_format': '[h]:mm', 'align': 'right', 'valign': 'vcenter'})
-        green_format = workbook.add_format({'bg_color': '#C6EFCE', 'border': 1, 'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_color': '#006100'})
-        green_number_format = workbook.add_format({'bg_color': '#C6EFCE', 'border': 1, 'bold': True, 'num_format': '0.00', 'align': 'right', 'valign': 'vcenter', 'font_color': '#006100'})
-        green_time_format = workbook.add_format({'bg_color': '#C6EFCE', 'border': 1, 'bold': True, 'num_format': '[h]:mm', 'align': 'right', 'valign': 'vcenter', 'font_color': '#006100'})
-        red_format = workbook.add_format({'bg_color': '#FFC7CE', 'border': 1, 'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_color': '#9C0006'})
-        red_number_format = workbook.add_format({'bg_color': '#FFC7CE', 'border': 1, 'bold': True, 'num_format': '0.00', 'align': 'right', 'valign': 'vcenter', 'font_color': '#9C0006'})
-        red_time_format = workbook.add_format({'bg_color': '#FFC7CE', 'border': 1, 'bold': True, 'num_format': '[h]:mm', 'align': 'right', 'valign': 'vcenter', 'font_color': '#9C0006'})
-        user_header_format = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#4472C4', 'font_color': 'white', 'align': 'left', 'valign': 'vcenter', 'font_size': 12})
-        empty_day_format = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
-        empty_cell_format = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
-        empty_number_format = workbook.add_format({'num_format': '0.00', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
-        empty_time_format = workbook.add_format({'num_format': '[h]:mm', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
-        detail_header_format = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#667eea', 'font_color': 'white', 'align': 'center', 'valign': 'vcenter', 'font_size': 11})
+        number_format      = workbook.add_format({'num_format': '0.00',   'border': 1, 'align': 'right', 'valign': 'vcenter'})
+        time_format        = workbook.add_format({'num_format': '[h]:mm', 'border': 1, 'align': 'right', 'valign': 'vcenter'})
+ 
+        yellow_format        = workbook.add_format({'bg_color': '#FFEB9C', 'border': 1, 'bold': True, 'align': 'center', 'valign': 'vcenter'})
+        yellow_number_format = workbook.add_format({'bg_color': '#FFEB9C', 'border': 1, 'bold': True, 'num_format': '0.00',   'align': 'right', 'valign': 'vcenter'})
+        yellow_time_format   = workbook.add_format({'bg_color': '#FFEB9C', 'border': 1, 'bold': True, 'num_format': '[h]:mm', 'align': 'right', 'valign': 'vcenter'})
+ 
+        green_format        = workbook.add_format({'bg_color': '#C6EFCE', 'border': 1, 'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_color': '#006100'})
+        green_number_format = workbook.add_format({'bg_color': '#C6EFCE', 'border': 1, 'bold': True, 'num_format': '0.00',   'align': 'right', 'valign': 'vcenter', 'font_color': '#006100'})
+        green_time_format   = workbook.add_format({'bg_color': '#C6EFCE', 'border': 1, 'bold': True, 'num_format': '[h]:mm', 'align': 'right', 'valign': 'vcenter', 'font_color': '#006100'})
+ 
+        red_format        = workbook.add_format({'bg_color': '#FFC7CE', 'border': 1, 'bold': True, 'align': 'center', 'valign': 'vcenter', 'font_color': '#9C0006'})
+        red_number_format = workbook.add_format({'bg_color': '#FFC7CE', 'border': 1, 'bold': True, 'num_format': '0.00',   'align': 'right', 'valign': 'vcenter', 'font_color': '#9C0006'})
+        red_time_format   = workbook.add_format({'bg_color': '#FFC7CE', 'border': 1, 'bold': True, 'num_format': '[h]:mm', 'align': 'right', 'valign': 'vcenter', 'font_color': '#9C0006'})
+ 
+        user_header_format = workbook.add_format({
+            'bold': True, 'border': 1, 'bg_color': '#4472C4',
+            'font_color': 'white', 'align': 'left', 'valign': 'vcenter', 'font_size': 12
+        })
+ 
+        empty_day_format    = workbook.add_format({'border': 1, 'align': 'left',   'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
+        empty_cell_format   = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
+        empty_number_format = workbook.add_format({'num_format': '0.00',   'border': 1, 'align': 'right', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
+        empty_time_format   = workbook.add_format({'num_format': '[h]:mm', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
+ 
+        detail_header_format      = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#667eea', 'font_color': 'white', 'align': 'center', 'valign': 'vcenter', 'font_size': 11})
         detail_date_header_format = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#4472C4', 'font_color': 'white', 'align': 'left', 'font_size': 12, 'valign': 'vcenter'})
-        detail_date_empty_format = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#AAAAAA', 'font_color': '#FFFFFF', 'align': 'left', 'font_size': 12, 'valign': 'vcenter'})
-        detail_cell_format = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter', 'font_size': 10})
-        detail_cell_wrap = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'top', 'font_size': 10, 'text_wrap': True})
-        detail_cell_center = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'font_size': 10})
-        detail_number_format = workbook.add_format({'num_format': '0.00', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'font_size': 10})
-        detail_time_format = workbook.add_format({'num_format': '[h]:mm', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'font_size': 10})
-        detail_empty_cell = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'font_size': 10, 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
-        detail_empty_wrap = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter', 'font_size': 10, 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
+        detail_date_empty_format  = workbook.add_format({'bold': True, 'border': 1, 'bg_color': '#AAAAAA', 'font_color': '#FFFFFF', 'align': 'left', 'font_size': 12, 'valign': 'vcenter'})
+        detail_cell_format   = workbook.add_format({'border': 1, 'align': 'left',   'valign': 'vcenter', 'font_size': 10})
+        detail_cell_wrap     = workbook.add_format({'border': 1, 'align': 'left',   'valign': 'top',     'font_size': 10, 'text_wrap': True})
+        detail_cell_center   = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'font_size': 10})
+        detail_number_format = workbook.add_format({'num_format': '0.00',   'border': 1, 'align': 'right', 'valign': 'vcenter', 'font_size': 10})
+        detail_time_format   = workbook.add_format({'num_format': '[h]:mm', 'border': 1, 'align': 'right', 'valign': 'vcenter', 'font_size': 10})
+        detail_empty_cell    = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'font_size': 10, 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
+        detail_empty_wrap    = workbook.add_format({'border': 1, 'align': 'left',   'valign': 'vcenter', 'font_size': 10, 'bg_color': '#F2F2F2', 'font_color': '#AAAAAA'})
  
         # ============== SAYFA 1: ÖZET RAPOR ==============
         summary_sheet = workbook.add_worksheet("Summary Report")
-        summary_sheet.fit_to_pages(1, 0)
+ 
+        # ── DÜZELTİLMİŞ YAZDIR / SAYFA AYARLARI ──
         summary_sheet.set_landscape()
-        summary_sheet.set_paper(9)
+        summary_sheet.set_paper(9)          # A4
+        summary_sheet.set_margins(left=0.5, right=0.5, top=0.5, bottom=0.5)
+        summary_sheet.set_header('', {'margin': 0.3})
+        summary_sheet.set_footer('', {'margin': 0.3})
+        # fit_to_pages(1,0): genişliği 1 sayfaya sığdır, yükseklik serbest
+        summary_sheet.fit_to_pages(1, 0)
+        # print_area ve zoom yerine scale kullan — otomatik sığdırma için 0 ver
+        summary_sheet.set_print_scale(100)
  
         row = 0
  
+        # Logo ve Şirket Bilgileri
         if company_info or logo_data:
             table_start_row = row
  
@@ -397,7 +415,8 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                     summary_sheet.merge_range(table_start_row, 3, logo_end_row, 4, "", info_value_format)
                     summary_sheet.insert_image(
                         table_start_row, 3, "logo.png",
-                        {'image_data': opt_io, 'x_offset': 0, 'y_offset': 0, 'x_scale': 1.85, 'y_scale': 1.2, 'positioning': 1}
+                        {'image_data': opt_io, 'x_offset': 0, 'y_offset': 0,
+                         'x_scale': 1.85, 'y_scale': 1.2, 'positioning': 1}
                     )
                 except:
                     pass
@@ -426,11 +445,11 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
             summary_sheet.set_row(row, 20)
             row += 1
  
-            summary_sheet.write(row, 0, "Day", header_format)
-            summary_sheet.write(row, 1, "Description", header_format)
+            summary_sheet.write(row, 0, "Day",              header_format)
+            summary_sheet.write(row, 1, "Description",      header_format)
             summary_sheet.write(row, 2, "Billable Duration", header_format)
-            summary_sheet.write(row, 3, "Free Duration", header_format)
-            summary_sheet.write(row, 4, "Total Duration", header_format)
+            summary_sheet.write(row, 3, "Free Duration",    header_format)
+            summary_sheet.write(row, 4, "Total Duration",   header_format)
             summary_sheet.set_row(row, 18)
             row += 1
  
@@ -459,22 +478,22 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                     combined_description = " | ".join(unique_descriptions) if unique_descriptions else ""
  
                     billable_duration = day_df[day_df["Billable"] == "Yes"]["formatted_duration"].sum()
-                    free_duration = day_df[day_df["Billable"] == "No"]["formatted_duration"].sum()
-                    total_duration = day_df["formatted_duration"].sum()
+                    free_duration     = day_df[day_df["Billable"] == "No"]["formatted_duration"].sum()
+                    total_duration    = day_df["formatted_duration"].sum()
  
                     summary_sheet.write(row, 0, sanitize_excel_cell(day_str), cell_format)
                     summary_sheet.write(row, 1, sanitize_excel_cell(combined_description), cell_wrap_format)
  
                     if format_choice == "hours":
                         summary_sheet.write_number(row, 2, billable_duration, time_format)
-                        summary_sheet.write_number(row, 3, free_duration, time_format)
-                        summary_sheet.write_number(row, 4, total_duration, time_format)
+                        summary_sheet.write_number(row, 3, free_duration,     time_format)
+                        summary_sheet.write_number(row, 4, total_duration,    time_format)
                     else:
                         summary_sheet.write_number(row, 2, billable_duration, number_format)
-                        summary_sheet.write_number(row, 3, free_duration, number_format)
-                        summary_sheet.write_number(row, 4, total_duration, number_format)
+                        summary_sheet.write_number(row, 3, free_duration,     number_format)
+                        summary_sheet.write_number(row, 4, total_duration,    number_format)
  
-                    desc_length = len(combined_description)
+                    desc_length  = len(combined_description)
                     lines_needed = max(1, (desc_length // 120) + 1)
                     summary_sheet.set_row(row, 18 * lines_needed)
  
@@ -482,12 +501,12 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
  
             row += 1
  
-            billable_df = user_df[user_df["Billable"] == "Yes"]
+            billable_df     = user_df[user_df["Billable"] == "Yes"]
             non_billable_df = user_df[user_df["Billable"] == "No"]
  
-            total_billable = billable_df["formatted_duration"].sum()
+            total_billable     = billable_df["formatted_duration"].sum()
             total_non_billable = non_billable_df["formatted_duration"].sum()
-            total_overall = user_df["formatted_duration"].sum()
+            total_overall      = user_df["formatted_duration"].sum()
  
             summary_sheet.merge_range(row, 0, row, 1, "BILLABLE TOTAL", green_format)
             if format_choice == "hours":
@@ -519,18 +538,25 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
             summary_sheet.set_row(row, 20)
             row += 3
  
-        summary_sheet.set_column(0, 0, 14)
-        summary_sheet.set_column(1, 1, 90)
-        summary_sheet.set_column(2, 2, 15)
-        summary_sheet.set_column(3, 3, 15)
-        summary_sheet.set_column(4, 4, 15)
-        summary_sheet.set_column(5, 5, 22)
+        # ── DÜZELTİLMİŞ KOLON GENİŞLİKLERİ ──
+        # A4 landscape toplam yazdırılabilir genişlik ≈ 27 cm = ~153 Excel birimi
+        # Eski: 14 + 90 + 15 + 15 + 15 = 149  →  sağda ~4 birim boşluk kalıyordu
+        # Yeni: 14 + 94 + 15 + 15 + 15 = 153  →  tam sığar
+        summary_sheet.set_column(0, 0, 14)   # Day
+        summary_sheet.set_column(1, 1, 94)   # Description  ← 90'dan 94'e çıkarıldı
+        summary_sheet.set_column(2, 2, 15)   # Billable Duration
+        summary_sheet.set_column(3, 3, 15)   # Free Duration
+        summary_sheet.set_column(4, 4, 15)   # Total Duration
  
         # ============== SAYFA 2: DETAYLI RAPOR ==============
         detail_sheet = workbook.add_worksheet("Detailed Report")
-        detail_sheet.fit_to_pages(1, 0)
         detail_sheet.set_landscape()
         detail_sheet.set_paper(9)
+        detail_sheet.set_margins(left=0.5, right=0.5, top=0.5, bottom=0.5)
+        detail_sheet.set_header('', {'margin': 0.3})
+        detail_sheet.set_footer('', {'margin': 0.3})
+        detail_sheet.fit_to_pages(1, 0)
+        detail_sheet.set_print_scale(100)
  
         detail_row = 0
  
@@ -539,8 +565,6 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
         detail_row += 1
  
         if company_info:
-            table_start_row = detail_row
- 
             detail_sheet.write(detail_row, 0, "Company:", info_label_format)
             detail_sheet.merge_range(detail_row, 1, detail_row, 4, sanitize_excel_cell(company_info.get('company_name', '')), info_value_format)
             detail_sheet.set_row(detail_row, 18)
@@ -598,17 +622,16 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                     detail_sheet.set_row(detail_row, 20)
                     detail_row += 1
  
-                    headers = ["Start Time", "End Time", "Duration", "Description", "Billable"]
-                    for col_idx, header in enumerate(headers):
+                    for col_idx, header in enumerate(["Start Time", "End Time", "Duration", "Description", "Billable"]):
                         detail_sheet.write(detail_row, col_idx, header, detail_header_format)
                     detail_sheet.set_row(detail_row, 18)
                     detail_row += 1
  
-                    detail_sheet.write(detail_row, 0, "-", detail_empty_cell)
-                    detail_sheet.write(detail_row, 1, "-", detail_empty_cell)
-                    detail_sheet.write(detail_row, 2, "-", detail_empty_cell)
+                    detail_sheet.write(detail_row, 0, "-",           detail_empty_cell)
+                    detail_sheet.write(detail_row, 1, "-",           detail_empty_cell)
+                    detail_sheet.write(detail_row, 2, "-",           detail_empty_cell)
                     detail_sheet.write(detail_row, 3, "No activity", detail_empty_wrap)
-                    detail_sheet.write(detail_row, 4, "-", detail_empty_cell)
+                    detail_sheet.write(detail_row, 4, "-",           detail_empty_cell)
                     detail_sheet.set_row(detail_row, 16)
                     detail_row += 2
                 else:
@@ -616,15 +639,14 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                     detail_sheet.set_row(detail_row, 20)
                     detail_row += 1
  
-                    headers = ["Start Time", "End Time", "Duration", "Description", "Billable"]
-                    for col_idx, header in enumerate(headers):
+                    for col_idx, header in enumerate(["Start Time", "End Time", "Duration", "Description", "Billable"]):
                         detail_sheet.write(detail_row, col_idx, header, detail_header_format)
                     detail_sheet.set_row(detail_row, 18)
                     detail_row += 1
  
                     for idx, row_data in day_df.iterrows():
                         detail_sheet.write(detail_row, 0, sanitize_excel_cell(str(row_data.get('Start Time', ''))), detail_cell_center)
-                        detail_sheet.write(detail_row, 1, sanitize_excel_cell(str(row_data.get('End Time', ''))), detail_cell_center)
+                        detail_sheet.write(detail_row, 1, sanitize_excel_cell(str(row_data.get('End Time',   ''))), detail_cell_center)
  
                         if format_choice == "hours":
                             detail_sheet.write_number(detail_row, 2, row_data['formatted_duration'], detail_time_format)
@@ -635,8 +657,7 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
                         detail_sheet.write(detail_row, 3, desc_text, detail_cell_wrap)
                         detail_sheet.write(detail_row, 4, sanitize_excel_cell(str(row_data.get('Billable', 'No'))), detail_cell_center)
  
-                        desc_length = len(desc_text)
-                        lines_needed = max(1, (desc_length // 60) + 1)
+                        lines_needed = max(1, (len(desc_text) // 60) + 1)
                         detail_sheet.set_row(detail_row, 16 * lines_needed)
                         detail_row += 1
  
@@ -644,12 +665,12 @@ def generate_excel_report(df, format_choice, report_period, projects, customers,
  
             detail_row += 1
  
-        detail_sheet.set_column(0, 0, 10)
-        detail_sheet.set_column(1, 1, 10)
-        detail_sheet.set_column(2, 2, 10)
-        detail_sheet.set_column(3, 3, 84)
-        detail_sheet.set_column(4, 4, 8)
-        detail_sheet.set_column(5, 5, 22)
+        # Detailed Report kolon genişlikleri (değişmedi)
+        detail_sheet.set_column(0, 0, 10)   # Start Time
+        detail_sheet.set_column(1, 1, 10)   # End Time
+        detail_sheet.set_column(2, 2, 10)   # Duration
+        detail_sheet.set_column(3, 3, 84)   # Description
+        detail_sheet.set_column(4, 4,  8)   # Billable
  
     output.seek(0)
     return output
