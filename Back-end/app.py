@@ -1922,26 +1922,37 @@ def preview_csv():
     try:
         if 'file' not in request.files:
             return jsonify({'error': 'No file provided'}), 400
-        
+ 
         file = request.files['file']
-        df = pd.read_csv(file)
-        
+ 
+        try:
+            df = pd.read_csv(file)
+        except Exception as e:
+            return jsonify({'error': f'Could not read CSV file: {str(e)}'}), 400
+ 
         columns = df.columns.tolist()
-        sample_data = df.head(10).to_dict('records')
-        
+        sample_data = df.head(10).fillna('').to_dict('records')
+ 
+        # Frontend 'Project', 'Client', 'User' key'lerini bekliyor
         unique_values = {}
         for col in ['Project', 'Client', 'User']:
             if col in df.columns:
-                unique_values[col] = df[col].dropna().unique().tolist()
-        
+                unique_values[col] = [
+                    str(v) for v in df[col].dropna().unique().tolist()
+                    if str(v).strip() and str(v).strip().lower() != 'nan'
+                ]
+            else:
+                unique_values[col] = []
+ 
         return jsonify({
-            'columns': columns,
-            'sample_data': sample_data,
+            'columns':       columns,
+            'sample_data':   sample_data,
             'unique_values': unique_values,
-            'total_rows': len(df)
+            'total_rows':    len(df)
         }), 200
-        
+ 
     except Exception as e:
+        app.logger.error(f"Error in preview: {str(e)}\n{traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/csv/convert', methods=['POST'])
@@ -1951,67 +1962,79 @@ def convert_csv():
     try:
         user_id = get_jwt_identity()
         user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
-        
+ 
         if 'file' not in request.files:
             return jsonify({'error': 'No file provided'}), 400
-        
+ 
         file = request.files['file']
-        df = pd.read_csv(file)
-        
+ 
+        try:
+            df = pd.read_csv(file)
+        except Exception as e:
+            return jsonify({'error': f'Could not read CSV file: {str(e)}'}), 400
+ 
         required_columns = ["Project", "Client", "User", "Start Date", "Duration (h)"]
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
             return jsonify({'error': f'Missing columns: {", ".join(missing_columns)}'}), 400
-        
+ 
         if "Billable" not in df.columns:
             df["Billable"] = "No"
         if "Description" not in df.columns:
             df["Description"] = ""
-        
-        df["Duration (h)"].fillna("00:00:00", inplace=True)
-        df["Billable"].fillna("No", inplace=True)
-        
+ 
+        # pandas 3.0 uyumlu — inplace=True kullanma
+        df["Duration (h)"] = df["Duration (h)"].fillna("00:00:00")
+        df["Billable"]     = df["Billable"].fillna("No")
+        df["Description"]  = df["Description"].fillna("")
+ 
         selected_projects = request.form.getlist('projects[]')
-        selected_clients = request.form.getlist('clients[]')
-        selected_users = request.form.getlist('users[]')
-        format_choice = request.form.get('format', 'decimal')
-        
-        # Kullanıcının seçtiği tarih aralığını al (opsiyonel)
+        selected_clients  = request.form.getlist('clients[]')
+        selected_users    = request.form.getlist('users[]')
+        format_choice     = request.form.get('format', 'decimal')
+ 
         date_range_start = request.form.get('date_range_start', None)
-        date_range_end = request.form.get('date_range_end', None)
-        
+        date_range_end   = request.form.get('date_range_end', None)
+ 
+        # Filtre uygula — 'all' veya boş liste gelirse filtre uygulanmaz
         if selected_projects and 'all' not in [p.lower() for p in selected_projects]:
             df = df[df["Project"].isin(selected_projects)]
+ 
         if selected_clients and 'all' not in [c.lower() for c in selected_clients]:
             df = df[df["Client"].isin(selected_clients)]
+ 
         if selected_users and 'all' not in [u.lower() for u in selected_users]:
             df = df[df["User"].isin(selected_users)]
-        
+ 
         if df.empty:
-            return jsonify({'error': 'No data matches filters'}), 400
-        
-        overall_projects = ", ".join(df["Project"].dropna().unique())
-        overall_customers = ", ".join(df["Client"].dropna().unique())
-        
-        logo_data = None
+            return jsonify({'error': 'No data matches the selected filters'}), 400
+ 
+        overall_projects  = ", ".join(
+            str(v) for v in df["Project"].dropna().unique() if str(v).strip()
+        )
+        overall_customers = ", ".join(
+            str(v) for v in df["Client"].dropna().unique() if str(v).strip()
+        )
+ 
+        logo_data    = None
         company_info = None
-        
-        if user['user_type'] == 'company':
+ 
+        if user and user.get('user_type') == 'company':
             profile = user.get('company_profile', {})
             if 'logo_data' in profile:
                 logo_data = {
-                    'data': profile['logo_data'],
+                    'data':     profile['logo_data'],
                     'mimetype': profile.get('logo_mimetype', 'image/png')
                 }
             company_info = {
-                'company_name': profile.get('company_name', ''),
+                'company_name':   profile.get('company_name', ''),
                 'contact_person': profile.get('contact_person', ''),
-                'phone': profile.get('phone', ''),
-                'address': profile.get('address', '')
+                'phone':          profile.get('phone', ''),
+                'address':        profile.get('address', '')
             }
-        
+ 
         df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
-        
+ 
         if not df['ParsedDate'].dropna().empty:
             min_date = df['ParsedDate'].min()
             max_date = df['ParsedDate'].max()
@@ -2021,9 +2044,9 @@ def convert_csv():
                 report_period = f"{min_date.strftime('%B %Y')} - {max_date.strftime('%B %Y')}"
         else:
             report_period = "All Data"
-        
+ 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output = generate_excel_report(
+        output    = generate_excel_report(
             df, format_choice, report_period,
             overall_projects, overall_customers,
             logo_data, company_info,
@@ -2031,14 +2054,14 @@ def convert_csv():
             date_range_end=date_range_end
         )
         filename = f"Report_{timestamp}.xlsx"
-        
+ 
         return send_file(
             output,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
             download_name=filename
         )
-        
+ 
     except Exception as e:
         app.logger.error(f"Error in convert: {str(e)}\n{traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
