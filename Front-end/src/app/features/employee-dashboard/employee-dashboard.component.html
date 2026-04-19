@@ -2,24 +2,17 @@
   <app-header></app-header>
 
   <div class="content">
-    <!-- Welcome -->
     <div class="welcome-section">
-      <div class="welcome-text">
-        <h1>Hello, {{ employeeName }}</h1>
-        <p>Generate your personal time reports from {{ companyName }}</p>
-      </div>
-      <div class="company-badge" *ngIf="companyName">
-        <mat-icon>business</mat-icon>
-        <span>{{ companyName }}</span>
-      </div>
+      <h1>Welcome, {{ employeeName }}</h1>
+      <p>Transform your time tracking data into professional reports</p>
     </div>
 
     <!-- ===== CSV MODE ===== -->
-    <mat-card class="report-card" *ngIf="userDataSource === 'csv'">
+    <mat-card class="upload-card" *ngIf="userDataSource === 'csv'">
       <mat-card-content>
         <div class="section-header">
           <mat-icon>insert_drive_file</mat-icon>
-          <h2>Upload CSV File</h2>
+          <h2>CSV File Upload</h2>
         </div>
 
         <div class="file-upload-area">
@@ -112,46 +105,66 @@
     </mat-card>
 
     <!-- ===== CLOCKIFY MODE ===== -->
-    <mat-card class="report-card" *ngIf="userDataSource === 'clockify'">
+    <mat-card class="clockify-card" *ngIf="userDataSource === 'clockify'">
       <mat-card-content>
         <div class="section-header">
           <mat-icon>cloud</mat-icon>
-          <h2>Generate My Report</h2>
+          <h2>Clockify Integration</h2>
         </div>
 
-        <!-- Status -->
-        <div class="status-banner" [class.connected]="workspaces.length > 0" [class.error]="connectionError">
-          <mat-icon>{{ workspaces.length > 0 ? 'check_circle' : (connectionError ? 'error' : 'sync') }}</mat-icon>
-          <span>{{ workspaces.length > 0 ? 'Connected to Clockify' : (connectionError ? connectionError : 'Connecting...') }}</span>
+        <div class="clockify-status" *ngIf="workspaces.length > 0">
+          <mat-icon class="status-icon">check_circle</mat-icon>
+          <span>Connected to Clockify</span>
         </div>
 
-        <!-- Clockify username notice -->
-        <div class="username-notice" *ngIf="clockifyUsername">
+        <div class="clockify-config" *ngIf="workspaces.length === 0 && !connectionError">
+          <p class="info-text">Loading your Clockify workspaces...</p>
+          <mat-spinner diameter="32"></mat-spinner>
+        </div>
+
+        <div class="clockify-config" *ngIf="connectionError">
+          <p class="info-text">{{ connectionError }}</p>
+          <button mat-raised-button color="primary" (click)="loadWorkspaces()" [disabled]="loading">
+            <mat-spinner *ngIf="loading" diameter="20"></mat-spinner>
+            <mat-icon *ngIf="!loading">refresh</mat-icon>
+            <span *ngIf="!loading">Retry Connection</span>
+          </button>
+        </div>
+
+        <!-- Username notice -->
+        <div class="username-notice" *ngIf="workspaces.length > 0 && clockifyUsername">
           <mat-icon>manage_accounts</mat-icon>
           <span>Reporting for: <strong>{{ clockifyUsername }}</strong></span>
         </div>
 
-        <div class="no-username-warning" *ngIf="!clockifyUsername">
+        <div class="no-username-warning" *ngIf="workspaces.length > 0 && !clockifyUsername">
           <mat-icon>warning</mat-icon>
           <span>Your Clockify username is not set. Please contact your employer to update your profile.</span>
         </div>
 
-        <!-- Filters -->
-        <div class="filters" *ngIf="workspaces.length > 0 && clockifyUsername">
+        <!-- Clockify Filters -->
+        <div class="clockify-filters" *ngIf="workspaces.length > 0 && clockifyUsername">
+          <h3>Select Data Range</h3>
+
           <div class="filter-row">
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>Workspace</mat-label>
               <mat-select [(ngModel)]="selectedWorkspace" (selectionChange)="onWorkspaceChange()">
-                <mat-option *ngFor="let ws of workspaces" [value]="ws.id">{{ ws.name }}</mat-option>
+                <mat-option *ngFor="let workspace of workspaces" [value]="workspace.id">
+                  {{ workspace.name }}
+                </mat-option>
               </mat-select>
             </mat-form-field>
 
             <mat-form-field appearance="outline" class="half-width" *ngIf="projects.length > 0">
               <mat-label>Projects (Optional)</mat-label>
               <mat-select [(ngModel)]="selectedProjects" multiple>
-                <mat-option *ngFor="let p of projects" [value]="p.id">{{ p.name }}</mat-option>
+                <mat-option *ngFor="let project of projects" [value]="project.id">
+                  {{ project.name }}
+                </mat-option>
               </mat-select>
             </mat-form-field>
+
             <div class="half-width" *ngIf="projects.length === 0"></div>
           </div>
 
@@ -179,27 +192,17 @@
             </mat-select>
           </mat-form-field>
 
-          <button mat-raised-button color="primary" class="generate-btn"
+          <button mat-raised-button color="primary"
                   (click)="generateReport()"
                   [disabled]="!selectedWorkspace || !startDate || !endDate || generating">
             <mat-spinner *ngIf="generating" diameter="20"></mat-spinner>
             <mat-icon *ngIf="!generating">download</mat-icon>
-            <span>{{ generating ? 'Generating...' : 'Generate My Report' }}</span>
+            <span *ngIf="!generating">Generate Report</span>
+            <span *ngIf="generating">Generating...</span>
           </button>
         </div>
-
-        <div class="connect-section" *ngIf="workspaces.length === 0 && !connectionError">
-          <mat-spinner diameter="32"></mat-spinner>
-          <p>Loading Clockify workspaces...</p>
-        </div>
-
-        <div class="connect-section" *ngIf="connectionError">
-          <button mat-raised-button color="primary" (click)="loadWorkspaces()" [disabled]="loading">
-            <mat-icon>refresh</mat-icon> Retry Connection
-          </button>
-        </div>
-
       </mat-card-content>
     </mat-card>
+
   </div>
 </div>
