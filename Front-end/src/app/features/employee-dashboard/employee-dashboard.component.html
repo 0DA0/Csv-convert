@@ -2,6 +2,7 @@
   <app-header></app-header>
 
   <div class="content">
+
     <!-- Welcome -->
     <div class="welcome-section">
       <div class="welcome-text">
@@ -17,9 +18,10 @@
     <!-- ===== CSV MODE ===== -->
     <mat-card class="report-card" *ngIf="userDataSource === 'csv'">
       <mat-card-content>
+
         <div class="section-header">
           <mat-icon>insert_drive_file</mat-icon>
-          <h2>Upload CSV File</h2>
+          <h2>CSV File Upload</h2>
         </div>
 
         <div class="file-upload-area">
@@ -108,18 +110,20 @@
             <span *ngIf="csvConverting">Generating...</span>
           </button>
         </div>
+
       </mat-card-content>
     </mat-card>
 
     <!-- ===== CLOCKIFY MODE ===== -->
     <mat-card class="report-card" *ngIf="userDataSource === 'clockify'">
       <mat-card-content>
+
         <div class="section-header">
           <mat-icon>cloud</mat-icon>
           <h2>Generate My Report</h2>
         </div>
 
-        <!-- Status -->
+        <!-- Connection Status -->
         <div class="status-banner" [class.connected]="workspaces.length > 0" [class.error]="connectionError">
           <mat-icon>{{ workspaces.length > 0 ? 'check_circle' : (connectionError ? 'error' : 'sync') }}</mat-icon>
           <span>{{ workspaces.length > 0 ? 'Connected to Clockify' : (connectionError ? connectionError : 'Connecting...') }}</span>
@@ -138,6 +142,7 @@
 
         <!-- Filters -->
         <div class="filters" *ngIf="workspaces.length > 0 && clockifyUsername">
+
           <div class="filter-row">
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>Workspace</mat-label>
@@ -201,5 +206,6 @@
 
       </mat-card-content>
     </mat-card>
+
   </div>
 </div>
