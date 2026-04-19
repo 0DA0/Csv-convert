@@ -14,8 +14,105 @@
       </div>
     </div>
 
-    <!-- Report Card -->
-    <mat-card class="report-card">
+    <!-- ===== CSV MODE ===== -->
+    <mat-card class="report-card" *ngIf="userDataSource === 'csv'">
+      <mat-card-content>
+        <div class="section-header">
+          <mat-icon>insert_drive_file</mat-icon>
+          <h2>Upload CSV File</h2>
+        </div>
+
+        <div class="file-upload-area">
+          <input type="file" accept=".csv" (change)="onFileSelected($event)" #fileInput hidden>
+
+          <div class="upload-box" (click)="fileInput.click()" *ngIf="!selectedFile">
+            <mat-icon>cloud_upload</mat-icon>
+            <h3>Choose CSV File</h3>
+            <p>or drag and drop here</p>
+          </div>
+
+          <div class="file-info" *ngIf="selectedFile">
+            <mat-icon color="primary">description</mat-icon>
+            <div class="file-details">
+              <strong>{{ fileName }}</strong>
+              <span *ngIf="csvData">{{ csvData.total_rows }} rows</span>
+            </div>
+            <button mat-icon-button (click)="removeFile()">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filters & Preview -->
+        <div class="filters-preview" *ngIf="csvData">
+          <div class="filters-panel">
+            <h3>Filters</h3>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Projects</mat-label>
+              <mat-select [(ngModel)]="selectedProjects" multiple>
+                <mat-option *ngFor="let project of csvData.unique_values.Project" [value]="project">
+                  {{ project }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Clients</mat-label>
+              <mat-select [(ngModel)]="selectedClients" multiple>
+                <mat-option *ngFor="let client of csvData.unique_values.Client" [value]="client">
+                  {{ client }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Users</mat-label>
+              <mat-select [(ngModel)]="selectedUsers" multiple>
+                <mat-option *ngFor="let user of csvData.unique_values.User" [value]="user">
+                  {{ user }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Format</mat-label>
+              <mat-select [(ngModel)]="format">
+                <mat-option value="decimal">Decimal (8.50)</mat-option>
+                <mat-option value="hours">Time (8:30)</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <div class="preview-panel">
+            <h3>Preview</h3>
+            <div class="table-container">
+              <table mat-table [dataSource]="csvData.sample_data" class="preview-table">
+                <ng-container *ngFor="let column of csvData.columns" [matColumnDef]="column">
+                  <th mat-header-cell *matHeaderCellDef>{{ column }}</th>
+                  <td mat-cell *matCellDef="let row">{{ row[column] }}</td>
+                </ng-container>
+                <tr mat-header-row *matHeaderRowDef="csvData.columns"></tr>
+                <tr mat-row *matRowDef="let row; columns: csvData.columns;"></tr>
+              </table>
+            </div>
+            <p class="preview-info">Showing first 10 rows of {{ csvData.total_rows }} total rows</p>
+          </div>
+        </div>
+
+        <div class="actions" *ngIf="selectedFile">
+          <button mat-raised-button color="primary" (click)="onCsvConvert()" [disabled]="csvConverting || csvLoading">
+            <mat-spinner *ngIf="csvConverting" diameter="20"></mat-spinner>
+            <mat-icon *ngIf="!csvConverting">download</mat-icon>
+            <span *ngIf="!csvConverting">Generate Report</span>
+            <span *ngIf="csvConverting">Generating...</span>
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- ===== CLOCKIFY MODE ===== -->
+    <mat-card class="report-card" *ngIf="userDataSource === 'clockify'">
       <mat-card-content>
         <div class="section-header">
           <mat-icon>cloud</mat-icon>
@@ -41,7 +138,6 @@
 
         <!-- Filters -->
         <div class="filters" *ngIf="workspaces.length > 0 && clockifyUsername">
-
           <div class="filter-row">
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>Workspace</mat-label>
@@ -92,7 +188,6 @@
           </button>
         </div>
 
-        <!-- Connect button -->
         <div class="connect-section" *ngIf="workspaces.length === 0 && !connectionError">
           <mat-spinner diameter="32"></mat-spinner>
           <p>Loading Clockify workspaces...</p>

@@ -1872,7 +1872,18 @@ def update_profile():
             encrypted_key = encrypt_api_key(api_key)
             if encrypted_key:
                 update_data['clockify_api_key'] = encrypted_key
-        
+        if user['user_type'] == 'employee':
+            if 'data_source' in data:
+                ds = data['data_source']
+                if ds in ['csv', 'clockify']:
+                    update_data['data_source'] = ds
+            if update_data:
+                mongo.db.users.update_one(
+                    {'_id': user_obj_id},
+                    {'$set': update_data}
+                )
+            return jsonify({'message': 'Profile updated successfully'}), 200
+
         if user['user_type'] == 'individual':
             full_name = sanitize_input(data.get('full_name', ''), 100)
             if full_name:
