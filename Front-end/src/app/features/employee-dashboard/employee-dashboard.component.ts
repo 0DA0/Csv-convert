@@ -18,6 +18,7 @@ export class EmployeeDashboardComponent implements OnInit, OnDestroy {
   companyName      = '';
   clockifyUsername = '';
 
+  // Reactive data source — currentUser$ ile güncellenir
   userDataSource: 'csv' | 'clockify' = 'clockify';
 
   // Clockify
@@ -52,6 +53,7 @@ export class EmployeeDashboardComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    // currentUser$ — profil güncellenince otomatik tetiklenir
     this.userSub = this.authService.currentUser$.subscribe(user => {
       if (!user) return;
 
@@ -60,14 +62,23 @@ export class EmployeeDashboardComponent implements OnInit, OnDestroy {
       this.companyName      = p?.company_name      || '';
       this.clockifyUsername = p?.clockify_username || '';
 
-      const newSource = (user.data_source || 'clockify') as 'csv' | 'clockify';
-      this.userDataSource = newSource;
+      const newSource = user.data_source || 'clockify';
 
-      if (newSource === 'clockify' && this.workspaces.length === 0 && !this.loading) {
+      // Kaynak değiştiyse Clockify bağlantısını sıfırla veya yükle
+      if (newSource !== this.userDataSource) {
+        this.userDataSource = newSource;
+
+        if (newSource === 'clockify' && this.workspaces.length === 0) {
+          this.loadWorkspaces();
+        }
+      } else if (newSource === 'clockify' && this.workspaces.length === 0) {
         this.loadWorkspaces();
       }
+
+      this.userDataSource = newSource;
     });
 
+    // Default: current month
     const now = new Date();
     this.startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     this.endDate   = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -77,10 +88,10 @@ export class EmployeeDashboardComponent implements OnInit, OnDestroy {
     this.userSub?.unsubscribe();
   }
 
-  // ── CLOCKIFY ──
+  // ── CLOCKIFY ──────────────────────────────────────────
 
   loadWorkspaces(): void {
-    this.loading         = true;
+    this.loading        = true;
     this.connectionError = '';
 
     this.clockifyService.getWorkspaces('').subscribe({
@@ -153,7 +164,7 @@ export class EmployeeDashboardComponent implements OnInit, OnDestroy {
       });
   }
 
-  // ── CSV ──
+  // ── CSV ───────────────────────────────────────────────
 
   onFileSelected(event: any): void {
     const file: File = event.target.files[0];
