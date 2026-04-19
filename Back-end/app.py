@@ -2030,19 +2030,42 @@ def convert_csv():
         logo_data    = None
         company_info = None
  
-        if user and user.get('user_type') == 'company':
-            profile = user.get('company_profile', {})
-            if 'logo_data' in profile:
-                logo_data = {
-                    'data':     profile['logo_data'],
-                    'mimetype': profile.get('logo_mimetype', 'image/png')
+        if user:
+            if user.get('user_type') == 'company':
+                profile = user.get('company_profile', {})
+                if 'logo_data' in profile:
+                    logo_data = {
+                        'data':     profile['logo_data'],
+                        'mimetype': profile.get('logo_mimetype', 'image/png')
+                    }
+                company_info = {
+                    'company_name':   profile.get('company_name', ''),
+                    'contact_person': profile.get('contact_person', ''),
+                    'phone':          profile.get('phone', ''),
+                    'address':        profile.get('address', '')
                 }
-            company_info = {
-                'company_name':   profile.get('company_name', ''),
-                'contact_person': profile.get('contact_person', ''),
-                'phone':          profile.get('phone', ''),
-                'address':        profile.get('address', '')
-            }
+ 
+            elif user.get('user_type') == 'employee':
+                # Çalışanın bağlı olduğu şirketin bilgilerini al
+                company_id = user.get('employee_profile', {}).get('company_id')
+                if company_id:
+                    try:
+                        company = mongo.db.users.find_one({'_id': ObjectId(company_id)})
+                        if company:
+                            profile = company.get('company_profile', {})
+                            if 'logo_data' in profile:
+                                logo_data = {
+                                    'data':     profile['logo_data'],
+                                    'mimetype': profile.get('logo_mimetype', 'image/png')
+                                }
+                            company_info = {
+                                'company_name':   profile.get('company_name', ''),
+                                'contact_person': profile.get('contact_person', ''),
+                                'phone':          profile.get('phone', ''),
+                                'address':        profile.get('address', '')
+                            }
+                    except Exception:
+                        pass
  
         df['ParsedDate'] = pd.to_datetime(df['Start Date'], format='%d/%m/%Y', errors='coerce')
  
