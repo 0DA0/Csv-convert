@@ -2398,42 +2398,16 @@ def generate_invoice():
         logo_data = None
         company_info = None
         
-        if user:
-            if user.get('user_type') == 'company':
-                profile = user.get('company_profile', {})
-                if 'logo_data' in profile:
-                    logo_data = {
-                        'data':     profile['logo_data'],
-                        'mimetype': profile.get('logo_mimetype', 'image/png')
-                    }
-                company_info = {
-                    'company_name':   profile.get('company_name', ''),
-                    'contact_person': profile.get('contact_person', ''),
-                    'phone':          profile.get('phone', ''),
-                    'address':        profile.get('address', '')
-                }
- 
-            elif user.get('user_type') == 'employee':
-                # Çalışanın bağlı olduğu şirketin bilgilerini al
-                company_id = user.get('employee_profile', {}).get('company_id')
-                if company_id:
-                    try:
-                        company = mongo.db.users.find_one({'_id': ObjectId(company_id)})
-                        if company:
-                            profile = company.get('company_profile', {})
-                            if 'logo_data' in profile:
-                                logo_data = {
-                                    'data':     profile['logo_data'],
-                                    'mimetype': profile.get('logo_mimetype', 'image/png')
-                                }
-                            company_info = {
-                                'company_name':   profile.get('company_name', ''),
-                                'contact_person': profile.get('contact_person', ''),
-                                'phone':          profile.get('phone', ''),
-                                'address':        profile.get('address', '')
-                            }
-                    except Exception:
-                        pass
+        if user.get('user_type') == 'company':
+            profile = user.get('company_profile', {})
+            if 'logo_data' in profile:
+                logo_data = profile['logo_data']
+            company_info = {
+                'company_name': profile.get('company_name', 'ULEPUS'),
+                'address': profile.get('address', 'ODTÜ Teknokent Mustafa Kemal Mah. Dumlupınar Blv. No:280/G İç Kapı No:305 Çankaya/Ankara'),
+                'phone': profile.get('phone', '+90-312-486-1158'),
+                'email': profile.get('contact_person', 'info@ulepus.com')
+            }
         
         # Excel oluştur
         output = generate_invoice_excel(data, logo_data, company_info)
