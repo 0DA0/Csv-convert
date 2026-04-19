@@ -1883,7 +1883,7 @@ def update_profile():
                     {'$set': update_data}
                 )
             return jsonify({'message': 'Profile updated successfully'}), 200
-
+        
         if user['user_type'] == 'individual':
             full_name = sanitize_input(data.get('full_name', ''), 100)
             if full_name:
