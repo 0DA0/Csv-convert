@@ -2,8 +2,6 @@
   <app-header></app-header>
 
   <div class="content">
-
-    <!-- Welcome -->
     <div class="welcome-section">
       <div class="welcome-text">
         <h1>Hello, {{ employeeName }}</h1>
@@ -15,10 +13,9 @@
       </div>
     </div>
 
-    <!-- ===== CSV MODE ===== -->
+    <!-- CSV MODE -->
     <mat-card class="report-card" *ngIf="userDataSource === 'csv'">
       <mat-card-content>
-
         <div class="section-header">
           <mat-icon>insert_drive_file</mat-icon>
           <h2>CSV File Upload</h2>
@@ -26,57 +23,42 @@
 
         <div class="file-upload-area">
           <input type="file" accept=".csv" (change)="onFileSelected($event)" #fileInput hidden>
-
           <div class="upload-box" (click)="fileInput.click()" *ngIf="!selectedFile">
             <mat-icon>cloud_upload</mat-icon>
             <h3>Choose CSV File</h3>
             <p>or drag and drop here</p>
           </div>
-
           <div class="file-info" *ngIf="selectedFile">
             <mat-icon color="primary">description</mat-icon>
             <div class="file-details">
               <strong>{{ fileName }}</strong>
               <span *ngIf="csvData">{{ csvData.total_rows }} rows</span>
             </div>
-            <button mat-icon-button (click)="removeFile()">
-              <mat-icon>close</mat-icon>
-            </button>
+            <button mat-icon-button (click)="removeFile()"><mat-icon>close</mat-icon></button>
           </div>
         </div>
 
-        <!-- Filters & Preview -->
         <div class="filters-preview" *ngIf="csvData">
           <div class="filters-panel">
             <h3>Filters</h3>
-
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Projects</mat-label>
               <mat-select [(ngModel)]="selectedProjects" multiple>
-                <mat-option *ngFor="let project of csvData.unique_values.Project" [value]="project">
-                  {{ project }}
-                </mat-option>
+                <mat-option *ngFor="let p of csvData.unique_values.Project" [value]="p">{{ p }}</mat-option>
               </mat-select>
             </mat-form-field>
-
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Clients</mat-label>
               <mat-select [(ngModel)]="selectedClients" multiple>
-                <mat-option *ngFor="let client of csvData.unique_values.Client" [value]="client">
-                  {{ client }}
-                </mat-option>
+                <mat-option *ngFor="let c of csvData.unique_values.Client" [value]="c">{{ c }}</mat-option>
               </mat-select>
             </mat-form-field>
-
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Users</mat-label>
               <mat-select [(ngModel)]="selectedUsers" multiple>
-                <mat-option *ngFor="let user of csvData.unique_values.User" [value]="user">
-                  {{ user }}
-                </mat-option>
+                <mat-option *ngFor="let u of csvData.unique_values.User" [value]="u">{{ u }}</mat-option>
               </mat-select>
             </mat-form-field>
-
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Format</mat-label>
               <mat-select [(ngModel)]="format">
@@ -85,7 +67,6 @@
               </mat-select>
             </mat-form-field>
           </div>
-
           <div class="preview-panel">
             <h3>Preview</h3>
             <div class="table-container">
@@ -103,6 +84,12 @@
         </div>
 
         <div class="actions" *ngIf="selectedFile">
+          <button mat-stroked-button color="primary" (click)="onPreview()" [disabled]="previewing || csvLoading" class="preview-btn">
+            <mat-spinner *ngIf="previewing" diameter="18"></mat-spinner>
+            <mat-icon *ngIf="!previewing">visibility</mat-icon>
+            <span *ngIf="!previewing">Preview Report</span>
+            <span *ngIf="previewing">Loading...</span>
+          </button>
           <button mat-raised-button color="primary" (click)="onCsvConvert()" [disabled]="csvConverting || csvLoading">
             <mat-spinner *ngIf="csvConverting" diameter="20"></mat-spinner>
             <mat-icon *ngIf="!csvConverting">download</mat-icon>
@@ -111,38 +98,33 @@
           </button>
         </div>
 
+        <app-report-preview [previewData]="reportPreviewData"></app-report-preview>
       </mat-card-content>
     </mat-card>
 
-    <!-- ===== CLOCKIFY MODE ===== -->
+    <!-- CLOCKIFY MODE -->
     <mat-card class="report-card" *ngIf="userDataSource === 'clockify'">
       <mat-card-content>
-
         <div class="section-header">
           <mat-icon>cloud</mat-icon>
           <h2>Generate My Report</h2>
         </div>
 
-        <!-- Connection Status -->
         <div class="status-banner" [class.connected]="workspaces.length > 0" [class.error]="connectionError">
           <mat-icon>{{ workspaces.length > 0 ? 'check_circle' : (connectionError ? 'error' : 'sync') }}</mat-icon>
           <span>{{ workspaces.length > 0 ? 'Connected to Clockify' : (connectionError ? connectionError : 'Connecting...') }}</span>
         </div>
 
-        <!-- Clockify username notice -->
         <div class="username-notice" *ngIf="clockifyUsername">
           <mat-icon>manage_accounts</mat-icon>
           <span>Reporting for: <strong>{{ clockifyUsername }}</strong></span>
         </div>
-
         <div class="no-username-warning" *ngIf="!clockifyUsername">
           <mat-icon>warning</mat-icon>
           <span>Your Clockify username is not set. Please contact your employer to update your profile.</span>
         </div>
 
-        <!-- Filters -->
         <div class="filters" *ngIf="workspaces.length > 0 && clockifyUsername">
-
           <div class="filter-row">
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>Workspace</mat-label>
@@ -150,7 +132,6 @@
                 <mat-option *ngFor="let ws of workspaces" [value]="ws.id">{{ ws.name }}</mat-option>
               </mat-select>
             </mat-form-field>
-
             <mat-form-field appearance="outline" class="half-width" *ngIf="projects.length > 0">
               <mat-label>Projects (Optional)</mat-label>
               <mat-select [(ngModel)]="selectedProjects" multiple>
@@ -159,7 +140,6 @@
             </mat-form-field>
             <div class="half-width" *ngIf="projects.length === 0"></div>
           </div>
-
           <div class="filter-row">
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>Start Date</mat-label>
@@ -167,7 +147,6 @@
               <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
               <mat-datepicker #startPicker></mat-datepicker>
             </mat-form-field>
-
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>End Date</mat-label>
               <input matInput [matDatepicker]="endPicker" [(ngModel)]="endDate">
@@ -175,7 +154,6 @@
               <mat-datepicker #endPicker></mat-datepicker>
             </mat-form-field>
           </div>
-
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Format</mat-label>
             <mat-select [(ngModel)]="format">
@@ -184,26 +162,36 @@
             </mat-select>
           </mat-form-field>
 
-          <button mat-raised-button color="primary" class="generate-btn"
-                  (click)="generateReport()"
-                  [disabled]="!selectedWorkspace || !startDate || !endDate || generating">
-            <mat-spinner *ngIf="generating" diameter="20"></mat-spinner>
-            <mat-icon *ngIf="!generating">download</mat-icon>
-            <span>{{ generating ? 'Generating...' : 'Generate My Report' }}</span>
-          </button>
+          <div class="clockify-actions">
+            <button mat-stroked-button color="primary" class="preview-btn"
+                    (click)="onClockifyPreview()"
+                    [disabled]="!selectedWorkspace || !startDate || !endDate || previewing">
+              <mat-spinner *ngIf="previewing" diameter="18"></mat-spinner>
+              <mat-icon *ngIf="!previewing">visibility</mat-icon>
+              <span *ngIf="!previewing">Preview Report</span>
+              <span *ngIf="previewing">Loading...</span>
+            </button>
+            <button mat-raised-button color="primary" class="generate-btn"
+                    (click)="generateReport()"
+                    [disabled]="!selectedWorkspace || !startDate || !endDate || generating">
+              <mat-spinner *ngIf="generating" diameter="20"></mat-spinner>
+              <mat-icon *ngIf="!generating">download</mat-icon>
+              <span>{{ generating ? 'Generating...' : 'Generate My Report' }}</span>
+            </button>
+          </div>
         </div>
 
         <div class="connect-section" *ngIf="workspaces.length === 0 && !connectionError">
           <mat-spinner diameter="32"></mat-spinner>
           <p>Loading Clockify workspaces...</p>
         </div>
-
         <div class="connect-section" *ngIf="connectionError">
           <button mat-raised-button color="primary" (click)="loadWorkspaces()" [disabled]="loading">
             <mat-icon>refresh</mat-icon> Retry Connection
           </button>
         </div>
 
+        <app-report-preview [previewData]="reportPreviewData"></app-report-preview>
       </mat-card-content>
     </mat-card>
 

@@ -12,7 +12,6 @@ export class ClockifyService {
   constructor(private http: HttpClient) {}
 
   getWorkspaces(apiKey: string): Observable<any> {
-    // API key boşsa backend kendi database'inden alacak
     const headers = apiKey ? new HttpHeaders({ 'X-Clockify-Api-Key': apiKey }) : new HttpHeaders();
     return this.http.get(`${this.apiUrl}/clockify/workspaces`, { headers });
   }
@@ -20,6 +19,10 @@ export class ClockifyService {
   getProjects(apiKey: string, workspaceId: string): Observable<any> {
     const headers = apiKey ? new HttpHeaders({ 'X-Clockify-Api-Key': apiKey }) : new HttpHeaders();
     return this.http.get(`${this.apiUrl}/clockify/projects?workspace_id=${workspaceId}`, { headers });
+  }
+
+  previewReport(data: any): Observable<any> {
+    return this.http.post(`${this.apiUrl}/clockify/preview-report`, data);
   }
 
   getTimeEntries(data: any): Observable<Blob> {

@@ -1,0 +1,238 @@
+.preview-wrapper {
+  margin-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── Özet kartlar ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+
+  @media (max-width: 768px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 480px) { grid-template-columns: 1fr; }
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+
+  .stat-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    mat-icon { font-size: 22px; width: 22px; height: 22px; }
+  }
+
+  .stat-body {
+    display: flex; flex-direction: column; gap: 2px;
+    .stat-label { font-size: 12px; font-weight: 500; color: #718096; }
+    .stat-value { font-size: 22px; font-weight: 700; color: #1a202c; }
+  }
+
+  &.total   { background: #f0f4ff; border-color: #c3cffd;
+    .stat-icon { background: #e0e7ff; mat-icon { color: #667eea; } } }
+  &.billable { background: #f0fff4; border-color: #9ae6b4;
+    .stat-icon { background: #c6f6d5; mat-icon { color: #38a169; } } }
+  &.free    { background: #fff5f5; border-color: #feb2b2;
+    .stat-icon { background: #fed7d7; mat-icon { color: #e53e3e; } } }
+  &.users   { background: #fffaf0; border-color: #fbd38d;
+    .stat-icon { background: #feebc8; mat-icon { color: #dd6b20; } } }
+}
+
+/* ── Meta chips ── */
+.meta-row {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+
+.meta-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 20px;
+  background: #f7fafc; border: 1px solid #e2e8f0;
+  font-size: 13px; font-weight: 500; color: #4a5568;
+
+  mat-icon { font-size: 16px; width: 16px; height: 16px; color: #667eea; }
+}
+
+/* ── Section blocks (Summary / Detailed) ── */
+.section-block {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.section-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px;
+  background: #f7fafc;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+
+  &:hover { background: #edf2f7; }
+
+  .toggle-left {
+    display: flex; align-items: center; gap: 10px;
+
+    mat-icon { font-size: 22px; width: 22px; height: 22px; color: #667eea; }
+
+    span {
+      font-size: 15px; font-weight: 600; color: #1a202c;
+    }
+  }
+
+  .row-badge {
+    font-size: 12px; font-weight: 500; color: #718096;
+    background: #e2e8f0; border-radius: 20px; padding: 2px 10px;
+  }
+
+  .chevron {
+    color: #a0aec0; transition: transform 0.25s;
+    &.open { transform: rotate(180deg); }
+  }
+}
+
+.section-content {
+  padding: 0 0 16px;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Excel benzeri tablo ── */
+.excel-table-wrap {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.excel-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  thead tr th {
+    background: #4472C4;
+    color: white;
+    font-weight: 600;
+    padding: 10px 12px;
+    text-align: center;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    border: 1px solid #3a62b0;
+  }
+
+  tbody td {
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    vertical-align: middle;
+  }
+
+  /* Kullanıcı başlık satırı — Excel'deki mavi bant */
+  .user-header-row td {
+    background: #4472C4;
+    color: white;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    mat-icon { font-size: 18px; width: 18px; height: 18px; }
+  }
+  /* Firefox için display:flex tbody tr'de çalışmaz — td kullan */
+  .user-header-row {
+    td { display: table-cell; }
+    td mat-icon { vertical-align: middle; margin-right: 6px; font-size: 18px; }
+  }
+
+  /* Normal veri satırı */
+  .data-row td { background: white; color: #2d3748; }
+  .data-row:hover td { background: #f7fafc; }
+
+  /* Boş gün */
+  .empty-row td { background: #f2f2f2; color: #aaaaaa; font-style: italic; }
+
+  /* BILLABLE TOTAL — yeşil */
+  .billable-total-row td {
+    background: #C6EFCE; color: #006100;
+    font-weight: 700; text-align: center;
+    border: 1px solid #a8d5b0;
+  }
+
+  /* FREE TOTAL — kırmızı */
+  .free-total-row td {
+    background: #FFC7CE; color: #9C0006;
+    font-weight: 700; text-align: center;
+    border: 1px solid #f0a0a8;
+  }
+
+  /* GRAND TOTAL — sarı */
+  .grand-total-row td {
+    background: #FFEB9C; color: #5a4a00;
+    font-weight: 700; text-align: center;
+    border: 1px solid #e0cc70;
+  }
+
+  /* Detailed: tarih başlığı — mavi */
+  .date-header-row td {
+    background: #4472C4; color: white;
+    font-weight: 700; padding: 8px 14px;
+    font-size: 13px;
+    border: 1px solid #3a62b0;
+  }
+
+  /* Detailed: boş tarih — gri */
+  .date-empty-row td {
+    background: #AAAAAA; color: white;
+    font-weight: 700; padding: 8px 14px;
+    font-size: 13px;
+    border: 1px solid #999;
+  }
+
+  /* Detailed: entry satırı */
+  .detail-entry-row td { background: white; color: #2d3748; }
+  .detail-entry-row:hover td { background: #f7fafc; }
+
+  /* Boşluk satırı */
+  .spacer-row td { height: 10px; background: transparent; border: none; }
+
+  /* No activity */
+  .no-activity { color: #aaaaaa; font-style: italic; text-align: center; }
+
+  /* Sütun genişlikleri */
+  .col-day  { width: 130px; white-space: nowrap; }
+  .col-desc { min-width: 200px; }
+  .col-dur  { width: 100px; text-align: right; white-space: nowrap; }
+  .col-time { width: 80px;  text-align: center; white-space: nowrap; }
+  .col-bill { width: 80px;  text-align: center; }
+
+  /* Billable chip */
+  .bill-chip {
+    display: inline-block; padding: 2px 10px; border-radius: 12px;
+    font-size: 11px; font-weight: 600;
+    background: #f2f2f2; color: #666;
+
+    &.yes { background: #C6EFCE; color: #006100; }
+  }
+}
+
+/* ── Satır limiti notu ── */
+.row-limit-note {
+  display: flex; align-items: center; gap: 8px;
+  margin: 12px 16px 0;
+  padding: 10px 14px;
+  background: #f0f4ff; border-radius: 8px;
+  border-left: 3px solid #667eea;
+  font-size: 13px; color: #4a5568;
+
+  mat-icon { font-size: 18px; width: 18px; height: 18px; color: #667eea; flex-shrink: 0; }
+  strong { color: #1a202c; }
+}

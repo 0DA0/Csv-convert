@@ -1,0 +1,181 @@
+<div class="preview-wrapper" *ngIf="previewData">
+
+  <!-- ── ÖZET KARTLAR ── -->
+  <div class="stats-grid">
+    <div class="stat-card total">
+      <div class="stat-icon"><mat-icon>schedule</mat-icon></div>
+      <div class="stat-body">
+        <span class="stat-label">Total Hours</span>
+        <span class="stat-value">{{ previewData.meta.total_overall }}</span>
+      </div>
+    </div>
+    <div class="stat-card billable">
+      <div class="stat-icon"><mat-icon>attach_money</mat-icon></div>
+      <div class="stat-body">
+        <span class="stat-label">Billable</span>
+        <span class="stat-value">{{ previewData.meta.total_billable }}</span>
+      </div>
+    </div>
+    <div class="stat-card free">
+      <div class="stat-icon"><mat-icon>money_off</mat-icon></div>
+      <div class="stat-body">
+        <span class="stat-label">Free</span>
+        <span class="stat-value">{{ previewData.meta.total_free }}</span>
+      </div>
+    </div>
+    <div class="stat-card users">
+      <div class="stat-icon"><mat-icon>group</mat-icon></div>
+      <div class="stat-body">
+        <span class="stat-label">Users</span>
+        <span class="stat-value">{{ previewData.meta.total_users }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="meta-row">
+    <span class="meta-chip"><mat-icon>date_range</mat-icon>{{ previewData.meta.period }}</span>
+    <span class="meta-chip"><mat-icon>folder</mat-icon>{{ previewData.meta.projects }}</span>
+    <span class="meta-chip"><mat-icon>business</mat-icon>{{ previewData.meta.customers }}</span>
+  </div>
+
+  <!-- ── SUMMARY ── -->
+  <div class="section-block">
+    <div class="section-toggle" (click)="summaryOpen = !summaryOpen">
+      <div class="toggle-left">
+        <mat-icon>table_chart</mat-icon>
+        <span>Summary Report</span>
+        <span class="row-badge">{{ getSummaryShown() }} / {{ previewData.summary.total_rows }} rows</span>
+      </div>
+      <mat-icon class="chevron" [class.open]="summaryOpen">expand_more</mat-icon>
+    </div>
+
+    <div class="section-content" *ngIf="summaryOpen">
+      <div class="excel-table-wrap">
+        <table class="excel-table">
+          <thead>
+            <tr>
+              <th class="col-day">Day</th>
+              <th class="col-desc">Description</th>
+              <th class="col-dur">Billable</th>
+              <th class="col-dur">Free</th>
+              <th class="col-dur">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <ng-container *ngFor="let user of previewData.summary.users">
+              <!-- Kullanıcı başlığı -->
+              <tr class="user-header-row">
+                <td colspan="5">
+                  <mat-icon>person</mat-icon> {{ user.name }}
+                </td>
+              </tr>
+              <!-- Günler -->
+              <tr *ngFor="let row of user.rows"
+                  [class.empty-row]="row.is_empty"
+                  [class.data-row]="!row.is_empty">
+                <td class="col-day">{{ row.day }}</td>
+                <td class="col-desc">{{ row.is_empty ? '—' : row.description }}</td>
+                <td class="col-dur">{{ row.billable_duration }}</td>
+                <td class="col-dur">{{ row.free_duration }}</td>
+                <td class="col-dur">{{ row.total_duration }}</td>
+              </tr>
+              <!-- Kullanıcı toplamları -->
+              <tr class="billable-total-row">
+                <td colspan="2">BILLABLE TOTAL</td>
+                <td>{{ user.billable_total }}</td>
+                <td></td>
+                <td></td>
+              </tr>
+              <tr class="free-total-row">
+                <td colspan="2">FREE TOTAL</td>
+                <td></td>
+                <td>{{ user.free_total }}</td>
+                <td></td>
+              </tr>
+              <tr class="grand-total-row">
+                <td colspan="2">GRAND TOTAL</td>
+                <td></td>
+                <td></td>
+                <td>{{ user.grand_total }}</td>
+              </tr>
+              <tr class="spacer-row"><td colspan="5"></td></tr>
+            </ng-container>
+          </tbody>
+        </table>
+      </div>
+      <div class="row-limit-note" *ngIf="isSummaryTruncated()">
+        <mat-icon>info</mat-icon>
+        Showing first {{ getSummaryShown() }} of {{ previewData.summary.total_rows }} rows —
+        <strong>full report available in Excel</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DETAILED ── -->
+  <div class="section-block">
+    <div class="section-toggle" (click)="detailedOpen = !detailedOpen">
+      <div class="toggle-left">
+        <mat-icon>view_list</mat-icon>
+        <span>Detailed Report</span>
+        <span class="row-badge">{{ getDetailedShown() }} / {{ previewData.detailed.total_rows }} rows</span>
+      </div>
+      <mat-icon class="chevron" [class.open]="detailedOpen">expand_more</mat-icon>
+    </div>
+
+    <div class="section-content" *ngIf="detailedOpen">
+      <div class="excel-table-wrap">
+        <table class="excel-table">
+          <thead>
+            <tr>
+              <th class="col-time">Start</th>
+              <th class="col-time">End</th>
+              <th class="col-dur">Duration</th>
+              <th class="col-desc">Description</th>
+              <th class="col-bill">Billable</th>
+            </tr>
+          </thead>
+          <tbody>
+            <ng-container *ngFor="let user of previewData.detailed.users">
+              <tr class="user-header-row">
+                <td colspan="5"><mat-icon>person</mat-icon> {{ user.name }}</td>
+              </tr>
+              <ng-container *ngFor="let dateBlock of user.dates">
+                <!-- Tarih başlığı -->
+                <tr [class.date-header-row]="!dateBlock.is_empty"
+                    [class.date-empty-row]="dateBlock.is_empty">
+                  <td colspan="5">{{ dateBlock.date }}</td>
+                </tr>
+                <!-- Entry'ler -->
+                <ng-container *ngIf="!dateBlock.is_empty">
+                  <tr *ngFor="let entry of dateBlock.entries" class="detail-entry-row">
+                    <td class="col-time">{{ entry.start_time }}</td>
+                    <td class="col-time">{{ entry.end_time }}</td>
+                    <td class="col-dur">{{ entry.duration }}</td>
+                    <td class="col-desc">{{ entry.description }}</td>
+                    <td class="col-bill">
+                      <span class="bill-chip" [class.yes]="entry.billable === 'Yes'">
+                        {{ entry.billable }}
+                      </span>
+                    </td>
+                  </tr>
+                </ng-container>
+                <ng-container *ngIf="dateBlock.is_empty">
+                  <tr class="empty-row">
+                    <td colspan="5" class="no-activity">No activity</td>
+                  </tr>
+                </ng-container>
+              </ng-container>
+              <tr class="spacer-row"><td colspan="5"></td></tr>
+            </ng-container>
+          </tbody>
+        </table>
+      </div>
+      <div class="row-limit-note" *ngIf="isDetailedTruncated()">
+        <mat-icon>info</mat-icon>
+        Showing first {{ getDetailedShown() }} of {{ previewData.detailed.total_rows }} rows —
+        <strong>full report available in Excel</strong>
+      </div>
+    </div>
+  </div>
+
+</div>

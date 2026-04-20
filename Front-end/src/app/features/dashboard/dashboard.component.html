@@ -7,7 +7,7 @@
       <p>Transform your time tracking data into professional reports</p>
     </div>
 
-    <!-- CSV Upload Section - Sadece CSV kullanıcıları için -->
+    <!-- CSV Upload Section -->
     <mat-card class="upload-card" *ngIf="userDataSource === 'csv'">
       <mat-card-content>
         <div class="section-header">
@@ -17,7 +17,7 @@
 
         <div class="file-upload-area">
           <input type="file" accept=".csv" (change)="onFileSelected($event)" #fileInput hidden>
-          
+
           <div class="upload-box" (click)="fileInput.click()" *ngIf="!selectedFile">
             <mat-icon>cloud_upload</mat-icon>
             <h3>Choose CSV File</h3>
@@ -36,11 +36,11 @@
           </div>
         </div>
 
-        <!-- Filters & Preview -->
+        <!-- Filters & Raw Preview -->
         <div class="filters-preview" *ngIf="csvData">
           <div class="filters-panel">
             <h3>Filters</h3>
-            
+
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Projects</mat-label>
               <mat-select [(ngModel)]="selectedProjects" multiple>
@@ -85,7 +85,6 @@
                   <th mat-header-cell *matHeaderCellDef>{{ column }}</th>
                   <td mat-cell *matCellDef="let row">{{ row[column] }}</td>
                 </ng-container>
-
                 <tr mat-header-row *matHeaderRowDef="csvData.columns"></tr>
                 <tr mat-row *matRowDef="let row; columns: csvData.columns;"></tr>
               </table>
@@ -96,6 +95,12 @@
 
         <!-- Actions -->
         <div class="actions" *ngIf="selectedFile">
+          <button mat-stroked-button color="primary" (click)="onPreview()" [disabled]="previewing || loading" class="preview-btn">
+            <mat-spinner *ngIf="previewing" diameter="18"></mat-spinner>
+            <mat-icon *ngIf="!previewing">visibility</mat-icon>
+            <span *ngIf="!previewing">Preview Report</span>
+            <span *ngIf="previewing">Loading...</span>
+          </button>
           <button mat-raised-button color="primary" (click)="onConvert()" [disabled]="converting || loading">
             <mat-spinner *ngIf="converting" diameter="20"></mat-spinner>
             <mat-icon *ngIf="!converting">download</mat-icon>
@@ -103,10 +108,14 @@
             <span *ngIf="converting">Generating...</span>
           </button>
         </div>
+
+        <!-- Report Preview -->
+        <app-report-preview [previewData]="reportPreviewData"></app-report-preview>
+
       </mat-card-content>
     </mat-card>
 
-    <!-- Clockify Section - Sadece Clockify kullanıcıları için -->
+    <!-- Clockify Section -->
     <mat-card class="clockify-card" *ngIf="userDataSource === 'clockify'">
       <mat-card-content>
         <div class="section-header">
@@ -121,7 +130,6 @@
 
         <div class="clockify-config" *ngIf="clockifyWorkspaces.length === 0">
           <p class="info-text">Connect your Clockify account to generate reports automatically</p>
-          
           <button mat-raised-button color="primary" (click)="loadClockifyWorkspaces()" [disabled]="clockifyLoading">
             <mat-spinner *ngIf="clockifyLoading" diameter="20"></mat-spinner>
             <mat-icon *ngIf="!clockifyLoading">cloud</mat-icon>
@@ -133,7 +141,6 @@
         <div class="clockify-filters" *ngIf="clockifyWorkspaces.length > 0">
           <h3>Select Data Range</h3>
 
-          <!-- Row 1: Workspace + Projects side by side -->
           <div class="filter-row">
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>Workspace</mat-label>
@@ -152,12 +159,9 @@
                 </mat-option>
               </mat-select>
             </mat-form-field>
-
-            <!-- Placeholder when no projects loaded yet -->
             <div class="half-width" *ngIf="clockifyProjects.length === 0"></div>
           </div>
 
-          <!-- Row 2: Start Date + End Date side by side -->
           <div class="filter-row">
             <mat-form-field appearance="outline" class="half-width">
               <mat-label>Start Date</mat-label>
@@ -174,7 +178,6 @@
             </mat-form-field>
           </div>
 
-          <!-- Row 3: Format -->
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Format</mat-label>
             <mat-select [(ngModel)]="format">
@@ -183,14 +186,30 @@
             </mat-select>
           </mat-form-field>
 
-          <button mat-raised-button color="primary" (click)="generateClockifyReport()" 
-                  [disabled]="!selectedWorkspace || !clockifyStartDate || !clockifyEndDate || converting">
-            <mat-spinner *ngIf="converting" diameter="20"></mat-spinner>
-            <mat-icon *ngIf="!converting">download</mat-icon>
-            <span *ngIf="!converting">Generate Report</span>
-            <span *ngIf="converting">Generating...</span>
-          </button>
+          <div class="clockify-actions">
+            <button mat-stroked-button color="primary"
+                    (click)="onClockifyPreview()"
+                    [disabled]="!selectedWorkspace || !clockifyStartDate || !clockifyEndDate || previewing"
+                    class="preview-btn">
+              <mat-spinner *ngIf="previewing" diameter="18"></mat-spinner>
+              <mat-icon *ngIf="!previewing">visibility</mat-icon>
+              <span *ngIf="!previewing">Preview Report</span>
+              <span *ngIf="previewing">Loading...</span>
+            </button>
+            <button mat-raised-button color="primary"
+                    (click)="generateClockifyReport()"
+                    [disabled]="!selectedWorkspace || !clockifyStartDate || !clockifyEndDate || converting">
+              <mat-spinner *ngIf="converting" diameter="20"></mat-spinner>
+              <mat-icon *ngIf="!converting">download</mat-icon>
+              <span *ngIf="!converting">Generate Report</span>
+              <span *ngIf="converting">Generating...</span>
+            </button>
+          </div>
         </div>
+
+        <!-- Report Preview -->
+        <app-report-preview [previewData]="reportPreviewData"></app-report-preview>
+
       </mat-card-content>
     </mat-card>
   </div>

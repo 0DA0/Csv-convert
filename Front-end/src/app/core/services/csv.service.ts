@@ -17,10 +17,36 @@ export class CsvService {
     return this.http.post(`${this.apiUrl}/csv/preview`, formData);
   }
 
+  previewReport(file: File, filters: any): Observable<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    if (filters.projects) {
+      filters.projects.forEach((p: string) => formData.append('projects[]', p));
+    }
+    if (filters.clients) {
+      filters.clients.forEach((c: string) => formData.append('clients[]', c));
+    }
+    if (filters.users) {
+      filters.users.forEach((u: string) => formData.append('users[]', u));
+    }
+    if (filters.format) {
+      formData.append('format', filters.format);
+    }
+    if (filters.date_range_start) {
+      formData.append('date_range_start', filters.date_range_start);
+    }
+    if (filters.date_range_end) {
+      formData.append('date_range_end', filters.date_range_end);
+    }
+
+    return this.http.post(`${this.apiUrl}/csv/preview-report`, formData);
+  }
+
   convertToExcel(file: File, filters: any): Observable<Blob> {
     const formData = new FormData();
     formData.append('file', file);
-    
+
     if (filters.projects) {
       filters.projects.forEach((p: string) => formData.append('projects[]', p));
     }

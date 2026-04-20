@@ -255,6 +255,190 @@ def _get_range(date_range_start, date_range_end, df):
         return df['ParsedDate'].min(), df['ParsedDate'].max()
     return pd.Timestamp("2025-01-01"), pd.Timestamp("2025-01-31")
 
+def build_preview_data(df, format_choice, date_range_start=None, date_range_end=None, row_limit=15):
+    """
+    generate_excel_report ile aynı mantık — JSON olarak döner.
+    Her iki sekme (Summary + Detailed) için 15 satır sınırı uygulanır.
+    """
+    df["raw_seconds"]     = df["Duration (h)"].apply(parse_duration_to_seconds)
+    df["rounded_seconds"] = df["raw_seconds"].apply(round_to_nearest_minute)
+ 
+    if format_choice == "hours":
+        df["formatted_duration"] = df["rounded_seconds"] / 3600  # saat cinsinden float
+    else:
+        df["formatted_duration"] = (df["rounded_seconds"] / 3600).round(2)
+ 
+    df["Start Date"]  = df["Start Date"].astype(str)
+    df["ParsedDate"]  = pd.to_datetime(df["Start Date"], format="%d/%m/%Y", errors="coerce")
+    df["Day"]         = df["ParsedDate"].apply(lambda d: d.strftime("%d (%A)")        if pd.notnull(d) else "Unknown")
+    df["DayFull"]     = df["ParsedDate"].apply(lambda d: d.strftime("%d %B %Y (%A)") if pd.notnull(d) else "Unknown")
+ 
+    if "Start Time" not in df.columns:
+        df["Start Time"] = ""
+    if "End Time" not in df.columns:
+        df["End Time"] = ""
+ 
+    range_start, range_end = _get_range(date_range_start, date_range_end, df)
+    all_days      = pd.date_range(start=range_start, end=range_end, freq="D")
+    all_days_str  = [d.strftime("%d (%A)")        for d in all_days]
+    all_days_full = [d.strftime("%d %B %Y (%A)") for d in all_days]
+ 
+    # ── META ──
+    if not df["ParsedDate"].dropna().empty:
+        min_d = df["ParsedDate"].min()
+        max_d = df["ParsedDate"].max()
+        period = (
+            min_d.strftime("%B %Y")
+            if (min_d.month == max_d.month and min_d.year == max_d.year)
+            else f"{min_d.strftime('%B %Y')} - {max_d.strftime('%B %Y')}"
+        )
+    else:
+        period = "All Data"
+ 
+    real_projects  = [p for p in df["Project"].dropna().unique() if p != "No Project"]
+    real_customers = [c for c in df["Client"].dropna().unique()  if c != "No Client"]
+    overall_projects  = ", ".join(real_projects)  if real_projects  else "No Project"
+    overall_customers = ", ".join(real_customers) if real_customers else "No Client"
+ 
+    def fmt_duration(val):
+        """Float saati HH:MM veya decimal olarak formatla"""
+        if format_choice == "hours":
+            total_min = round(val * 60)
+            h, m = divmod(total_min, 60)
+            return f"{h:02d}:{m:02d}"
+        else:
+            return round(val, 2)
+ 
+    # ── SUMMARY ──
+    summary_users = []
+    summary_total_rows = 0
+ 
+    for user in sorted(df["User"].dropna().unique()):
+        user_df = df[df["User"] == user].copy()
+        user_rows = []
+ 
+        for day_str in all_days_str:
+            day_df = user_df[user_df["Day"] == day_str]
+            if day_df.empty:
+                user_rows.append({
+                    "day": day_str,
+                    "description": "",
+                    "billable_duration": fmt_duration(0),
+                    "free_duration": fmt_duration(0),
+                    "total_duration": fmt_duration(0),
+                    "is_empty": True
+                })
+            else:
+                unique_desc = []
+                for desc in day_df["Description"].tolist():
+                    d = str(desc).strip()
+                    if d and d not in unique_desc and d != "nan":
+                        unique_desc.append(d)
+ 
+                user_rows.append({
+                    "day": day_str,
+                    "description": " | ".join(unique_desc),
+                    "billable_duration": fmt_duration(day_df[day_df["Billable"] == "Yes"]["formatted_duration"].sum()),
+                    "free_duration":     fmt_duration(day_df[day_df["Billable"] == "No"]["formatted_duration"].sum()),
+                    "total_duration":    fmt_duration(day_df["formatted_duration"].sum()),
+                    "is_empty": False
+                })
+ 
+        summary_total_rows += len(user_rows)
+ 
+        billable_total = user_df[user_df["Billable"] == "Yes"]["formatted_duration"].sum()
+        free_total     = user_df[user_df["Billable"] == "No"]["formatted_duration"].sum()
+        grand_total    = user_df["formatted_duration"].sum()
+ 
+        summary_users.append({
+            "name":            user,
+            "rows":            user_rows[:row_limit],
+            "rows_shown":      min(len(user_rows), row_limit),
+            "rows_total":      len(user_rows),
+            "billable_total":  fmt_duration(billable_total),
+            "free_total":      fmt_duration(free_total),
+            "grand_total":     fmt_duration(grand_total),
+        })
+ 
+    # ── DETAILED ──
+    df_sorted = df.sort_values(["User", "ParsedDate", "Start Time"])
+    detailed_users = []
+    detailed_total_rows = 0
+ 
+    for user in sorted(df_sorted["User"].dropna().unique()):
+        user_df = df_sorted[df_sorted["User"] == user]
+        user_dates = []
+        row_count = 0
+ 
+        for day_dt, day_full_str in zip(all_days, all_days_full):
+            day_df = user_df[user_df["DayFull"] == day_full_str]
+            entries = []
+ 
+            if day_df.empty:
+                user_dates.append({
+                    "date":     day_full_str,
+                    "is_empty": True,
+                    "entries":  []
+                })
+                row_count += 1
+            else:
+                for _, row_data in day_df.iterrows():
+                    entries.append({
+                        "start_time": str(row_data.get("Start Time", "")),
+                        "end_time":   str(row_data.get("End Time",   "")),
+                        "duration":   fmt_duration(row_data["formatted_duration"]),
+                        "description": str(row_data.get("Description", "")),
+                        "billable":   str(row_data.get("Billable", "No")),
+                    })
+                    row_count += 1
+ 
+                user_dates.append({
+                    "date":     day_full_str,
+                    "is_empty": False,
+                    "entries":  entries
+                })
+ 
+        detailed_total_rows += row_count
+ 
+        # Satır sınırı uygula — entry bazlı say
+        limited_dates = []
+        entry_count = 0
+        for date_block in user_dates:
+            if entry_count >= row_limit:
+                break
+            if date_block["is_empty"]:
+                limited_dates.append(date_block)
+                entry_count += 1
+            else:
+                remaining = row_limit - entry_count
+                limited_entries = date_block["entries"][:remaining]
+                limited_dates.append({**date_block, "entries": limited_entries})
+                entry_count += len(limited_entries)
+ 
+        detailed_users.append({
+            "name":        user,
+            "dates":       limited_dates,
+            "rows_shown":  min(row_count, row_limit),
+            "rows_total":  row_count,
+        })
+ 
+    return {
+        "meta": {
+            "period":    period,
+            "projects":  overall_projects,
+            "customers": overall_customers,
+            "format":    format_choice,
+            "date_range": f"{range_start.strftime('%d/%m/%Y')} - {range_end.strftime('%d/%m/%Y')}",
+            "total_users": len(df["User"].dropna().unique()),
+            "total_billable": fmt_duration(df[df["Billable"] == "Yes"]["formatted_duration"].sum()),
+            "total_free":     fmt_duration(df[df["Billable"] == "No"]["formatted_duration"].sum()),
+            "total_overall":  fmt_duration(df["formatted_duration"].sum()),
+        },
+        "summary":  {"users": summary_users,  "total_rows": summary_total_rows},
+        "detailed": {"users": detailed_users, "total_rows": detailed_total_rows},
+        "row_limit": row_limit,
+    }
+
 # ============== Excel Generation Functions ==============
 
 def parse_duration_to_seconds(d_str):
@@ -2098,6 +2282,173 @@ def convert_csv():
  
     except Exception as e:
         app.logger.error(f"Error in convert: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/csv/preview-report', methods=['POST'])
+@jwt_required()
+def preview_csv_report():
+    """CSV dosyasından önizleme verisi üret — JSON döner"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+ 
+        file = request.files['file']
+        try:
+            df = pd.read_csv(file)
+        except Exception as e:
+            return jsonify({'error': f'Could not read CSV: {str(e)}'}), 400
+ 
+        required_columns = ["Project", "Client", "User", "Start Date", "Duration (h)"]
+        missing = [c for c in required_columns if c not in df.columns]
+        if missing:
+            return jsonify({'error': f'Missing columns: {", ".join(missing)}'}), 400
+ 
+        if "Billable"     not in df.columns: df["Billable"]     = "No"
+        if "Description"  not in df.columns: df["Description"]  = ""
+ 
+        df["Duration (h)"] = df["Duration (h)"].fillna("00:00:00")
+        df["Billable"]     = df["Billable"].fillna("No")
+        df["Description"]  = df["Description"].fillna("")
+ 
+        selected_projects = request.form.getlist('projects[]')
+        selected_clients  = request.form.getlist('clients[]')
+        selected_users    = request.form.getlist('users[]')
+        format_choice     = request.form.get('format', 'decimal')
+        date_range_start  = request.form.get('date_range_start', None)
+        date_range_end    = request.form.get('date_range_end', None)
+ 
+        if selected_projects and 'all' not in [p.lower() for p in selected_projects]:
+            df = df[df["Project"].isin(selected_projects)]
+        if selected_clients and 'all' not in [c.lower() for c in selected_clients]:
+            df = df[df["Client"].isin(selected_clients)]
+        if selected_users and 'all' not in [u.lower() for u in selected_users]:
+            df = df[df["User"].isin(selected_users)]
+ 
+        if df.empty:
+            return jsonify({'error': 'No data matches the selected filters'}), 400
+ 
+        df["Project"]     = df["Project"].apply(lambda x: _safe_str(x, "No Project"))
+        df["Client"]      = df["Client"].apply(lambda x: _safe_str(x, "No Client"))
+        df["Description"] = df["Description"].fillna("").astype(str)
+        df["Billable"]    = df["Billable"].fillna("No").astype(str)
+ 
+        preview = build_preview_data(df, format_choice, date_range_start, date_range_end)
+        return jsonify(preview), 200
+ 
+    except Exception as e:
+        app.logger.error(f"Error in preview_csv_report: {str(e)}\n{traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+ 
+ 
+# ── ENDPOINT 2: Clockify Preview ─────────────────────────────────────────────
+ 
+@app.route('/api/clockify/preview-report', methods=['POST'])
+@jwt_required()
+def preview_clockify_report():
+    """Clockify API'den veri çekip önizleme verisi üret — JSON döner"""
+    try:
+        user_id = get_jwt_identity()
+        user    = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+ 
+        data         = request.get_json()
+        workspace_id = data.get('workspace_id')
+        start_date   = data.get('start_date')
+        end_date     = data.get('end_date')
+        project_ids  = data.get('project_ids', [])
+        format_choice = data.get('format', 'decimal')
+ 
+        api_key = data.get('api_key')
+        if not api_key:
+            encrypted_key = user.get('clockify_api_key', '')
+            api_key = decrypt_api_key(encrypted_key) if encrypted_key else None
+ 
+        # Employee ise şirketin key'ini kullan
+        if not api_key and user.get('user_type') == 'employee':
+            company_id = user.get('employee_profile', {}).get('company_id')
+            if company_id:
+                company = mongo.db.users.find_one({'_id': ObjectId(company_id)})
+                if company:
+                    encrypted_key = company.get('clockify_api_key', '')
+                    api_key = decrypt_api_key(encrypted_key) if encrypted_key else None
+ 
+        if not all([api_key, workspace_id, start_date, end_date]):
+            return jsonify({'error': 'Missing required parameters'}), 400
+ 
+        headers = {'X-Api-Key': api_key, 'Content-Type': 'application/json'}
+ 
+        report_url     = f'https://reports.api.clockify.me/v1/workspaces/{workspace_id}/reports/detailed'
+        report_payload = {
+            "dateRangeStart": start_date,
+            "dateRangeEnd":   end_date,
+            "detailedFilter": {"page": 1, "pageSize": 1000}
+        }
+        if project_ids:
+            report_payload["detailedFilter"]["projects"] = {"ids": project_ids, "contains": "CONTAINS"}
+ 
+        # Employee ise sadece kendi username'iyle filtrele
+        clockify_username = None
+        if user.get('user_type') == 'employee':
+            clockify_username = user.get('employee_profile', {}).get('clockify_username', '')
+ 
+        report_response = requests.post(report_url, headers=headers, json=report_payload, timeout=30)
+        if report_response.status_code != 200:
+            return jsonify({'error': f'Clockify API error: {report_response.text}'}), 400
+ 
+        time_entries = report_response.json().get('timeentries', [])
+ 
+        if clockify_username:
+            time_entries = [
+                e for e in time_entries
+                if (_safe_str(e.get('userName'), '')).lower() == clockify_username.lower()
+            ]
+ 
+        if not time_entries:
+            return jsonify({'error': 'No time entries found'}), 400
+ 
+        csv_data = []
+        for entry in time_entries:
+            try:
+                time_interval    = entry.get('timeInterval', {})
+                start_str        = time_interval.get('start')
+                end_str          = time_interval.get('end')
+                duration_seconds = time_interval.get('duration', 0)
+                if not start_str:
+                    continue
+                start_time = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
+                end_time   = datetime.fromisoformat(end_str.replace('Z', '+00:00')) if end_str else start_time + timedelta(seconds=duration_seconds)
+                total_seconds = duration_seconds if duration_seconds > 0 else (end_time - start_time).total_seconds()
+                h = int(total_seconds // 3600)
+                m = int((total_seconds % 3600) // 60)
+                s = int(total_seconds % 60)
+                csv_data.append({
+                    'Project':      _safe_str(entry.get('projectName'), 'No Project'),
+                    'Client':       _safe_str(entry.get('clientName'),  'No Client'),
+                    'User':         _safe_str(entry.get('userName'),    'Unknown'),
+                    'Description':  entry.get('description', '') or '',
+                    'Start Date':   start_time.strftime('%d/%m/%Y'),
+                    'Start Time':   start_time.strftime('%H:%M:%S'),
+                    'End Time':     end_time.strftime('%H:%M:%S'),
+                    'Duration (h)': f"{h:02d}:{m:02d}:{s:02d}",
+                    'Billable':     'Yes' if entry.get('billable', False) else 'No'
+                })
+            except Exception:
+                continue
+ 
+        if not csv_data:
+            return jsonify({'error': 'No valid time entries found'}), 400
+ 
+        df = pd.DataFrame(csv_data)
+        df["Project"]      = df["Project"].apply(lambda x: _safe_str(x, "No Project"))
+        df["Client"]       = df["Client"].apply(lambda x: _safe_str(x, "No Client"))
+        df["Description"]  = df["Description"].fillna("").astype(str)
+        df["Billable"]     = df["Billable"].fillna("No").astype(str)
+        df["Duration (h)"] = df["Duration (h)"].fillna("00:00:00").astype(str)
+ 
+        preview = build_preview_data(df, format_choice, start_date, end_date)
+        return jsonify(preview), 200
+ 
+    except Exception as e:
+        app.logger.error(f"Error in preview_clockify_report: {str(e)}\n{traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/clockify/workspaces', methods=['GET'])
