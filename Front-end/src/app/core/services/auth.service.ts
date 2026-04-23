@@ -6,9 +6,7 @@ import { JwtHelperService } from '@auth0/angular-jwt';
 import { environment } from '../../../environments/environment';
 import { User, AuthResponse } from '../models/user.model';
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable({ providedIn: 'root' })
 export class AuthService {
   private apiUrl = environment.apiUrl;
   private currentUserSubject = new BehaviorSubject<User | null>(null);
@@ -17,20 +15,16 @@ export class AuthService {
   private isInitialized = false;
 
   constructor(private http: HttpClient, private router: Router) {
-    // Constructor'da initialize et
     this.initializeAuth();
   }
 
   private initializeAuth(): void {
     if (this.isInitialized) return;
     this.isInitialized = true;
-
     const token = this.getToken();
     if (token && !this.jwtHelper.isTokenExpired(token)) {
-      // Token varsa ve geçerliyse user bilgisini yükle
       this.loadCurrentUser();
-    } else if (token && this.jwtHelper.isTokenExpired(token)) {
-      // Token expire olduysa temizle
+    } else if (token) {
       this.clearAuth();
     }
   }
@@ -65,42 +59,32 @@ export class AuthService {
   isAuthenticated(): boolean {
     const token = this.getToken();
     if (!token) return false;
-    
-    try {
-      return !this.jwtHelper.isTokenExpired(token);
-    } catch (error) {
-      return false;
-    }
+    try { return !this.jwtHelper.isTokenExpired(token); } catch { return false; }
   }
 
   getCurrentUser(): User | null {
     return this.currentUserSubject.value;
   }
 
-  private loadCurrentUser(): void {
+  loadCurrentUser(): void {
     this.http.get<User>(`${this.apiUrl}/auth/me`).pipe(
       catchError(error => {
-        console.error('Error loading user:', error);
-        if (error.status === 401) {
-          this.clearAuth();
-        }
+        if (error.status === 401) this.clearAuth();
         return of(null);
       })
-    ).subscribe({
-      next: (user) => {
-        if (user) {
-          this.currentUserSubject.next(user);
-        }
-      }
-    });
+    ).subscribe(user => { if (user) this.currentUserSubject.next(user); });
   }
 
   updateProfile(profileData: any): Observable<any> {
     return this.http.put(`${this.apiUrl}/profile`, profileData).pipe(
-      tap(() => {
-        // Profil güncellenince user'ı yeniden yükle
-        this.loadCurrentUser();
-      })
+      tap(() => this.loadCurrentUser())
     );
+  }
+
+  changePassword(currentPassword: string, newPassword: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/auth/change-password`, {
+      current_password: currentPassword,
+      new_password:     newPassword
+    });
   }
 }

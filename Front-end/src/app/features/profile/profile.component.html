@@ -7,61 +7,48 @@
         <mat-card-title>Profile Settings</mat-card-title>
       </mat-card-header>
 
-      <!-- Loading State -->
       <mat-card-content *ngIf="loadingProfile" class="loading-container">
         <mat-spinner diameter="48"></mat-spinner>
         <p>Loading profile...</p>
       </mat-card-content>
 
-      <!-- Profile Form -->
       <mat-card-content *ngIf="!loadingProfile && user">
+
+        <!-- ── Profil Formu ── -->
         <form [formGroup]="profileForm" (ngSubmit)="onSubmit()">
-          
-          <!-- Data Source Selection -->
+
           <div class="data-source-section">
             <h3>Data Source</h3>
             <div class="source-selector">
-              <button mat-stroked-button 
-                      type="button"
+              <button mat-stroked-button type="button"
                       [class.selected]="selectedDataSource === 'csv'"
-                      (click)="selectDataSource('csv')"
-                      class="source-btn">
-                <mat-icon>insert_drive_file</mat-icon>
-                <span>CSV Upload</span>
+                      (click)="selectDataSource('csv')" class="source-btn">
+                <mat-icon>insert_drive_file</mat-icon><span>CSV Upload</span>
               </button>
-              <button mat-stroked-button 
-                      type="button"
+              <button mat-stroked-button type="button"
                       [class.selected]="selectedDataSource === 'clockify'"
-                      (click)="selectDataSource('clockify')"
-                      class="source-btn">
-                <mat-icon>cloud</mat-icon>
-                <span>Clockify</span>
+                      (click)="selectDataSource('clockify')" class="source-btn">
+                <mat-icon>cloud</mat-icon><span>Clockify</span>
               </button>
             </div>
           </div>
 
-          <!-- Clockify API Key (sadece Clockify seçildiğinde) -->
           <ng-container *ngIf="selectedDataSource === 'clockify'">
             <div class="api-key-section">
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Clockify API Key</mat-label>
-                <input matInput 
-                       [type]="hideApiKey ? 'password' : 'text'" 
-                       formControlName="clockify_api_key" 
+                <input matInput [type]="hideApiKey ? 'password' : 'text'"
+                       formControlName="clockify_api_key"
                        [placeholder]="hasExistingApiKey ? 'Enter new API key to update' : 'Enter your Clockify API key'">
                 <mat-icon matPrefix>vpn_key</mat-icon>
                 <button mat-icon-button matSuffix (click)="hideApiKey = !hideApiKey" type="button" tabindex="-1">
-                  <mat-icon>{{hideApiKey ? 'visibility_off' : 'visibility'}}</mat-icon>
+                  <mat-icon>{{ hideApiKey ? 'visibility_off' : 'visibility' }}</mat-icon>
                 </button>
                 <mat-hint *ngIf="hasExistingApiKey" class="success-hint">
-                  <mat-icon>check_circle</mat-icon>
-                  API key is configured. Leave empty to keep current key.
+                  <mat-icon>check_circle</mat-icon> API key is configured. Leave empty to keep current key.
                 </mat-hint>
-                <mat-hint *ngIf="!hasExistingApiKey">
-                  Find your API key in Clockify settings
-                </mat-hint>
+                <mat-hint *ngIf="!hasExistingApiKey">Find your API key in Clockify settings</mat-hint>
               </mat-form-field>
-
               <div class="api-key-status" *ngIf="hasExistingApiKey">
                 <mat-icon class="success-icon">verified</mat-icon>
                 <span>Clockify API Key Configured</span>
@@ -69,14 +56,12 @@
             </div>
           </ng-container>
 
-          <!-- Profile Fields -->
           <ng-container *ngIf="user?.user_type === 'individual'">
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Full Name</mat-label>
               <input matInput formControlName="full_name" required>
               <mat-icon matPrefix>person</mat-icon>
             </mat-form-field>
-
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Phone</mat-label>
               <input matInput formControlName="phone">
@@ -90,25 +75,21 @@
               <input matInput formControlName="company_name" required>
               <mat-icon matPrefix>business</mat-icon>
             </mat-form-field>
-
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Contact Person</mat-label>
               <input matInput formControlName="contact_person">
               <mat-icon matPrefix>person</mat-icon>
             </mat-form-field>
-
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Phone</mat-label>
               <input matInput formControlName="phone">
               <mat-icon matPrefix>phone</mat-icon>
             </mat-form-field>
-
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Address</mat-label>
               <textarea matInput formControlName="address" rows="3"></textarea>
               <mat-icon matPrefix>location_on</mat-icon>
             </mat-form-field>
-
             <div class="logo-section">
               <h3>Company Logo</h3>
               <img *ngIf="logoPreview" [src]="logoPreview" alt="Logo" class="logo-preview">
@@ -120,11 +101,75 @@
             </div>
           </ng-container>
 
-          <button mat-raised-button color="primary" type="submit" [disabled]="loading || profileForm.invalid">
+          <button mat-raised-button color="primary" type="submit"
+                  [disabled]="loading || profileForm.invalid" class="save-btn">
             <mat-spinner *ngIf="loading" diameter="20"></mat-spinner>
             <span *ngIf="!loading">Save Changes</span>
           </button>
         </form>
+
+        <!-- ── Ayırıcı çizgi ── -->
+        <div class="section-divider"></div>
+
+        <!-- ── Şifre Değiştirme ── -->
+        <div class="password-section">
+          <div class="section-heading">
+            <mat-icon>lock</mat-icon>
+            <h3>Change Password</h3>
+          </div>
+
+          <form [formGroup]="passwordForm" (ngSubmit)="onChangePassword()">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Current Password</mat-label>
+              <input matInput [type]="hideCurrentPw ? 'password' : 'text'"
+                     formControlName="current_password">
+              <mat-icon matPrefix>lock</mat-icon>
+              <button mat-icon-button matSuffix (click)="hideCurrentPw = !hideCurrentPw" type="button" tabindex="-1">
+                <mat-icon>{{ hideCurrentPw ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+              <mat-error *ngIf="passwordForm.get('current_password')?.hasError('required')">
+                Current password is required
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>New Password</mat-label>
+              <input matInput [type]="hideNewPw ? 'password' : 'text'"
+                     formControlName="new_password">
+              <mat-icon matPrefix>lock_outline</mat-icon>
+              <button mat-icon-button matSuffix (click)="hideNewPw = !hideNewPw" type="button" tabindex="-1">
+                <mat-icon>{{ hideNewPw ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+              <mat-hint>Min. 8 characters, uppercase, lowercase, number & special character</mat-hint>
+              <mat-error *ngIf="passwordForm.get('new_password')?.hasError('required')">
+                New password is required
+              </mat-error>
+              <mat-error *ngIf="passwordForm.get('new_password')?.hasError('minlength')">
+                Min. 8 characters required
+              </mat-error>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Confirm New Password</mat-label>
+              <input matInput [type]="hideConfirmPw ? 'password' : 'text'"
+                     formControlName="confirm_password">
+              <mat-icon matPrefix>lock_outline</mat-icon>
+              <button mat-icon-button matSuffix (click)="hideConfirmPw = !hideConfirmPw" type="button" tabindex="-1">
+                <mat-icon>{{ hideConfirmPw ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+              <mat-error *ngIf="passwordForm.hasError('mismatch') && passwordForm.get('confirm_password')?.touched">
+                Passwords do not match
+              </mat-error>
+            </mat-form-field>
+
+            <button mat-raised-button color="accent" type="submit"
+                    [disabled]="changingPassword || passwordForm.invalid" class="save-btn">
+              <mat-spinner *ngIf="changingPassword" diameter="20"></mat-spinner>
+              <span *ngIf="!changingPassword">Update Password</span>
+            </button>
+          </form>
+        </div>
+
       </mat-card-content>
     </mat-card>
   </div>

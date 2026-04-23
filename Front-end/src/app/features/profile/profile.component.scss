@@ -178,3 +178,41 @@
     }
   }
 }
+// Mevcut profile.component.scss'e şu blokları EKLE (var olanları silme):
+
+.section-divider {
+  height: 1px;
+  background: #e2e8f0;
+  margin: 40px 0;
+}
+
+.password-section {
+  .section-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 28px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid #e2e8f0;
+
+    mat-icon {
+      font-size: 26px;
+      width: 26px;
+      height: 26px;
+      color: #667eea;
+    }
+
+    h3 {
+      font-size: 20px;
+      font-weight: 600;
+      color: #1a202c;
+      margin: 0;
+    }
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+}

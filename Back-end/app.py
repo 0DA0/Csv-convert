@@ -1656,6 +1656,44 @@ def login():
     except Exception as e:
         return safe_error_response(e, 500)
 
+@app.route('/api/auth/change-password', methods=['POST'])
+@jwt_required()
+@limiter.limit("5 per minute")
+def change_password():
+    try:
+        user_id = get_jwt_identity()
+        data    = request.get_json()
+ 
+        current_password = data.get('current_password', '')
+        new_password     = data.get('new_password', '')
+ 
+        if not current_password or not new_password:
+            return jsonify({'error': 'Both current and new password required'}), 400
+ 
+        user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+ 
+        if not check_password_hash(user['password_hash'], current_password):
+            return jsonify({'error': 'Current password is incorrect'}), 401
+ 
+        if current_password == new_password:
+            return jsonify({'error': 'New password must be different from current password'}), 400
+ 
+        valid, message = validate_password(new_password)
+        if not valid:
+            return jsonify({'error': message}), 400
+ 
+        mongo.db.users.update_one(
+            {'_id': ObjectId(user_id)},
+            {'$set': {'password_hash': generate_password_hash(new_password)}}
+        )
+ 
+        return jsonify({'message': 'Password changed successfully'}), 200
+ 
+    except Exception as e:
+        return safe_error_response(e, 500)
+
 @app.route('/api/auth/me', methods=['GET'])
 @jwt_required()
 def get_current_user():
